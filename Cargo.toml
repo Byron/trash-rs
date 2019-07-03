@@ -1,0 +1,10 @@
+[package]
+name = "trash"
+version = "0.1.0"
+authors = ["Artur Kovacs <kovacs.artur.barnabas@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3.7", features = ["shellapi", "winerror"] } 
