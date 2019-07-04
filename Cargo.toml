@@ -7,4 +7,4 @@ edition = "2018"
 [dependencies]
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3.7", features = ["shellapi", "winerror"] } 
+winapi = { version = "^0.3.0", features = ["shellapi", "winerror"] } 
