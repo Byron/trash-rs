@@ -15,8 +15,6 @@ mod platform;
 #[path = "macos.rs"]
 mod platform;
 
-use platform::*;
-
 #[derive(Debug)]
 pub enum Error {
     Unknown,
@@ -35,7 +33,7 @@ pub enum Error {
 }
 
 pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
-    platform_remove(path)
+    platform::remove(path)
 }
 
 pub fn is_implemented() -> bool {

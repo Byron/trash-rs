@@ -12,7 +12,7 @@ pub fn is_implemented() -> bool {
 
 /// This is based on the electron library's implementation.
 /// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
-pub fn platform_remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
+pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
     static DEFAULT_TRASH: &str = "gio";
 
     let full_path = path

@@ -20,7 +20,7 @@ pub fn is_implemented() -> bool {
 }
 
 /// See https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
-pub fn platform_remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
+pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
     let canonical = path
         .as_ref()
         .canonicalize()
