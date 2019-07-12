@@ -21,14 +21,16 @@ use platform::*;
 pub enum Error {
     Unknown,
 
-    /// Error while canonicalizing path
+    /// Error while canonicalizing path.
+    /// `code` contains a raw os error code if accessible.
     CanonicalizePath {
         code: Option<i32>,
     },
 
-    /// Error while performing the remove operation
+    /// Error while performing the remove operation.
+    /// `code` contains a raw os error code if accessible.
     Remove {
-        code: i32,
+        code: Option<i32>,
     },
 }
 

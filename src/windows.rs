@@ -57,6 +57,6 @@ pub fn platform_remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
     if result == S_OK {
         Ok(())
     } else {
-        Err(Error::Remove { code: result })
+        Err(Error::Remove { code: Some(result) })
     }
 }
