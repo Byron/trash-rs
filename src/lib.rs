@@ -32,8 +32,18 @@ pub enum Error {
     },
 }
 
+/// Removes a single file.
 pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
     platform::remove(path)
+}
+
+/// Removes all files specified by the collection of paths provided as an argument.
+pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
+where
+    I: IntoIterator<Item = T>,
+    T: AsRef<Path>,
+{
+    platform::remove_all(paths)
 }
 
 pub fn is_implemented() -> bool {

@@ -6,18 +6,21 @@ use std::process::Command;
 
 use crate::Error;
 
+static DEFAULT_TRASH: &str = "gio";
+
 pub fn is_implemented() -> bool {
     true
 }
 
-/// This is based on the electron library's implementation.
-/// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
-pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
-    static DEFAULT_TRASH: &str = "gio";
-
-    let full_path = path
-        .as_ref()
-        .canonicalize()
+pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
+where
+    I: IntoIterator<Item = T>,
+    T: AsRef<Path>,
+{
+    let paths = paths.into_iter();
+    let full_paths = paths
+        .map(|x| x.as_ref().canonicalize())
+        .collect::<Result<Vec<_>, _>>()
         .map_err(|e| Error::CanonicalizePath {
             code: e.raw_os_error(),
         })?;
@@ -35,17 +38,21 @@ pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
         }
     };
 
-    let mut argv = Vec::<OsString>::new();
+    let mut argv = Vec::<OsString>::with_capacity(full_paths.len() + 2);
 
     if trash == "kioclient5" || trash == "kioclient" {
         //argv.push(trash.into());
         argv.push("move".into());
-        argv.push(full_path.into());
+        for full_path in full_paths.iter() {
+            argv.push(full_path.into());
+        }
         argv.push("trash:/".into());
     } else {
         //argv.push_back(ELECTRON_DEFAULT_TRASH);
         argv.push("trash".into());
-        argv.push(full_path.into());
+        for full_path in full_paths.iter() {
+            argv.push(full_path.into());
+        }
     }
 
     // Execute command
@@ -60,6 +67,12 @@ pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+/// This is based on the electron library's implementation.
+/// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
+pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
+    remove_all(&[path])
 }
 
 #[derive(PartialEq)]
