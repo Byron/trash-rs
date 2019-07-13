@@ -31,10 +31,9 @@ where
         .map_err(|e| Error::CanonicalizePath {
             code: e.raw_os_error(),
         })?;
-    let mut from = OsString::new();
     let mut wide_paths = Vec::with_capacity(full_paths.len());
     for path in full_paths.iter() {
-        let mut os_string = OsString::from(canonical);
+        let mut os_string = OsString::from(path);
         os_string.push("\0");
         let mut encode_wide = os_string.as_os_str().encode_wide();
         // Remove the "\\?\" prefix as `SHFileOperationW` fails if such a prefix is part of the path.

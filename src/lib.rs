@@ -15,6 +15,7 @@ mod platform;
 #[path = "macos.rs"]
 mod platform;
 
+/// Error that might happen during a remove operation.
 #[derive(Debug)]
 pub enum Error {
     Unknown,
@@ -33,11 +34,35 @@ pub enum Error {
 }
 
 /// Removes a single file.
+/// 
+/// # Example
+/// 
+/// ```
+/// extern crate trash;
+/// use std::fs::File;
+/// use trash::remove;
+/// File::create("remove_me").unwrap();
+/// trash::remove("remove_me").unwrap();
+/// assert!(File::open("remove_me").is_err());
+/// ```
 pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
     platform::remove(path)
 }
 
 /// Removes all files specified by the collection of paths provided as an argument.
+/// 
+/// # Example
+/// 
+/// ```
+/// extern crate trash;
+/// use std::fs::File;
+/// use trash::remove_all;
+/// File::create("remove_me_1").unwrap();
+/// File::create("remove_me_2").unwrap();
+/// remove_all(&["remove_me_1", "remove_me_2"]).unwrap();
+/// assert!(File::open("remove_me_1").is_err());
+/// assert!(File::open("remove_me_2").is_err());
+/// ```
 pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = T>,
@@ -46,6 +71,7 @@ where
     platform::remove_all(paths)
 }
 
+/// Returns true if the functions are implemented on the current platform.
 pub fn is_implemented() -> bool {
     platform::is_implemented()
 }
