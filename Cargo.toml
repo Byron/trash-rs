@@ -2,9 +2,13 @@
 name = "trash"
 version = "0.1.0"
 authors = ["Artur Kovacs <kovacs.artur.barnabas@gmail.com>"]
-edition = "2018"
 license = "MIT"
 license-file = "LICENSE.TXT"
+readme = "Readme.md"
+description = "A Rust library for moving files to the Recycle Bin"
+keywords = ["remove", "trash", "rubbish", "recycle", "bin"]
+repository = "https://github.com/ArturKovacs/trash"
+edition = "2018"
 
 [dependencies]
 
