@@ -2,7 +2,6 @@
 name = "trash"
 version = "0.1.0"
 authors = ["Artur Kovacs <kovacs.artur.barnabas@gmail.com>"]
-license = "MIT"
 license-file = "LICENSE.TXT"
 readme = "Readme.md"
 description = "A Rust library for moving files to the Recycle Bin"

@@ -33,7 +33,7 @@ pub enum Error {
     },
 }
 
-/// Removes a single file.
+/// Removes a single file or directory.
 /// 
 /// # Example
 /// 
@@ -49,7 +49,7 @@ pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
     platform::remove(path)
 }
 
-/// Removes all files specified by the collection of paths provided as an argument.
+/// Removes all files/directories specified by the collection of paths provided as an argument.
 /// 
 /// # Example
 /// 
