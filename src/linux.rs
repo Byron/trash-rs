@@ -12,6 +12,8 @@ pub fn is_implemented() -> bool {
     true
 }
 
+/// This is based on the electron library's implementation.
+/// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
 pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = T>,
@@ -69,8 +71,6 @@ where
     Ok(())
 }
 
-/// This is based on the electron library's implementation.
-/// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
 pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
     remove_all(&[path])
 }
@@ -94,7 +94,7 @@ fn env_has_var(name: &str) -> bool {
     env::var_os(name).is_some()
 }
 
-/// See: https://github.com/adobe/chromium/blob/cfe5bf0b51b1f6b9fe239c2a3c2f2364da9967d7/base/nix/xdg_util.cc#L34
+/// See: https://chromium.googlesource.com/chromium/src/+/dd407d416fa941c04e33d81f2b1d8cab8196b633/base/nix/xdg_util.cc#57
 fn get_desktop_environment() -> DesktopEnvironment {
     static KDE_SESSION_ENV_VAR: &str = "KDE_SESSION_VERSION";
     // XDG_CURRENT_DESKTOP is the newest standard circa 2012.
