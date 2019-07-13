@@ -1,5 +1,6 @@
 use crate::{remove, remove_all};
-use std::fs::File;
+use std::fs::{File, create_dir};
+use std::path::PathBuf;
 
 #[test]
 fn create_remove() {
@@ -8,6 +9,17 @@ fn create_remove() {
 
     remove(path).unwrap();
     assert!(File::open(path).is_err());
+}
+
+#[test]
+fn create_remove_folder() {
+    let path = PathBuf::from("test_folder_to_remove");
+    create_dir(&path).unwrap();
+    File::create(path.join("file_in_folder")).unwrap();
+
+    assert!(path.exists());
+    remove(&path).unwrap();
+    assert!(path.exists() == false);
 }
 
 #[test]
