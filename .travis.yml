@@ -6,6 +6,9 @@ rust:
 os:
   - linux
   - osx
+  - windows
+
+cache: cargo
 
 matrix:
   allow_failures:
