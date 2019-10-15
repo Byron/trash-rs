@@ -1,4 +1,7 @@
 language: rust
+dist: xenial
+services:
+  - xvfb
 
 rust:
   - stable
