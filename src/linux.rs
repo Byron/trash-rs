@@ -62,8 +62,8 @@ where
         code: e.raw_os_error(),
     })?;
 
-    eprintln!("{}", std::str::from_utf8_unchecked(&result.stderr));
-    eprintln!("{}", std::str::from_utf8_unchecked(&result.stdout));
+    eprintln!("{}", std::str::from_utf8(&result.stderr).unwrap());
+    eprintln!("{}", std::str::from_utf8(&result.stdout).unwrap());
 
     if !result.status.success() {
         return Err(Error::Remove {
