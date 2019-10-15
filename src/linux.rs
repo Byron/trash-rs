@@ -6,7 +6,6 @@ use std::process::Command;
 use crate::Error;
 
 static DEFAULT_TRASH: &str = "gio";
-static DEFAULT_TRASH: &str = 1;
 
 pub fn is_implemented() -> bool {
     true
@@ -63,8 +62,8 @@ where
         code: e.raw_os_error(),
     })?;
 
-    eprintln!(std::str::from_utf8_unchecked(&result.stderr));
-    eprintln!(std::str::from_utf8_unchecked(&result.stdout));
+    eprintln!("{}", std::str::from_utf8_unchecked(&result.stderr));
+    eprintln!("{}", std::str::from_utf8_unchecked(&result.stdout));
 
     if !result.status.success() {
         return Err(Error::Remove {
