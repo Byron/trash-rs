@@ -1,5 +1,5 @@
 use crate::{remove, remove_all};
-use std::fs::{File, create_dir};
+use std::fs::{create_dir, File};
 use std::path::PathBuf;
 
 #[test]
@@ -26,7 +26,9 @@ fn create_remove_folder() {
 fn create_multiple_remove_all() {
     let count: usize = 3;
 
-    let paths: Vec<_> = (0..count).map(|i| format!("test_file_to_remove_{}", i)).collect();
+    let paths: Vec<_> = (0..count)
+        .map(|i| format!("test_file_to_remove_{}", i))
+        .collect();
     for path in paths.iter() {
         File::create(path).unwrap();
     }

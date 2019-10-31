@@ -1,7 +1,6 @@
-
-use std::path::Path;
-use std::ffi::OsString;
 use std::env;
+use std::ffi::OsString;
+use std::path::Path;
 use std::process::Command;
 
 use crate::Error;
@@ -30,8 +29,7 @@ where
     let trash = {
         // Determine desktop environment and set accordingly.
         let desktop_env = get_desktop_environment();
-        if desktop_env == DesktopEnvironment::Kde4 ||
-            desktop_env == DesktopEnvironment::Kde5 {
+        if desktop_env == DesktopEnvironment::Kde4 || desktop_env == DesktopEnvironment::Kde5 {
             "kioclient5"
         } else if desktop_env == DesktopEnvironment::Kde3 {
             "kioclient"
@@ -60,11 +58,13 @@ where
     // Execute command
     let mut command = Command::new(trash);
     command.args(argv);
-    let result = command.output().map_err(|e| Error::Remove { code: e.raw_os_error() })?;
-    
+    let result = command.output().map_err(|e| Error::Remove {
+        code: e.raw_os_error(),
+    })?;
+
     if !result.status.success() {
         return Err(Error::Remove {
-            code: result.status.code()
+            code: result.status.code(),
         });
     }
 
@@ -102,7 +102,9 @@ fn get_desktop_environment() -> DesktopEnvironment {
         // It could have multiple values separated by colon in priority order.
         for value in xdg_current_desktop.split(":") {
             let value = value.trim();
-            if value.len() == 0 { continue; }
+            if value.len() == 0 {
+                continue;
+            }
             if value == "Unity" {
                 // gnome-fallback sessions set XDG_CURRENT_DESKTOP to Unity
                 // DESKTOP_SESSION can be gnome-fallback or gnome-fallback-compiz

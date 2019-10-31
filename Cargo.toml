@@ -9,7 +9,22 @@ keywords = ["remove", "trash", "rubbish", "recycle", "bin"]
 repository = "https://github.com/ArturKovacs/trash"
 edition = "2018"
 
+[features]
+default = ["coinit_apartmentthreaded"]
+coinit_apartmentthreaded = []
+coinit_multithreaded = []
+coinit_disable_ole1dde = []
+coinit_speed_over_memory = []
+
 [dependencies]
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "^0.3.0", features = ["shellapi", "winerror"] } 
+scopeguard = "1.0.0"
+
+[target.'cfg(windows)'.dependencies.winapi]
+git = "https://github.com/ArturKovacs/winapi-rs.git"
+branch = "add-ishellfolder"
+features = [
+    "combaseapi", "objbase", "shlobj", "shellapi", "winerror", "shlobj", "shlwapi", "shobjidl_core",
+    "shobjidl", "oleauto", "oaidl", "wtypes", "errhandlingapi", "timezoneapi"
+]
