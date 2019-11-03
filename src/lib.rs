@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+use std::hash::{Hash, Hasher};
 
 #[cfg(test)]
 mod tests;
@@ -76,14 +77,16 @@ pub struct TrashItem {
     pub name: String,
 
     /// The path to the parent folder of this item before it was put inside the trash.
-    /// For example if the folder '/home/user/New Folder' was deleted, its `original_parent`
-    /// is '/home/user'
+    /// For example if the folder '/home/user/New Folder' is in the trash, its `original_parent`
+    /// is '/home/user'.
+    /// 
+    /// To get the full path to the file in its original location use the `original_path`
+    /// function.
     pub original_parent: PathBuf,
 
     /// The date and time in UNIX Epoch time when the item was put into the trash.
     pub time_deleted: i64,
 }
-
 /// Platform independent functions of `TrashItem`.
 ///
 /// See `TrahsItemPlatformDep` for platform dependent functions.
@@ -91,6 +94,17 @@ impl TrashItem {
     /// Joins the `original_parent` and `name` fields to obtain the full path to the original file.
     pub fn original_path(&self) -> PathBuf {
         self.original_parent.join(&self.name)
+    }
+}
+impl PartialEq for TrashItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+impl Eq for TrashItem {}
+impl Hash for TrashItem {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
     }
 }
 

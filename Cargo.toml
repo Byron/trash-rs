@@ -18,13 +18,14 @@ coinit_speed_over_memory = []
 
 [dependencies]
 
+
 [target.'cfg(windows)'.dependencies]
 scopeguard = "1.0.0"
 
 [target.'cfg(windows)'.dependencies.winapi]
 git = "https://github.com/ArturKovacs/winapi-rs.git"
-branch = "add-ishellfolder"
+branch = "for-trash"
 features = [
     "combaseapi", "objbase", "shlobj", "shellapi", "winerror", "shlobj", "shlwapi", "shobjidl_core",
-    "shobjidl", "oleauto", "oaidl", "wtypes", "errhandlingapi", "timezoneapi"
+    "shobjidl", "oleauto", "oaidl", "wtypes", "errhandlingapi", "timezoneapi", "winuser"
 ]

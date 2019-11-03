@@ -1,7 +1,8 @@
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::ops::DerefMut;
 use std::os::windows::prelude::*;
 use std::path::{Path, PathBuf};
+use std::mem::MaybeUninit;
 
 use scopeguard::defer;
 
@@ -26,13 +27,14 @@ use winapi::{
         SHFileOperationW, FOF_ALLOWUNDO, FOF_SILENT, FOF_WANTNUKEWARNING, FO_DELETE,
         SHFILEOPSTRUCTW,
     },
+    um::winuser::{CreatePopupMenu, DestroyMenu},
     um::shlobj::CSIDL_BITBUCKET,
     um::shlwapi::StrRetToStrW,
     um::shobjidl_core::{
-        IEnumIDList, IShellFolder, IShellFolder2, SHCONTF_FOLDERS, SHCONTF_NONFOLDERS, SHGDNF,
-        SHGDN_FORPARSING, SHGDN_INFOLDER,
+        IContextMenu, IEnumIDList, IShellFolder, IShellFolder2, SHCONTF_FOLDERS, SHCONTF_NONFOLDERS, SHGDNF,
+        SHGDN_FORPARSING, SHGDN_INFOLDER, CMF_NORMAL, CMINVOKECOMMANDINFO
     },
-    um::shtypes::{PCUITEMID_CHILD, PIDLIST_ABSOLUTE, PITEMID_CHILD, SHCOLUMNID, STRRET},
+    um::shtypes::{PCUITEMID_CHILD, PCUITEMID_CHILD_ARRAY, PIDLIST_RELATIVE, PIDLIST_ABSOLUTE, PITEMID_CHILD, SHCOLUMNID, STRRET},
     um::timezoneapi::SystemTimeToFileTime,
     um::winnt::{PCZZWSTR, PWSTR, ULARGE_INTEGER},
     Interface,
@@ -176,14 +178,14 @@ pub fn purge_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
-    unimplemented!();
+    execute_verb_on_all(items.into_iter(), "delete")
 }
 
 pub fn restore_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
-    unimplemented!();
+    execute_verb_on_all(items.into_iter(), "undelete")
 }
 
 struct CoInitializer {}
@@ -330,8 +332,96 @@ unsafe fn get_date_unix(
     Ok(unix_time)
 }
 
-DEFINE_GUID! {PSGUID_DISPLACED,
-0x9b174b33, 0x40ff, 0x11d2, 0xa2, 0x7e, 0x0, 0xc0, 0x4f, 0xc3, 0x8, 0x71}
+
+
+unsafe fn invoke_verb(pcm: *mut IContextMenu, verb: &'static str) -> Result<(), Error> {
+	// Recycle bin verbs:
+	// undelete
+	// cut
+	// delete
+	// properties
+	let hmenu = CreatePopupMenu();
+	if hmenu == std::ptr::null_mut() {
+        return Err(Error::PlatformApi {
+            function_name: "CreatePopupMenu".into(),
+            code: Some(HRESULT_FROM_WIN32(GetLastError())),
+        });
+    }
+    defer! {{ DestroyMenu(hmenu); }}
+    return_err_on_fail!{(*pcm).QueryContextMenu(hmenu, 0, 1, 0x7FFF, CMF_NORMAL)};
+    let zero_terminated_verb: Vec<_> = verb.bytes().chain(std::iter::once(0)).collect();
+    let mut info = MaybeUninit::<CMINVOKECOMMANDINFO>::zeroed().assume_init();
+    info.cbSize = std::mem::size_of::<CMINVOKECOMMANDINFO>() as u32;
+    info.lpVerb = zero_terminated_verb.as_ptr() as *const i8;
+    return_err_on_fail!{(*pcm).InvokeCommand(&mut info as *mut _)};
+    Ok(())
+}
+
+fn execute_verb_on_all(
+    items: impl Iterator<Item = TrashItem>,
+    verb: &'static str,
+) -> Result<(), Error> {
+    ensure_com_initialized();
+    unsafe {
+        let mut recycle_bin = MaybeUninit::<*mut IShellFolder2>::uninit();
+        bind_to_csidl(
+            CSIDL_BITBUCKET,
+            &IShellFolder2::uuidof() as *const _,
+            recycle_bin.as_mut_ptr() as *mut *mut c_void,
+        )?;
+        let recycle_bin = recycle_bin.assume_init();
+        defer! {{ (*recycle_bin).Release(); }};
+        let mut items_pidl = scopeguard::guard(Vec::new(), |items_pidl| {
+            for &pidl in items_pidl.iter() {
+                CoTaskMemFree(pidl as LPVOID);
+            }
+        });
+        for item in items {
+            let mut id_wstr: Vec<_> = item.id.encode_wide().collect();
+            let mut pidl = MaybeUninit::<PIDLIST_RELATIVE>::uninit();
+            return_err_on_fail! {
+                (*recycle_bin).ParseDisplayName(
+                    0 as _,
+                    std::ptr::null_mut(), 
+                    id_wstr.as_mut_ptr(),
+                    std::ptr::null_mut(),
+                    pidl.as_mut_ptr(),
+                    std::ptr::null_mut(),
+                )
+            };
+            items_pidl.push(pidl.assume_init());
+        }
+        if items_pidl.len() > 0 {
+            let mut pcm = MaybeUninit::<*mut IContextMenu>::uninit();
+            //IContextMenu* pcm;
+            return_err_on_fail! {
+                (*recycle_bin).GetUIObjectOf(
+                    0 as _,
+                    items_pidl.len() as u32,
+                    items_pidl.as_ptr() as PCUITEMID_CHILD_ARRAY,
+                    &IID_IContextMenu as *const _,
+                    std::ptr::null_mut(),
+                    pcm.as_mut_ptr() as *mut _
+                )
+            };
+            let pcm = pcm.assume_init();
+            defer! {{ (*pcm).Release(); }}
+            invoke_verb(pcm, verb)?;
+        }
+        Ok(())
+    }
+}
+
+DEFINE_GUID! {
+    PSGUID_DISPLACED,
+    0x9b174b33, 0x40ff, 0x11d2, 0xa2, 0x7e, 0x00, 0xc0, 0x4f, 0xc3, 0x8, 0x71
+}
+
+// TODO MOVE THIS TO WINAPI-RS
+DEFINE_GUID! {
+    IID_IContextMenu,
+    0x000214e4, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46
+}
 
 const PID_DISPLACED_FROM: DWORD = 2;
 const PID_DISPLACED_DATE: DWORD = 3;
