@@ -16,15 +16,19 @@ coinit_multithreaded = []
 coinit_disable_ole1dde = []
 coinit_speed_over_memory = []
 
-[dependencies]
+[dev-dependencies]
+chrono = "0.4.9"
+rand = "0.7.2"
+lazy_static = "1.4.0"
 
+[dependencies]
 
 [target.'cfg(windows)'.dependencies]
 scopeguard = "1.0.0"
 
 [target.'cfg(windows)'.dependencies.winapi]
 git = "https://github.com/ArturKovacs/winapi-rs.git"
-branch = "for-trash"
+rev = "b5c196ad2aa27b26e0ed0ae1f35ac790d677a3b5"
 features = [
     "combaseapi", "objbase", "shlobj", "shellapi", "winerror", "shlobj", "shlwapi", "shobjidl_core",
     "shobjidl", "oleauto", "oaidl", "wtypes", "errhandlingapi", "timezoneapi", "winuser"

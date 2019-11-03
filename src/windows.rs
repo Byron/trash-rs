@@ -153,6 +153,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         let mut item_vec = Vec::new();
         let mut item: PITEMID_CHILD = std::mem::uninitialized();
         while (*peidl).Next(1, &mut item as *mut _, std::ptr::null_mut()) == S_OK {
+            defer! {{ CoTaskMemFree(item as LPVOID); }}
             let id = get_display_name(recycle_bin as *mut _, item, SHGDN_FORPARSING)?;
             let name = get_display_name(recycle_bin as *mut _, item, SHGDN_INFOLDER)?;
 
@@ -167,8 +168,6 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 original_parent: PathBuf::from(orig_loc),
                 time_deleted: date_deleted,
             });
-            //PrintDetail(psfRecycleBin, pidlItem, &PKEY_Size, TEXT("Size"));
-            CoTaskMemFree(item as LPVOID);
         }
         return Ok(item_vec);
     }
@@ -377,7 +376,7 @@ fn execute_verb_on_all(
             }
         });
         for item in items {
-            let mut id_wstr: Vec<_> = item.id.encode_wide().collect();
+            let mut id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
             let mut pidl = MaybeUninit::<PIDLIST_RELATIVE>::uninit();
             return_err_on_fail! {
                 (*recycle_bin).ParseDisplayName(
