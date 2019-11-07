@@ -115,9 +115,6 @@ fn purge() {
         .collect();
     assert_eq!(targets.len(), batches * files_per_batch);
     trash::purge_all(targets).unwrap();
-    // Ugly hack but need to wait for example on Windows one must wait a bit
-    // before the items acctually leave the trash
-    //std::thread::sleep(std::time::Duration::from_secs(8));
     let remaining = trash::list()
         .unwrap()
         .into_iter()
@@ -146,11 +143,6 @@ fn restore() {
         .collect();
     assert_eq!(targets.len(), file_count);
     trash::restore_all(targets).unwrap();
-
-    // Ugly hack but need to wait for example on Windows one must wait a bit
-    // before the items acctually leave the trash
-    //std::thread::sleep(std::time::Duration::from_secs(8));
-
     let remaining = trash::list()
         .unwrap()
         .into_iter()

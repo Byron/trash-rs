@@ -14,7 +14,7 @@ use winapi::{
     shared::windef::HWND,
     shared::winerror::{HRESULT_FROM_WIN32, SUCCEEDED, S_OK},
     shared::wtypes::{VT_BSTR, VT_DATE},
-    um::combaseapi::{CoInitializeEx, CoTaskMemFree, CoUninitialize},
+    um::combaseapi::{CoInitializeEx, CoTaskMemFree, CoUninitialize, CoCreateInstance, CLSCTX_ALL},
     um::errhandlingapi::GetLastError,
     um::minwinbase::SYSTEMTIME,
     um::oaidl::VARIANT,
@@ -24,20 +24,21 @@ use winapi::{
     },
     um::oleauto::{VariantChangeType, VariantClear, VariantTimeToSystemTime},
     um::shellapi::{
-        SHFileOperationW, FOF_ALLOWUNDO, FOF_SILENT, FOF_WANTNUKEWARNING, FO_DELETE,
+        SHFileOperationW, FOF_ALLOWUNDO, FOF_NO_UI, FOF_SILENT, FOF_WANTNUKEWARNING, FO_DELETE,
         SHFILEOPSTRUCTW,
     },
     um::winuser::{CreatePopupMenu, DestroyMenu},
     um::shlobj::CSIDL_BITBUCKET,
     um::shlwapi::StrRetToStrW,
     um::shobjidl_core::{
-        IContextMenu, IEnumIDList, IShellFolder, IShellFolder2, SHCONTF_FOLDERS, SHCONTF_NONFOLDERS, SHGDNF,
-        SHGDN_FORPARSING, SHGDN_INFOLDER, CMF_NORMAL, CMINVOKECOMMANDINFO
+        IContextMenu, IEnumIDList, IShellFolder, IShellFolder2, IFileOperation, FileOperation, IShellItem, SHCONTF_FOLDERS, SHCONTF_NONFOLDERS, SHGDNF,
+        SHGDN_FORPARSING, SHGDN_INFOLDER, CMF_NORMAL, CMINVOKECOMMANDINFO, CMINVOKECOMMANDINFOEX, CMIC_MASK_FLAG_NO_UI, SHCreateItemWithParent
     },
     um::shtypes::{PCUITEMID_CHILD, PCUITEMID_CHILD_ARRAY, PIDLIST_RELATIVE, PIDLIST_ABSOLUTE, PITEMID_CHILD, SHCOLUMNID, STRRET},
     um::timezoneapi::SystemTimeToFileTime,
     um::winnt::{PCZZWSTR, PWSTR, ULARGE_INTEGER},
     Interface,
+    Class
 };
 
 use crate::{Error, TrashItem};
@@ -66,10 +67,6 @@ macro_rules! return_err_on_fail {
         }
         hr
     })
-}
-
-pub fn is_implemented() -> bool {
-    true
 }
 
 pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
@@ -177,7 +174,61 @@ pub fn purge_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
-    execute_verb_on_all(items.into_iter(), "delete")
+    ensure_com_initialized();
+    unsafe {
+        let mut recycle_bin = MaybeUninit::<*mut IShellFolder2>::uninit();
+        bind_to_csidl(
+            CSIDL_BITBUCKET,
+            &IShellFolder2::uuidof() as *const _,
+            recycle_bin.as_mut_ptr() as *mut *mut c_void,
+        )?;
+        let recycle_bin = recycle_bin.assume_init();
+        defer! {{ (*recycle_bin).Release(); }}
+        let mut pfo = MaybeUninit::<*mut IFileOperation>::uninit();
+        return_err_on_fail! {
+            CoCreateInstance(
+                &FileOperation::uuidof() as *const _,
+                std::ptr::null_mut(),
+                CLSCTX_ALL,
+                &IFileOperation::uuidof() as *const _,
+                pfo.as_mut_ptr() as *mut *mut c_void,
+            )
+        };
+        let pfo = pfo.assume_init();
+        defer!{{ (*pfo).Release(); }}
+        return_err_on_fail! { (*pfo).SetOperationFlags(FOF_NO_UI as DWORD) };
+        for item in items {
+            let mut id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
+            let mut pidl = MaybeUninit::<PIDLIST_RELATIVE>::uninit();
+            return_err_on_fail! {
+                (*recycle_bin).ParseDisplayName(
+                    0 as _,
+                    std::ptr::null_mut(), 
+                    id_wstr.as_mut_ptr(),
+                    std::ptr::null_mut(),
+                    pidl.as_mut_ptr(),
+                    std::ptr::null_mut(),
+                )
+            };
+            let pidl = pidl.assume_init();
+            defer! {{ CoTaskMemFree(pidl as LPVOID); }}
+            let mut shi = MaybeUninit::<*mut IShellItem>::uninit();
+            return_err_on_fail! {
+                SHCreateItemWithParent(
+                    std::ptr::null_mut(),
+                    recycle_bin as *mut _,
+                    pidl,
+                    &IShellItem::uuidof() as *const _,
+                    shi.as_mut_ptr() as *mut *mut c_void,
+                )
+            };
+            let shi = shi.assume_init();
+            defer!{{ (*shi).Release(); }}
+            return_err_on_fail! { (*pfo).DeleteItem(shi, std::ptr::null_mut()) };
+        }
+        return_err_on_fail! { (*pfo).PerformOperations() };
+        Ok(())
+    }
 }
 
 pub fn restore_all<I>(items: I) -> Result<(), Error>
@@ -192,10 +243,10 @@ impl CoInitializer {
     fn new() -> CoInitializer {
         //let first = INITIALIZER_THREAD_COUNT.fetch_add(1, Ordering::SeqCst) == 0;
         let mut init_mode = 0;
-        if cfg!(coinit_apartmentthreaded) {
-            init_mode |= COINIT_APARTMENTTHREADED;
-        } else if cfg!(coinit_multithreaded) {
+        if cfg!(coinit_multithreaded) {
             init_mode |= COINIT_MULTITHREADED;
+        } else if cfg!(coinit_apartmentthreaded) {
+            init_mode |= COINIT_APARTMENTTHREADED;
         }
         // else missing intentionaly. These flags can be combined
         if cfg!(coinit_disable_ole1dde) {
@@ -206,7 +257,7 @@ impl CoInitializer {
         }
         let hr = unsafe { CoInitializeEx(std::ptr::null_mut(), init_mode) };
         if !SUCCEEDED(hr) {
-            panic!(format!("Call to CoInitializeEx failed. HRESULT: {:X}", hr));
+            panic!(format!("Call to CoInitializeEx failed. HRESULT: {:X}. Consider using `trash` with the feature `coinit_multithreaded`", hr));
         }
         CoInitializer {}
     }
@@ -331,8 +382,6 @@ unsafe fn get_date_unix(
     Ok(unix_time)
 }
 
-
-
 unsafe fn invoke_verb(pcm: *mut IContextMenu, verb: &'static str) -> Result<(), Error> {
 	// Recycle bin verbs:
 	// undelete
@@ -349,10 +398,11 @@ unsafe fn invoke_verb(pcm: *mut IContextMenu, verb: &'static str) -> Result<(), 
     defer! {{ DestroyMenu(hmenu); }}
     return_err_on_fail!{(*pcm).QueryContextMenu(hmenu, 0, 1, 0x7FFF, CMF_NORMAL)};
     let zero_terminated_verb: Vec<_> = verb.bytes().chain(std::iter::once(0)).collect();
-    let mut info = MaybeUninit::<CMINVOKECOMMANDINFO>::zeroed().assume_init();
-    info.cbSize = std::mem::size_of::<CMINVOKECOMMANDINFO>() as u32;
+    let mut info = MaybeUninit::<CMINVOKECOMMANDINFOEX>::zeroed().assume_init();
+    info.cbSize = std::mem::size_of::<CMINVOKECOMMANDINFOEX>() as u32;
     info.lpVerb = zero_terminated_verb.as_ptr() as *const i8;
-    return_err_on_fail!{(*pcm).InvokeCommand(&mut info as *mut _)};
+    info.fMask = CMIC_MASK_FLAG_NO_UI;
+    return_err_on_fail!{(*pcm).InvokeCommand(&mut info as *mut _ as *mut _)};
     Ok(())
 }
 

@@ -180,8 +180,3 @@ where
 {
     platform::remove_all(paths)
 }
-
-/// Returns true if the functions are implemented on the current platform.
-pub fn is_implemented() -> bool {
-    platform::is_implemented()
-}

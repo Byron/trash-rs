@@ -28,7 +28,7 @@ scopeguard = "1.0.0"
 
 [target.'cfg(windows)'.dependencies.winapi]
 git = "https://github.com/ArturKovacs/winapi-rs.git"
-rev = "b5c196ad2aa27b26e0ed0ae1f35ac790d677a3b5"
+rev = "fe297b9830c804b274e2206d3aebfe9dc33e39cb"
 features = [
     "combaseapi", "objbase", "shlobj", "shellapi", "winerror", "shlobj", "shlwapi", "shobjidl_core",
     "shobjidl", "oleauto", "oaidl", "wtypes", "errhandlingapi", "timezoneapi", "winuser"
