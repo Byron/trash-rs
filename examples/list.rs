@@ -1,5 +1,4 @@
 use trash;
-use trash::TrashItem;
 
 fn main() {
     let list = trash::list().unwrap();

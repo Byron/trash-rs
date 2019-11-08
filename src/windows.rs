@@ -1,4 +1,4 @@
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::mem::MaybeUninit;
 use std::ops::DerefMut;
 use std::os::windows::prelude::*;
@@ -31,7 +31,7 @@ use winapi::{
     um::shlwapi::StrRetToStrW,
     um::shobjidl_core::{
         FileOperation, IContextMenu, IEnumIDList, IFileOperation, IShellFolder, IShellFolder2,
-        IShellItem, SHCreateItemWithParent, CMF_NORMAL, CMIC_MASK_FLAG_NO_UI, CMINVOKECOMMANDINFO,
+        IShellItem, SHCreateItemWithParent, CMF_NORMAL, CMIC_MASK_FLAG_NO_UI,
         CMINVOKECOMMANDINFOEX, SHCONTF_FOLDERS, SHCONTF_NONFOLDERS, SHGDNF, SHGDN_FORPARSING,
         SHGDN_INFOLDER,
     },
@@ -45,16 +45,16 @@ use winapi::{
     Class, Interface,
 };
 
-use crate::{Error, TrashItem};
+use crate::{Error, ErrorKind, TrashItem};
 
 macro_rules! return_err_on_fail {
     {$f_name:ident($($args:tt)*)} => ({
         let hr = $f_name($($args)*);
         if !SUCCEEDED(hr) {
-            return Err(Error::PlatformApi {
+            return Err(Error::kind_only(ErrorKind::PlatformApi {
                 function_name: stringify!($f_name).into(),
                 code: Some(hr)
-            });
+            }));
         }
         hr
     });
@@ -64,10 +64,10 @@ macro_rules! return_err_on_fail {
     {($obj:expr).$f_name:ident($($args:tt)*)} => ({
         let hr = ($obj).$f_name($($args)*);
         if !SUCCEEDED(hr) {
-            return Err(Error::PlatformApi {
+            return Err(Error::kind_only(ErrorKind::PlatformApi {
                 function_name: stringify!($f_name).into(),
                 code: Some(hr)
-            });
+            }));
         }
         hr
     })
@@ -80,19 +80,19 @@ where
 {
     let paths = paths.into_iter();
     let full_paths = paths
-        .map(|x| x.as_ref().canonicalize())
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| Error::CanonicalizePath {
-            code: e.raw_os_error(),
-        })?;
+        .map(|x| {
+            x.as_ref().canonicalize().map_err(|e| {
+                Error::new(ErrorKind::CanonicalizePath {original: x.as_ref().into()}, Box::new(e))
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     let mut wide_paths = Vec::with_capacity(full_paths.len());
     for path in full_paths.iter() {
         let mut os_string = OsString::from(path);
         os_string.push("\0");
         let mut encode_wide = os_string.as_os_str().encode_wide();
-        // Remove the "\\?\" prefix as `SHFileOperationW` fails if such a prefix is part of the path.
-        // See:
-        // https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
+        // Remove the "\\?\" prefix as `SHFileOperationW` fails if such a prefix is part of the
+        // path. See: https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
         assert_eq!(encode_wide.next(), Some('\\' as u16));
         assert_eq!(encode_wide.next(), Some('\\' as u16));
         assert_eq!(encode_wide.next(), Some('?' as u16));
@@ -113,12 +113,17 @@ where
         lpszProgressTitle: std::ptr::null(),
     };
 
-    let result = unsafe { SHFileOperationW(&mut fileop as *mut SHFILEOPSTRUCTW) };
+    let result = unsafe { return_err_on_fail!{
+        SHFileOperationW(&mut fileop as *mut SHFILEOPSTRUCTW)
+    }};
 
     if result == S_OK {
         Ok(())
     } else {
-        Err(Error::Remove { code: Some(result) })
+        Err(Error::kind_only(ErrorKind::PlatformApi{
+            function_name: "SHFileOperationW",
+            code: Some(result),
+        }))
     }
 }
 
@@ -147,10 +152,10 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             )
         };
         if hr != S_OK {
-            return Err(Error::PlatformApi {
-                function_name: "EnumObjects".into(),
+            return Err(Error::kind_only(ErrorKind::PlatformApi{
+                function_name: "EnumObjects",
                 code: Some(hr),
-            });
+            }));
         }
         let peidl = peidl.assume_init();
         let mut item_vec = Vec::new();
@@ -168,7 +173,9 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 id,
                 name: name
                     .into_string()
-                    .map_err(|original| Error::ConvertOsString { original })?,
+                    .map_err(|original| 
+                        Error::kind_only( ErrorKind::ConvertOsString { original })
+                    )?,
                 original_parent: PathBuf::from(orig_loc),
                 time_deleted: date_deleted,
             });
@@ -361,10 +368,10 @@ unsafe fn variant_time_to_unix_time(from: f64) -> Result<i64, Error> {
     let st = st.assume_init();
     let mut ft = MaybeUninit::<FILETIME>::uninit();
     if SystemTimeToFileTime(&st, ft.as_mut_ptr()) == 0 {
-        return Err(Error::PlatformApi {
-            function_name: "SystemTimeToFileTime".into(),
+        return Err(Error::kind_only(ErrorKind::PlatformApi{
+            function_name: "SystemTimeToFileTime",
             code: Some(HRESULT_FROM_WIN32(GetLastError())),
-        });
+        }));
     }
     let ft = ft.assume_init();
     // Applying assume init straight away because there's no explicit support to initialize struct
@@ -407,10 +414,10 @@ unsafe fn invoke_verb(pcm: *mut IContextMenu, verb: &'static str) -> Result<(), 
     // properties
     let hmenu = CreatePopupMenu();
     if hmenu == std::ptr::null_mut() {
-        return Err(Error::PlatformApi {
-            function_name: "CreatePopupMenu".into(),
+        return Err(Error::kind_only(ErrorKind::PlatformApi {
+            function_name: "CreatePopupMenu",
             code: Some(HRESULT_FROM_WIN32(GetLastError())),
-        });
+        }));
     }
     defer! {{ DestroyMenu(hmenu); }}
     return_err_on_fail! {(*pcm).QueryContextMenu(hmenu, 0, 1, 0x7FFF, CMF_NORMAL)};

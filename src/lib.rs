@@ -2,6 +2,8 @@ use std::ffi::OsString;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
+use std::fmt;
+
 #[cfg(test)]
 mod tests;
 
@@ -19,9 +21,75 @@ mod platform;
 
 /// Error that might happen during a trash operation.
 #[derive(Debug)]
-pub enum Error {
-    Unknown,
+pub struct Error {
+    source:  Option<Box<dyn std::error::Error + 'static>>,
+    kind: ErrorKind,
+}
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let intro = "Error during a `trash` operation:";
+        if let Some(ref source) = self.source {
+            write!(f, "{} ( {:?} ) Source was '{}'", intro, self.kind, source)
+        } else {
+            write!(f, "{} ( {:?} ) Source error is not specified.", intro, self.kind)
+        }
+    }
+}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.source.as_ref()?.as_ref())
+    }
+}
+impl Error {
+    pub fn new(kind: ErrorKind, source: Box<dyn std::error::Error + 'static>) -> Error {
+        Error { source: Some(source), kind }
+    }
+    pub fn kind_only(kind: ErrorKind) -> Error {
+        Error { source: None, kind, }
+    }
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
+    }
+    pub fn into_source(self) -> Option<Box<dyn std::error::Error + 'static>> {
+        self.source
+    }
+    /// Returns `Some` if the source is an `std::io::Error` error. Returns `None` otherwise.
+    /// 
+    /// In other words this is a shorthand for
+    /// `self.source().map(|x| x.downcast_ref::<std::io::Error>())`
+    pub fn io_error_source(&self) -> Option<&std::io::Error> {
+        self.source.as_ref()?.downcast_ref::<std::io::Error>()
+    }
+}
 
+///
+/// A type that is contained within [`Error`]. It provides information about why the error was
+/// produced. Some `ErrorKind` variants may promise that calling `source()`
+/// (from `std::error::Error`) on [`Error`] will return a reference to a certain type of 
+/// `std::error::Error`.
+/// 
+/// For example further information can be extracted from a `CanonicalizePath` error
+/// 
+/// ```rust
+/// use std::error::Error;
+/// let result = trash::remove_all(&["non-existing"]);
+/// if let Err(err) = result {
+///     match err.kind() { 
+///         trash::ErrorKind::CanonicalizePath{..} => (), // This is what we expect
+///         _ => panic!()
+///     };
+///     // Long format
+///     let io_kind = err.source().unwrap().downcast_ref::<std::io::Error>().unwrap().kind();
+///     assert_eq!(io_kind, std::io::ErrorKind::NotFound);
+///     // Short format
+///     let io_kind = err.io_error_source().unwrap().kind();
+///     assert_eq!(io_kind, std::io::ErrorKind::NotFound);
+/// }
+/// ```
+/// 
+/// [`Error`]: struct.Error.html
+#[derive(Debug)]
+pub enum ErrorKind {
     /// Any error that might happen during a direct call to a platform specific API.
     ///
     /// `function_name`: the name of the function during which the error occured.
@@ -30,25 +98,37 @@ pub enum Error {
     /// On Windows the `code` will contain the HRESULT that the function returned or that was
     /// obtained with `HRESULT_FROM_WIN32(GetLastError())`
     PlatformApi {
-        function_name: String,
+        function_name: &'static str,
         code: Option<i32>,
     },
 
     /// Error while canonicalizing path.
-    /// `code` contains a raw os error code if accessible.
+    /// 
+    /// The `source()` function of the `Error` will return a reference to an
+    /// `std::io::Error`.
     CanonicalizePath {
-        code: Option<i32>,
+        /// Path that triggered the error.
+        original: PathBuf,
     },
 
+    ///
+    /// NOTE: THIS ERROR WAS REMOVED
+    /// The reason for this is that it provides vauge information of the circumstances
+    /// that caused the error. The user would've had to look into the source of the library
+    /// to understand when this error is produced.
+    /// 
     /// Error while performing the remove operation.
     /// `code` contains a raw os error code if accessible.
-    Remove {
-        code: Option<i32>,
-    },
+    // Remove {
+    //     code: Option<i32>,
+    // },
 
     /// Error while converting an OsString to a String.
-    /// `original` is the string that was attempted to be converted.
+    /// 
+    /// This error kind will not provide a `source()` but it directly corresponds to the error
+    /// returned by https://doc.rust-lang.org/std/ffi/struct.OsString.html#method.into_string
     ConvertOsString {
+        /// The string that was attempted to be converted.
         original: OsString,
     },
 }

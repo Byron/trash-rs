@@ -27,7 +27,18 @@ fn create_remove() {
 }
 
 #[test]
-fn create_remove_folder() {
+fn create_remove_empty_folder() {
+    let folder_name = get_unique_name();
+    let path = PathBuf::from(folder_name);
+    create_dir(&path).unwrap();
+
+    assert!(path.exists());
+    trash::remove(&path).unwrap();
+    assert!(path.exists() == false);
+}
+
+#[test]
+fn create_remove_folder_with_file() {
     let folder_name = get_unique_name();
     let path = PathBuf::from(folder_name);
     create_dir(&path).unwrap();
