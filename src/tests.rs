@@ -1,7 +1,7 @@
 use crate as trash;
+use std::collections::{hash_map::Entry, HashMap};
 use std::fs::{create_dir, File};
 use std::path::PathBuf;
-use std::collections::{HashMap, hash_map::Entry};
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use chrono;
@@ -70,8 +70,9 @@ fn list() {
         trash::remove_all(&names).unwrap();
     }
     let items = trash::list().unwrap();
-    let items: HashMap<_, Vec<_>> =
-        items.into_iter().filter(|x| x.name.starts_with(&file_name_prefix))
+    let items: HashMap<_, Vec<_>> = items
+        .into_iter()
+        .filter(|x| x.name.starts_with(&file_name_prefix))
         .fold(HashMap::new(), |mut map, x| {
             match map.entry(x.name.clone()) {
                 Entry::Occupied(mut entry) => {

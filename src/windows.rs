@@ -1,8 +1,8 @@
 use std::ffi::{OsStr, OsString};
+use std::mem::MaybeUninit;
 use std::ops::DerefMut;
 use std::os::windows::prelude::*;
 use std::path::{Path, PathBuf};
-use std::mem::MaybeUninit;
 
 use scopeguard::defer;
 
@@ -14,7 +14,7 @@ use winapi::{
     shared::windef::HWND,
     shared::winerror::{HRESULT_FROM_WIN32, SUCCEEDED, S_OK},
     shared::wtypes::{VT_BSTR, VT_DATE},
-    um::combaseapi::{CoInitializeEx, CoTaskMemFree, CoUninitialize, CoCreateInstance, CLSCTX_ALL},
+    um::combaseapi::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL},
     um::errhandlingapi::GetLastError,
     um::minwinbase::SYSTEMTIME,
     um::oaidl::VARIANT,
@@ -27,18 +27,22 @@ use winapi::{
         SHFileOperationW, FOF_ALLOWUNDO, FOF_NO_UI, FOF_SILENT, FOF_WANTNUKEWARNING, FO_DELETE,
         SHFILEOPSTRUCTW,
     },
-    um::winuser::{CreatePopupMenu, DestroyMenu},
     um::shlobj::CSIDL_BITBUCKET,
     um::shlwapi::StrRetToStrW,
     um::shobjidl_core::{
-        IContextMenu, IEnumIDList, IShellFolder, IShellFolder2, IFileOperation, FileOperation, IShellItem, SHCONTF_FOLDERS, SHCONTF_NONFOLDERS, SHGDNF,
-        SHGDN_FORPARSING, SHGDN_INFOLDER, CMF_NORMAL, CMINVOKECOMMANDINFO, CMINVOKECOMMANDINFOEX, CMIC_MASK_FLAG_NO_UI, SHCreateItemWithParent
+        FileOperation, IContextMenu, IEnumIDList, IFileOperation, IShellFolder, IShellFolder2,
+        IShellItem, SHCreateItemWithParent, CMF_NORMAL, CMIC_MASK_FLAG_NO_UI, CMINVOKECOMMANDINFO,
+        CMINVOKECOMMANDINFOEX, SHCONTF_FOLDERS, SHCONTF_NONFOLDERS, SHGDNF, SHGDN_FORPARSING,
+        SHGDN_INFOLDER,
     },
-    um::shtypes::{PCUITEMID_CHILD, PCUITEMID_CHILD_ARRAY, PIDLIST_RELATIVE, PIDLIST_ABSOLUTE, PITEMID_CHILD, SHCOLUMNID, STRRET},
+    um::shtypes::{
+        PCUITEMID_CHILD, PCUITEMID_CHILD_ARRAY, PIDLIST_ABSOLUTE, PIDLIST_RELATIVE, PITEMID_CHILD,
+        SHCOLUMNID, STRRET,
+    },
     um::timezoneapi::SystemTimeToFileTime,
     um::winnt::{PCZZWSTR, PWSTR, ULARGE_INTEGER},
-    Interface,
-    Class
+    um::winuser::{CreatePopupMenu, DestroyMenu},
+    Class, Interface,
 };
 
 use crate::{Error, TrashItem};
@@ -126,19 +130,20 @@ pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
 pub fn list() -> Result<Vec<TrashItem>, Error> {
     ensure_com_initialized();
     unsafe {
-        let mut recycle_bin: *mut IShellFolder2 = std::mem::uninitialized();
+        let mut recycle_bin = MaybeUninit::<*mut IShellFolder2>::uninit();
         bind_to_csidl(
             CSIDL_BITBUCKET,
             &IShellFolder2::uuidof() as *const _,
-            &mut recycle_bin as *mut *mut _ as *mut *mut c_void,
+            recycle_bin.as_mut_ptr() as *mut *mut c_void,
         )?;
+        let recycle_bin = recycle_bin.assume_init();
         defer! {{ (*recycle_bin).Release(); }};
-        let mut peidl: *mut IEnumIDList = std::mem::uninitialized();
+        let mut peidl = MaybeUninit::<*mut IEnumIDList>::uninit();
         let hr = return_err_on_fail! {
             (*recycle_bin).EnumObjects(
                 std::ptr::null_mut(),
                 SHCONTF_FOLDERS | SHCONTF_NONFOLDERS,
-                &mut peidl as *mut _,
+                peidl.as_mut_ptr(),
             )
         };
         if hr != S_OK {
@@ -147,9 +152,11 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 code: Some(hr),
             });
         }
+        let peidl = peidl.assume_init();
         let mut item_vec = Vec::new();
-        let mut item: PITEMID_CHILD = std::mem::uninitialized();
-        while (*peidl).Next(1, &mut item as *mut _, std::ptr::null_mut()) == S_OK {
+        let mut item_uninit = MaybeUninit::<PITEMID_CHILD>::uninit();
+        while (*peidl).Next(1, item_uninit.as_mut_ptr(), std::ptr::null_mut()) == S_OK {
+            let item = item_uninit.assume_init();
             defer! {{ CoTaskMemFree(item as LPVOID); }}
             let id = get_display_name(recycle_bin as *mut _, item, SHGDN_FORPARSING)?;
             let name = get_display_name(recycle_bin as *mut _, item, SHGDN_INFOLDER)?;
@@ -195,7 +202,7 @@ where
             )
         };
         let pfo = pfo.assume_init();
-        defer!{{ (*pfo).Release(); }}
+        defer! {{ (*pfo).Release(); }}
         return_err_on_fail! { (*pfo).SetOperationFlags(FOF_NO_UI as DWORD) };
         for item in items {
             let mut id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
@@ -203,7 +210,7 @@ where
             return_err_on_fail! {
                 (*recycle_bin).ParseDisplayName(
                     0 as _,
-                    std::ptr::null_mut(), 
+                    std::ptr::null_mut(),
                     id_wstr.as_mut_ptr(),
                     std::ptr::null_mut(),
                     pidl.as_mut_ptr(),
@@ -223,7 +230,7 @@ where
                 )
             };
             let shi = shi.assume_init();
-            defer!{{ (*shi).Release(); }}
+            defer! {{ (*shi).Release(); }}
             return_err_on_fail! { (*pfo).DeleteItem(shi, std::ptr::null_mut()) };
         }
         return_err_on_fail! { (*pfo).PerformOperations() };
@@ -279,13 +286,15 @@ fn ensure_com_initialized() {
 unsafe fn bind_to_csidl(csidl: c_int, riid: REFIID, ppv: *mut *mut c_void) -> Result<(), Error> {
     use winapi::um::shlobj::{SHGetDesktopFolder, SHGetSpecialFolderLocation};
 
-    let mut pidl: PIDLIST_ABSOLUTE = std::mem::uninitialized();
+    let mut pidl = MaybeUninit::<PIDLIST_ABSOLUTE>::uninit();
     return_err_on_fail! {
-        SHGetSpecialFolderLocation(std::ptr::null_mut(), csidl, &mut pidl as *mut _)
+        SHGetSpecialFolderLocation(std::ptr::null_mut(), csidl, pidl.as_mut_ptr())
     };
+    let pidl = pidl.assume_init();
     defer! {{ CoTaskMemFree(pidl as LPVOID); }};
-    let mut desktop: *mut IShellFolder = std::mem::uninitialized();
-    return_err_on_fail! {SHGetDesktopFolder(&mut desktop as *mut *mut _)};
+    let mut desktop = MaybeUninit::<*mut IShellFolder>::uninit();
+    return_err_on_fail! {SHGetDesktopFolder(desktop.as_mut_ptr() as *mut *mut _)};
+    let desktop = desktop.assume_init();
     defer! {{ (*desktop).Release(); }};
     if (*pidl).mkid.cb != 0 {
         return_err_on_fail! {(*desktop).BindToObject(pidl, std::ptr::null_mut(), riid, ppv)};
@@ -309,10 +318,12 @@ unsafe fn get_display_name(
     pidl: PCUITEMID_CHILD,
     flags: SHGDNF,
 ) -> Result<OsString, Error> {
-    let mut sr: STRRET = std::mem::uninitialized();
-    return_err_on_fail! {(*psf).GetDisplayNameOf(pidl, flags, &mut sr as *mut _)};
-    let mut name: PWSTR = std::mem::uninitialized();
-    return_err_on_fail! {StrRetToStrW(&mut sr as *mut _, pidl, &mut name as *mut _)};
+    let mut sr = MaybeUninit::<STRRET>::uninit();
+    return_err_on_fail! {(*psf).GetDisplayNameOf(pidl, flags, sr.as_mut_ptr())};
+    let mut sr = sr.assume_init();
+    let mut name = MaybeUninit::<PWSTR>::uninit();
+    return_err_on_fail! {StrRetToStrW(&mut sr as *mut _, pidl, name.as_mut_ptr())};
+    let name = name.assume_init();
     let result = wstr_to_os_string(name);
     CoTaskMemFree(name as LPVOID);
     Ok(result)
@@ -323,8 +334,9 @@ unsafe fn get_detail(
     pidl: PCUITEMID_CHILD,
     pscid: *const SHCOLUMNID,
 ) -> Result<OsString, Error> {
-    let mut vt: VARIANT = std::mem::uninitialized();
-    return_err_on_fail! { (*psf).GetDetailsEx(pidl, pscid, &mut vt as *mut _) };
+    let mut vt = MaybeUninit::<VARIANT>::uninit();
+    return_err_on_fail! { (*psf).GetDetailsEx(pidl, pscid, vt.as_mut_ptr()) };
+    let vt = vt.assume_init();
     let mut vt = scopeguard::guard(vt, |mut vt| {
         VariantClear(&mut vt as *mut _);
     });
@@ -344,24 +356,28 @@ fn windows_ticks_to_unix_seconds(windows_ticks: u64) -> i64 {
 }
 
 unsafe fn variant_time_to_unix_time(from: f64) -> Result<i64, Error> {
-    let mut st: SYSTEMTIME = std::mem::MaybeUninit::uninit().assume_init();
-    return_err_on_fail! { VariantTimeToSystemTime(from, &mut st as *mut _) };
-    let mut ft: FILETIME = std::mem::MaybeUninit::uninit().assume_init();
-    if SystemTimeToFileTime(&st, &mut ft as *mut _) == 0 {
-        Err(Error::PlatformApi {
+    let mut st = MaybeUninit::<SYSTEMTIME>::uninit();
+    return_err_on_fail! { VariantTimeToSystemTime(from, st.as_mut_ptr()) };
+    let st = st.assume_init();
+    let mut ft = MaybeUninit::<FILETIME>::uninit();
+    if SystemTimeToFileTime(&st, ft.as_mut_ptr()) == 0 {
+        return Err(Error::PlatformApi {
             function_name: "SystemTimeToFileTime".into(),
             code: Some(HRESULT_FROM_WIN32(GetLastError())),
-        })
-    } else {
-        let mut uli = std::mem::MaybeUninit::<ULARGE_INTEGER>::zeroed().assume_init();
-        {
-            let u_mut = uli.u_mut();
-            u_mut.LowPart = ft.dwLowDateTime;
-            u_mut.HighPart = std::mem::transmute(ft.dwHighDateTime);
-        }
-        let windows_ticks: u64 = *uli.QuadPart();
-        Ok(windows_ticks_to_unix_seconds(windows_ticks))
+        });
     }
+    let ft = ft.assume_init();
+    // Applying assume init straight away because there's no explicit support to initialize struct
+    // fields one-by-one in an `MaybeUninit` as of Rust 1.39.0
+    // See: https://github.com/rust-lang/rust/blob/1.39.0/src/libcore/mem/maybe_uninit.rs#L170
+    let mut uli = MaybeUninit::<ULARGE_INTEGER>::zeroed().assume_init();
+    {
+        let u_mut = uli.u_mut();
+        u_mut.LowPart = ft.dwLowDateTime;
+        u_mut.HighPart = std::mem::transmute(ft.dwHighDateTime);
+    }
+    let windows_ticks: u64 = *uli.QuadPart();
+    Ok(windows_ticks_to_unix_seconds(windows_ticks))
 }
 
 unsafe fn get_date_unix(
@@ -369,8 +385,9 @@ unsafe fn get_date_unix(
     pidl: PCUITEMID_CHILD,
     pscid: *const SHCOLUMNID,
 ) -> Result<i64, Error> {
-    let mut vt: VARIANT = std::mem::uninitialized();
-    return_err_on_fail! { (*psf).GetDetailsEx(pidl, pscid, &mut vt as *mut _) };
+    let mut vt = MaybeUninit::<VARIANT>::uninit();
+    return_err_on_fail! { (*psf).GetDetailsEx(pidl, pscid, vt.as_mut_ptr()) };
+    let vt = vt.assume_init();
     let mut vt = scopeguard::guard(vt, |mut vt| {
         VariantClear(&mut vt as *mut _);
     });
@@ -383,26 +400,26 @@ unsafe fn get_date_unix(
 }
 
 unsafe fn invoke_verb(pcm: *mut IContextMenu, verb: &'static str) -> Result<(), Error> {
-	// Recycle bin verbs:
-	// undelete
-	// cut
-	// delete
-	// properties
-	let hmenu = CreatePopupMenu();
-	if hmenu == std::ptr::null_mut() {
+    // Recycle bin verbs:
+    // undelete
+    // cut
+    // delete
+    // properties
+    let hmenu = CreatePopupMenu();
+    if hmenu == std::ptr::null_mut() {
         return Err(Error::PlatformApi {
             function_name: "CreatePopupMenu".into(),
             code: Some(HRESULT_FROM_WIN32(GetLastError())),
         });
     }
     defer! {{ DestroyMenu(hmenu); }}
-    return_err_on_fail!{(*pcm).QueryContextMenu(hmenu, 0, 1, 0x7FFF, CMF_NORMAL)};
+    return_err_on_fail! {(*pcm).QueryContextMenu(hmenu, 0, 1, 0x7FFF, CMF_NORMAL)};
     let zero_terminated_verb: Vec<_> = verb.bytes().chain(std::iter::once(0)).collect();
     let mut info = MaybeUninit::<CMINVOKECOMMANDINFOEX>::zeroed().assume_init();
     info.cbSize = std::mem::size_of::<CMINVOKECOMMANDINFOEX>() as u32;
     info.lpVerb = zero_terminated_verb.as_ptr() as *const i8;
     info.fMask = CMIC_MASK_FLAG_NO_UI;
-    return_err_on_fail!{(*pcm).InvokeCommand(&mut info as *mut _ as *mut _)};
+    return_err_on_fail! {(*pcm).InvokeCommand(&mut info as *mut _ as *mut _)};
     Ok(())
 }
 
@@ -431,7 +448,7 @@ fn execute_verb_on_all(
             return_err_on_fail! {
                 (*recycle_bin).ParseDisplayName(
                     0 as _,
-                    std::ptr::null_mut(), 
+                    std::ptr::null_mut(),
                     id_wstr.as_mut_ptr(),
                     std::ptr::null_mut(),
                     pidl.as_mut_ptr(),

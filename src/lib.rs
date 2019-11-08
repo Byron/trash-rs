@@ -1,6 +1,6 @@
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
 use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests;
@@ -79,7 +79,7 @@ pub struct TrashItem {
     /// The path to the parent folder of this item before it was put inside the trash.
     /// For example if the folder '/home/user/New Folder' is in the trash, its `original_parent`
     /// is '/home/user'.
-    /// 
+    ///
     /// To get the full path to the file in its original location use the `original_path`
     /// function.
     pub original_parent: PathBuf,
