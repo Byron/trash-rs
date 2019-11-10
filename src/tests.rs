@@ -96,7 +96,10 @@ fn list() {
             map
         });
     for name in names {
-        assert_eq!(items.get(&name).unwrap().len(), batches);
+        match items.get(&name) {
+            Some(items) => assert_eq!(items.len(), batches),
+            None => panic!("ERROR Could not find '{}' in {:?}", name, items),
+        }
     }
 
     // Let's try to purge all the items we just created but ignore any errors

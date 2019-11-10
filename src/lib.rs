@@ -104,8 +104,7 @@ pub enum ErrorKind {
 
     /// Error while canonicalizing path.
     /// 
-    /// The `source()` function of the `Error` will return a reference to an
-    /// `std::io::Error`.
+    /// The `source()` function of the `Error` will return a reference to an `std::io::Error`.
     CanonicalizePath {
         /// Path that triggered the error.
         original: PathBuf,
@@ -130,6 +129,16 @@ pub enum ErrorKind {
     ConvertOsString {
         /// The string that was attempted to be converted.
         original: OsString,
+    },
+
+    /// Signals an error that occured during some operation on a file or folder.
+    /// 
+    /// In some cases the `source()` function of the `Error` will return a reference to an
+    /// `std::io::Error` but this is not guaranteed.
+    /// 
+    /// `path`: The path to the file or folder on which this error occured.
+    Filesystem {
+        path: PathBuf,
     },
 }
 
