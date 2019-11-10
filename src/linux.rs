@@ -1,12 +1,20 @@
+//! This implementation will manage the trash according to the Freedesktop Trash specification,
+//! version 1.0 found at https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html
+//!
+//! If the target system uses a different method for handling trashed items and you would be
+//! intrested to use this crate on said system, please open an issue on the github page of `trash`.
+//! https://github.com/ArturKovacs/trash
+//!
+
+use std::collections::HashSet;
 use std::env;
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::ffi::{CStr, CString};
-use std::collections::HashSet;
-use std::fs::{File, Permissions, Metadata};
+use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use chrono;
 use libc;
@@ -30,7 +38,7 @@ where
     let full_paths = paths
         .map(|x| {
             x.as_ref().canonicalize().map_err(|e| {
-                Error::new(ErrorKind::CanonicalizePath {original: x.as_ref().into()}, Box::new(e))
+                Error::new(ErrorKind::CanonicalizePath { original: x.as_ref().into() }, Box::new(e))
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -89,12 +97,12 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         Ok(home_trash) => {
             trash_folders.insert(home_trash);
             home_error = None;
-        },
+        }
         Err(e) => {
             home_error = Some(e);
         }
     }
-    
+
     // Get all mountpoints and attemt to find a trash folder in each adding them to the SET of
     // trash folders when found one.
     let uid = unsafe { libc::getuid() };
@@ -141,7 +149,9 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             let file_type = info_entry.file_type().map_err(|e| {
                 Error::new(ErrorKind::Filesystem { path: info_entry.path() }, Box::new(e))
             })?;
-            if !file_type.is_file() { continue; }
+            if !file_type.is_file() {
+                continue;
+            }
             let info_path = info_entry.path();
             let info_file = File::open(&info_path).map_err(|e| {
                 Error::new(ErrorKind::Filesystem { path: info_path.clone() }, Box::new(e))
@@ -151,7 +161,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             let mut name = None;
             let mut original_parent: Option<PathBuf> = None;
             let mut time_deleted = None;
-            
+
             let info_reader = BufReader::new(info_file);
             // Skip 1 because the first line must be "[Trash Info]"
             for line in info_reader.lines().skip(1) {
@@ -180,10 +190,13 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     // because the described format does not conform RFC 3339. But oh well, I'll
                     // just append a 'Z' indicating that the time has no UTC offset and then it will
                     // be conforming.
-                    
+
                     let mut rfc3339_format = value.to_owned();
                     rfc3339_format.push('Z');
-                    let date_time = chrono::DateTime::<chrono::FixedOffset>::parse_from_rfc3339(rfc3339_format.as_str()).unwrap();
+                    let date_time = chrono::DateTime::<chrono::FixedOffset>::parse_from_rfc3339(
+                        rfc3339_format.as_str(),
+                    )
+                    .unwrap();
                     time_deleted = Some(date_time.timestamp());
                 }
             }
@@ -202,13 +215,38 @@ pub fn purge_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
-    Err(Error::kind_only(ErrorKind::PlatformApi {
-        function_name: "I lied. This is not a platform api error, but a NOT IMPLEMENTED error.",
-        code: None,
-    }))
+    for item in items.into_iter() {
+        // When purging an item the "in-trash" filename must be parsed from the trashinfo filename
+        // which is the filename in the `id` field.
+        let info_file = &item.id;
+
+        // A bunch of unwraps here. This is fine because if any of these fail that means
+        // that either there's a bug in this code or the target system didn't follow
+        // the specification.
+        let trash_folder = Path::new(info_file).parent().unwrap().parent().unwrap();
+        let name_in_trash = Path::new(info_file).file_stem().unwrap();
+
+        let file = trash_folder.join("files").join(&name_in_trash);
+        assert!(file.exists());
+        if file.is_dir() {
+            std::fs::remove_dir_all(&file).map_err(|e| {
+                Error::new(ErrorKind::Filesystem { path: file.into() }, Box::new(e))
+            })?;
+        // TODO Update directory size cache if there's one.
+        } else {
+            std::fs::remove_file(&file).map_err(|e| {
+                Error::new(ErrorKind::Filesystem { path: file.into() }, Box::new(e))
+            })?;
+        }
+        std::fs::remove_file(info_file).map_err(|e| {
+            Error::new(ErrorKind::Filesystem { path: info_file.into() }, Box::new(e))
+        })?;
+    }
+
+    Ok(())
 }
 
-pub fn restore_all<I>(items: I) -> Result<(), Error>
+pub fn restore_all<I>(_items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
@@ -222,7 +260,11 @@ fn parse_uri_path(absolute_file_path: impl AsRef<Path>) -> String {
 }
 
 #[derive(Eq, PartialEq)]
-enum TrashValidity { Valid, InvalidSymlink, InvalidNotSticky }
+enum TrashValidity {
+    Valid,
+    InvalidSymlink,
+    InvalidNotSticky,
+}
 
 fn folder_validity(path: impl AsRef<Path>) -> Result<TrashValidity, Error> {
     /// Mask for the sticky bit
@@ -230,7 +272,7 @@ fn folder_validity(path: impl AsRef<Path>) -> Result<TrashValidity, Error> {
     const S_ISVTX: u32 = 0x1000;
 
     let metadata = path.as_ref().symlink_metadata().map_err(|e| {
-        Error::new(ErrorKind::Filesystem {path: path.as_ref().into()}, Box::new(e))
+        Error::new(ErrorKind::Filesystem { path: path.as_ref().into() }, Box::new(e))
     })?;
     if metadata.file_type().is_symlink() {
         return Ok(TrashValidity::InvalidSymlink);
@@ -243,7 +285,7 @@ fn folder_validity(path: impl AsRef<Path>) -> Result<TrashValidity, Error> {
     Ok(TrashValidity::Valid)
 }
 
-/// Corresponds to the definition of "home_trash" from 
+/// Corresponds to the definition of "home_trash" from
 /// https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html
 fn home_trash() -> Result<PathBuf, Error> {
     if let Some(data_home) = std::env::var_os("XDG_DATA_HOME") {
@@ -263,39 +305,38 @@ fn home_trash() -> Result<PathBuf, Error> {
 
 struct MountPoint {
     mnt_dir: PathBuf,
-    mnt_type: String,
-    mnt_fsname: String,
+    _mnt_type: String,
+    _mnt_fsname: String,
 }
 
 fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     //let file;
     let read_arg = CString::new("r").unwrap();
     let mounts_path = CString::new("/proc/mounts").unwrap();
-    let mut file = unsafe {
-        libc::fopen(mounts_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr())
-    };
+    let mut file =
+        unsafe { libc::fopen(mounts_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
     if file == std::ptr::null_mut() {
         let mtab_path = CString::new("/etc/mtab").unwrap();
-        file = unsafe {
-            libc::fopen(mtab_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr())
-        };
+        file = unsafe { libc::fopen(mtab_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
     }
     if file == std::ptr::null_mut() {
         // TODO ADD ERROR FOR WHEN NO MONTPOINTS FILE WAS FOUND
         panic!();
     }
-    defer!{{ unsafe { libc::fclose(file); } }}
+    defer! {{ unsafe { libc::fclose(file); } }}
     let mut result = Vec::new();
     loop {
         let mntent = unsafe { libc::getmntent(file) };
         if mntent == std::ptr::null_mut() {
             break;
         }
-        let mount_point = unsafe{ MountPoint {
-            mnt_dir: CStr::from_ptr((*mntent).mnt_dir).to_str().unwrap().into(),
-            mnt_fsname: CStr::from_ptr((*mntent).mnt_fsname).to_str().unwrap().into(),
-            mnt_type: CStr::from_ptr((*mntent).mnt_type).to_str().unwrap().into(),
-        }};
+        let mount_point = unsafe {
+            MountPoint {
+                mnt_dir: CStr::from_ptr((*mntent).mnt_dir).to_str().unwrap().into(),
+                _mnt_fsname: CStr::from_ptr((*mntent).mnt_fsname).to_str().unwrap().into(),
+                _mnt_type: CStr::from_ptr((*mntent).mnt_type).to_str().unwrap().into(),
+            }
+        };
         result.push(mount_point);
     }
     if result.len() == 0 {

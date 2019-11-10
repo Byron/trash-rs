@@ -22,7 +22,7 @@ mod platform;
 /// Error that might happen during a trash operation.
 #[derive(Debug)]
 pub struct Error {
-    source:  Option<Box<dyn std::error::Error + 'static>>,
+    source: Option<Box<dyn std::error::Error + 'static>>,
     kind: ErrorKind,
 }
 impl fmt::Display for Error {
@@ -45,7 +45,7 @@ impl Error {
         Error { source: Some(source), kind }
     }
     pub fn kind_only(kind: ErrorKind) -> Error {
-        Error { source: None, kind, }
+        Error { source: None, kind }
     }
     pub fn kind(&self) -> &ErrorKind {
         &self.kind
@@ -54,7 +54,7 @@ impl Error {
         self.source
     }
     /// Returns `Some` if the source is an `std::io::Error` error. Returns `None` otherwise.
-    /// 
+    ///
     /// In other words this is a shorthand for
     /// `self.source().map(|x| x.downcast_ref::<std::io::Error>())`
     pub fn io_error_source(&self) -> Option<&std::io::Error> {
@@ -65,16 +65,16 @@ impl Error {
 ///
 /// A type that is contained within [`Error`]. It provides information about why the error was
 /// produced. Some `ErrorKind` variants may promise that calling `source()`
-/// (from `std::error::Error`) on [`Error`] will return a reference to a certain type of 
+/// (from `std::error::Error`) on [`Error`] will return a reference to a certain type of
 /// `std::error::Error`.
-/// 
+///
 /// For example further information can be extracted from a `CanonicalizePath` error
-/// 
+///
 /// ```rust
 /// use std::error::Error;
 /// let result = trash::remove_all(&["non-existing"]);
 /// if let Err(err) = result {
-///     match err.kind() { 
+///     match err.kind() {
 ///         trash::ErrorKind::CanonicalizePath{..} => (), // This is what we expect
 ///         _ => panic!()
 ///     };
@@ -86,7 +86,7 @@ impl Error {
 ///     assert_eq!(io_kind, std::io::ErrorKind::NotFound);
 /// }
 /// ```
-/// 
+///
 /// [`Error`]: struct.Error.html
 #[derive(Debug)]
 pub enum ErrorKind {
@@ -97,13 +97,10 @@ pub enum ErrorKind {
     ///
     /// On Windows the `code` will contain the HRESULT that the function returned or that was
     /// obtained with `HRESULT_FROM_WIN32(GetLastError())`
-    PlatformApi {
-        function_name: &'static str,
-        code: Option<i32>,
-    },
+    PlatformApi { function_name: &'static str, code: Option<i32> },
 
     /// Error while canonicalizing path.
-    /// 
+    ///
     /// The `source()` function of the `Error` will return a reference to an `std::io::Error`.
     CanonicalizePath {
         /// Path that triggered the error.
@@ -115,7 +112,7 @@ pub enum ErrorKind {
     /// The reason for this is that it provides vauge information of the circumstances
     /// that caused the error. The user would've had to look into the source of the library
     /// to understand when this error is produced.
-    /// 
+    ///
     /// Error while performing the remove operation.
     /// `code` contains a raw os error code if accessible.
     // Remove {
@@ -123,7 +120,7 @@ pub enum ErrorKind {
     // },
 
     /// Error while converting an OsString to a String.
-    /// 
+    ///
     /// This error kind will not provide a `source()` but it directly corresponds to the error
     /// returned by https://doc.rust-lang.org/std/ffi/struct.OsString.html#method.into_string
     ConvertOsString {
@@ -132,14 +129,12 @@ pub enum ErrorKind {
     },
 
     /// Signals an error that occured during some operation on a file or folder.
-    /// 
+    ///
     /// In some cases the `source()` function of the `Error` will return a reference to an
     /// `std::io::Error` but this is not guaranteed.
-    /// 
+    ///
     /// `path`: The path to the file or folder on which this error occured.
-    Filesystem {
-        path: PathBuf,
-    },
+    Filesystem { path: PathBuf },
 }
 
 /// This struct holds information about a single item within the trash.
