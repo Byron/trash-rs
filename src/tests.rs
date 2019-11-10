@@ -98,7 +98,7 @@ fn list() {
     for name in names {
         match items.get(&name) {
             Some(items) => assert_eq!(items.len(), batches),
-            None => panic!("ERROR Could not find '{}' in {:?}", name, items),
+            None => panic!("ERROR Could not find '{}' in {:#?}", name, items),
         }
     }
 

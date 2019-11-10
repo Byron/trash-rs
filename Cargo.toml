@@ -27,6 +27,7 @@ lazy_static = "1.4.0"
 chrono = "0.4.9"
 libc = "0.2.65"
 scopeguard = "1.0.0"
+url = "2.1.0"
 
 [target.'cfg(windows)'.dependencies]
 scopeguard = "1.0.0"

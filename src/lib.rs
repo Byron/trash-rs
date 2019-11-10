@@ -156,7 +156,7 @@ pub struct TrashItem {
     /// On Windows it is the string returned by `IShellFolder::GetDisplayNameOf` with the
     /// `SHGDN_FORPARSING` flag.
     ///
-    /// On Linux ...
+    /// On Linux it is an absolute path to the `.trashinfo` file associated with the item.
     ///
     /// On MacOS ...
     pub id: OsString,

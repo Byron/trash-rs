@@ -14,13 +14,7 @@ use scopeguard::defer;
 
 use crate::{Error, ErrorKind, TrashItem};
 
-mod uri_path;
-
 static DEFAULT_TRASH: &str = "gio";
-
-pub fn is_implemented() -> bool {
-    true
-}
 
 /// This is based on the electron library's implementation.
 /// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
@@ -134,6 +128,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         // List all items from this trash folder
 
         // Read the info files for every file
+        let trash_folder_parent = folder.parent().unwrap();
         let info_folder = folder.join("info");
         let read_dir = std::fs::read_dir(&info_folder).map_err(|e| {
             Error::new(ErrorKind::Filesystem { path: info_folder.clone() }, Box::new(e))
@@ -170,15 +165,14 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 let value = split.next().unwrap().trim();
 
                 if key == "Path" {
-                    let full_path_string = parse_uri_path(value);
-                    let full_path = Path::new(&full_path_string);
-                    name = Some(full_path.file_name().unwrap().to_str().unwrap().to_owned());
-                    let parent = full_path.parent().unwrap();
-                    if full_path.is_absolute() {
-                        original_parent = Some(parent.into());
-                    } else {
-                        original_parent = Some(folder.join(parent).into());
+                    let mut value_path = Path::new(value).to_owned();
+                    if value_path.is_relative() {
+                        value_path = trash_folder_parent.join(value_path);
                     }
+                    let full_path_utf8 = PathBuf::from(parse_uri_path(&value_path));
+                    name = Some(full_path_utf8.file_name().unwrap().to_str().unwrap().to_owned());
+                    let parent = full_path_utf8.parent().unwrap();
+                    original_parent = Some(parent.into());
                 } else if key == "DeletionDate" {
                     // So there seems to be this funny thing that the freedesktop trash
                     // specification v1.0 has the following statement "The date and time are to be
@@ -221,44 +215,10 @@ where
     unimplemented!();
 }
 
-fn parse_uri_path(uri: impl AsRef<str>) -> String {
-    // TODO have some fun with implementing this, after you got the groceries
-    use std::convert::TryFrom;
-    let mut path = uri_path::Path::try_from(uri.as_ref()).unwrap();
-    //path.normalize(true);
-    let uri_encoded = path.to_string();
-    let mut result_bytes = Vec::<u8>::with_capacity(uri_encoded.len());
-    let mut bytes = uri_encoded.bytes();
-    while let Some(byte) = bytes.next() {
-        if byte == b'%' {
-            let high_digit = bytes.next().unwrap();
-            let low_digit = bytes.next().unwrap();
-            let high_value = to_decimal_value(high_digit as char);
-            let low_value = to_decimal_value(low_digit as char);
-            let value = 0x10 * high_value + low_value;
-            result_bytes.push(value);
-        } else {
-            result_bytes.push(byte);
-        }
-    }
-    String::from_utf8(result_bytes).unwrap()
-}
-
-mod test_parse_uri {
-    #[test]
-    fn uri() {
-        let result = super::parse_uri_path("/path/to/I%E2%9D%A4%EF%B8%8FURIs");
-        assert_eq!(result, "/path/to/I❤️URIs");
-    }
-}
-
-fn to_decimal_value(hex_digit: char) -> u8 {
-    let hex_digit = hex_digit.to_lowercase().next().unwrap() as u8;
-    if hex_digit >= b'0' && hex_digit <= b'9' {
-        (hex_digit - b'0') as u8
-    } else {
-        (hex_digit - b'a') as u8 + 10
-    }
+fn parse_uri_path(absolute_file_path: impl AsRef<Path>) -> String {
+    let file_path_chars = absolute_file_path.as_ref().to_str().unwrap().chars();
+    let url: String = "file://".chars().chain(file_path_chars).collect();
+    return url::Url::parse(&url).unwrap().to_file_path().unwrap().to_str().unwrap().into();
 }
 
 #[derive(Eq, PartialEq)]
