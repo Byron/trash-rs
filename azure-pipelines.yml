@@ -9,11 +9,11 @@ jobs:
   strategy:
     matrix:
       #Linux:
-      #  vmImage: ubuntu-16.04
+      #  vmImage: ubuntu-18.04
       #MacOS:
-      #  vmImage: macOS-10.13
+      #  vmImage: macOS-10.14
       Windows:
-        vmImage: vs2017-win201
+        vmImage: windows-2019
   steps:
     # Linux and macOS.
     - script: |
