@@ -8,10 +8,10 @@ jobs:
 - job: cargo_test
   strategy:
     matrix:
-      #Linux:
-      #  vmImage: ubuntu-18.04
-      #MacOS:
-      #  vmImage: macOS-10.14
+      Linux:
+        vmImage: ubuntu-18.04
+      MacOS:
+        vmImage: macOS-10.14
       Windows:
         vmImage: windows-2019
   pool:
