@@ -20,7 +20,7 @@ use chrono;
 use libc;
 use scopeguard::defer;
 
-use crate::{Error, ErrorKind, TrashItem};
+use crate::{Error, ErrorKind, NonStdErrorBox, TrashItem};
 
 static DEFAULT_TRASH: &str = "gio";
 
@@ -142,20 +142,34 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             Error::new(ErrorKind::Filesystem { path: info_folder.clone() }, Box::new(e))
         })?;
         for entry in read_dir {
-            let info_entry = entry.map_err(|e| {
-                Error::new(ErrorKind::Filesystem { path: info_folder.clone() }, Box::new(e))
-            })?;
+            let info_entry;
+            if let Ok(entry) = entry {
+                info_entry = entry;
+            } else {
+                // Another thread or process may have removed that entry by now
+                continue;
+            }
             // Entrt should really be an info file but better safe than sorry
-            let file_type = info_entry.file_type().map_err(|e| {
-                Error::new(ErrorKind::Filesystem { path: info_entry.path() }, Box::new(e))
-            })?;
+            let file_type;
+            if let Ok(f_type) = info_entry.file_type() {
+                file_type = f_type;
+            } else {
+                // Another thread or process may have removed that entry by now
+                continue;
+            }
             if !file_type.is_file() {
+                // TODO if we found a folder just hanging out around the infofiles
+                // we might want to report it in a warning
                 continue;
             }
             let info_path = info_entry.path();
-            let info_file = File::open(&info_path).map_err(|e| {
-                Error::new(ErrorKind::Filesystem { path: info_path.clone() }, Box::new(e))
-            })?;
+            let info_file;
+            if let Ok(file) = File::open(&info_path) {
+                info_file = file;
+            } else {
+                // Another thread or process may have removed that entry by now
+                continue;
+            }
 
             let id = info_path.clone().into();
             let mut name = None;
@@ -164,10 +178,13 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
 
             let info_reader = BufReader::new(info_file);
             // Skip 1 because the first line must be "[Trash Info]"
-            for line in info_reader.lines().skip(1) {
-                let line = line.map_err(|e| {
-                    Error::new(ErrorKind::Filesystem { path: info_path.clone() }, Box::new(e))
-                })?;
+            'info_lines: for line_result in info_reader.lines().skip(1) {
+                // Another thread or process may have removed the infofile by now
+                let line = if let Ok(line) = line_result {
+                    line
+                } else {
+                    break 'info_lines;
+                };
                 let mut split = line.split('=');
 
                 // Just unwraping here because the system is assumed to follow the specification.
@@ -200,12 +217,17 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     time_deleted = Some(date_time.timestamp());
                 }
             }
-            result.push(TrashItem {
-                id,
-                name: name.unwrap(),
-                original_parent: original_parent.unwrap(),
-                time_deleted: time_deleted.unwrap(),
-            });
+
+            // It may be a good idea to assert that these must be Some when the loop successfully
+            // read till the end of the file. Because otherwise the environment may not follow the
+            // specification or there's a bug in this crate.
+            if let Some(name) = name {
+                if let Some(original_parent) = original_parent {
+                    if let Some(time_deleted) = time_deleted {
+                        result.push(TrashItem { id, name, original_parent, time_deleted });
+                    }
+                }
+            }
         }
     }
     Ok(result)
@@ -246,11 +268,44 @@ where
     Ok(())
 }
 
-pub fn restore_all<I>(_items: I) -> Result<(), Error>
+pub fn restore_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
-    unimplemented!();
+    // Simply read the items' original location from the infofile and attemp to move the items there
+    // and delete the infofile if the move operation was sucessful.
+
+    let mut iter = items.into_iter();
+    while let Some(item) = iter.next() {
+        // The "in-trash" filename must be parsed from the trashinfo filename
+        // which is the filename in the `id` field.
+        let info_file = &item.id;
+
+        // A bunch of unwraps here. This is fine because if any of these fail that means
+        // that either there's a bug in this code or the target system didn't follow
+        // the specification.
+        let trash_folder = Path::new(info_file).parent().unwrap().parent().unwrap();
+        let name_in_trash = Path::new(info_file).file_stem().unwrap();
+
+        let file = trash_folder.join("files").join(&name_in_trash);
+        assert!(file.exists());
+        // TODO add option to forcefully replace any target at the restore location
+        // if it already exists.
+        let original_path = item.original_path();
+        if original_path.exists() {
+            let remaining: Vec<_> = std::iter::once(item).chain(iter).collect();
+            return Err(Error::kind_only(ErrorKind::RestoreCollision {
+                path: original_path,
+                remaining_items: remaining,
+            }));
+        }
+        std::fs::rename(&file, &original_path)
+            .map_err(|e| Error::new(ErrorKind::Filesystem { path: file }, Box::new(e)))?;
+        std::fs::remove_file(info_file).map_err(|e| {
+            Error::new(ErrorKind::Filesystem { path: info_file.into() }, Box::new(e))
+        })?;
+    }
+    Ok(())
 }
 
 fn parse_uri_path(absolute_file_path: impl AsRef<Path>) -> String {

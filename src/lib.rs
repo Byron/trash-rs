@@ -63,6 +63,35 @@ impl Error {
 }
 
 ///
+/// It's sometimes the case that a library's error don't implement the `std::error::Error` trait
+/// and therefore cannot be appended as a source to some error emmited by this crate.
+///
+/// It is expected however that even those errors can be converted to text. This struct contains
+/// a string storing an error message and it implements the `std::error::Error` so that any error
+/// from which a message can be extracted could be transformed into this type and used as the source
+/// of an error emmited by this crate.
+///
+#[derive(Debug)]
+pub struct NonStdErrorBox {
+    pub message: String,
+}
+impl fmt::Display for NonStdErrorBox {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+impl std::error::Error for NonStdErrorBox {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+}
+impl NonStdErrorBox {
+    pub fn new(message: impl Into<String>) -> Self {
+        NonStdErrorBox { message: message.into() }
+    }
+}
+
+///
 /// A type that is contained within [`Error`]. It provides information about why the error was
 /// produced. Some `ErrorKind` variants may promise that calling `source()`
 /// (from `std::error::Error`) on [`Error`] will return a reference to a certain type of
@@ -135,6 +164,16 @@ pub enum ErrorKind {
     ///
     /// `path`: The path to the file or folder on which this error occured.
     Filesystem { path: PathBuf },
+
+    /// This kind of error happens when a trash item's original parent already contains an item with
+    /// the same name and type (file or folder). In this case an error is produced and the
+    /// restoration of the files is halted meaning that there may be files that could be restored
+    /// but left in the trash due to the error.
+    ///
+    /// `path`: The path of the file's blocking the trash item from being restored.
+    /// `remaining_items`: All items that were not restored in the order they were provided,
+    /// starting with the item that triggered the error.
+    RestoreCollision { path: PathBuf, remaining_items: Vec<TrashItem> },
 }
 
 /// This struct holds information about a single item within the trash.
@@ -210,21 +249,15 @@ where
 /// Restores all the provided items to their original location.
 ///
 /// This function consumes the provided `TrashItem`s.
+///
+/// It may be the case that when restoring a file or a folder, the `original_path` already has
+/// a new item with the same name. When such a collision happens this function returns a
+///
 pub fn restore_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
     platform::restore_all(items)
-}
-
-/// This trait lists all the `TrashItem` related functions that have a platform dependent
-/// implementation
-trait TrahsItemPlatformDep {
-    /// Permanently delete the item.
-    fn purge(self) -> Result<(), ()>;
-
-    /// Restore the item from the trash to its original location.
-    fn restore(self) -> Result<(), ()>;
 }
 
 /// Removes a single file or directory.
