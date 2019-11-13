@@ -63,35 +63,6 @@ impl Error {
 }
 
 ///
-/// It's sometimes the case that a library's error don't implement the `std::error::Error` trait
-/// and therefore cannot be appended as a source to some error emmited by this crate.
-///
-/// It is expected however that even those errors can be converted to text. This struct contains
-/// a string storing an error message and it implements the `std::error::Error` so that any error
-/// from which a message can be extracted could be transformed into this type and used as the source
-/// of an error emmited by this crate.
-///
-#[derive(Debug)]
-pub struct NonStdErrorBox {
-    pub message: String,
-}
-impl fmt::Display for NonStdErrorBox {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-impl std::error::Error for NonStdErrorBox {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        None
-    }
-}
-impl NonStdErrorBox {
-    pub fn new(message: impl Into<String>) -> Self {
-        NonStdErrorBox { message: message.into() }
-    }
-}
-
-///
 /// A type that is contained within [`Error`]. It provides information about why the error was
 /// produced. Some `ErrorKind` variants may promise that calling `source()`
 /// (from `std::error::Error`) on [`Error`] will return a reference to a certain type of

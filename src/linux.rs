@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use std::env;
 use std::ffi::OsString;
 use std::ffi::{CStr, CString};
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -20,7 +20,7 @@ use chrono;
 use libc;
 use scopeguard::defer;
 
-use crate::{Error, ErrorKind, NonStdErrorBox, TrashItem};
+use crate::{Error, ErrorKind, TrashItem};
 
 static DEFAULT_TRASH: &str = "gio";
 
@@ -43,43 +43,40 @@ where
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    let trash = {
-        // Determine desktop environment and set accordingly.
-        let desktop_env = get_desktop_environment();
-        if desktop_env == DesktopEnvironment::Kde4 || desktop_env == DesktopEnvironment::Kde5 {
-            "kioclient5"
-        } else if desktop_env == DesktopEnvironment::Kde3 {
-            "kioclient"
+    // Get topfolder, get the appropriate trash folder for the specified topfolder.
+
+    // See if there's another file with the same name already in the trash, if there is
+    // see if there's one with "name.2" and so on and so forth
+
+    // Create the file and do the same with the infofile
+
+    let root = Path::new("/");
+    let home_trash = home_trash()?;
+    let mount_points = get_mount_points()?;
+        
+    for path in full_paths {
+        let mut topdir = None;
+        for mount_point in mount_points.iter() {
+            if mount_point.mnt_dir == root {
+                continue;
+            }
+            if path.starts_with(&mount_point.mnt_dir) {
+                topdir = Some(&mount_point.mnt_dir);
+                break;
+            }
+        }
+        let topdir = if let Some(t) = topdir { t } else { root };
+        if topdir == root {
+            move_to_trash(path, &home_trash)?;
         } else {
-            DEFAULT_TRASH
-        }
-    };
-
-    let mut argv = Vec::<OsString>::with_capacity(full_paths.len() + 2);
-
-    if trash == "kioclient5" || trash == "kioclient" {
-        //argv.push(trash.into());
-        argv.push("move".into());
-        for full_path in full_paths.iter() {
-            argv.push(full_path.into());
-        }
-        argv.push("trash:/".into());
-    } else {
-        //argv.push_back(ELECTRON_DEFAULT_TRASH);
-        argv.push("trash".into());
-        for full_path in full_paths.iter() {
-            argv.push(full_path.into());
+            // TODO Find the appropriate trash folder on this partition/device
+            // 1, .Trash/uid
+            // 2, .Trash-uid
+            // If none exists, then crate the second one I guess.
+            //move_to_trash(path, );
+            unimplemented!();
         }
     }
-
-    // Execute command
-    let mut command = Command::new(trash);
-    command.args(argv);
-    let result = command.output().unwrap();
-    if !result.status.success() {
-        panic!("failed to execute {:?}", command);
-    }
-
     Ok(())
 }
 
@@ -308,13 +305,142 @@ where
     Ok(())
 }
 
+fn move_to_trash(src: impl AsRef<Path>, trash_folder: impl AsRef<Path>) -> Result<(), Error> {
+    let src = src.as_ref();
+    let trash_folder = trash_folder.as_ref();
+
+    let files = trash_folder.join("files");
+    let info = trash_folder.join("info");
+    // This kind of validity must only apply ot administrator style trash folders
+    // See Trash directories, (1) at https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html
+    //assert_eq!(folder_validity(trash_folder)?, TrashValidity::Valid);
+
+    // When trashing a file one must make sure that every trashed item is uniquely named.
+    // However the `rename` function -that is used in *nix systems to move files- by default
+    // overwrites the destination. Therefore when multiple threads are removing items with identical
+    // names, an implementation might accidently overwrite an item that was just put into the trash
+    // if it's not careful enough.
+    //
+    // The strategy here is to use the `create_new` parameter of `OpenOptions` to
+    // try creating a placeholder file in the trash but don't do so if one with an identical name
+    // already exist. This newly created empty file can then be safely overwritten by the src file
+    // using the `rename` function.
+    let filename = src.file_name().unwrap();
+    let mut appendage = 0;
+    loop {
+        use std::io;
+        appendage += 1;
+        let in_trash_name = if appendage > 1 {
+            format!("{}.{}", filename.to_str().unwrap(), appendage)
+        } else {
+            filename.to_str().unwrap().into()
+        };
+        let info_name = format!("{}.trashinfo", in_trash_name);
+        let path = info.join(&info_name);
+        let info_result = OpenOptions::new().create_new(true).write(true).open(&path);
+        match info_result {
+            Err(error) => {
+                if error.kind() == io::ErrorKind::AlreadyExists {
+                    continue;
+                } else {
+                    return Err(Error::new(ErrorKind::Filesystem {
+                        path: path.into()
+                    }, Box::new(error)));
+                }
+            }
+            Ok(_) => {
+                // Do something
+            }
+        }
+        let path = files.join(&in_trash_name);
+        match move_items_no_replace(src, &path) {
+            Err(error) => {
+                if error.kind() == io::ErrorKind::AlreadyExists {
+                    continue;
+                } else {
+                    return Err(Error::new(ErrorKind::Filesystem {
+                        path: path.into()
+                    }, Box::new(error)));
+                }
+            },
+            Ok(_) => {
+                // We did it!
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn execte_src_to_dst_operation<S1, D1>(
+    src: S1,
+    dst: D1,
+    dir: &'static dyn Fn(&Path) -> Result<(), std::io::Error>,
+    file: &'static dyn Fn(&Path, &Path) -> Result<(), std::io::Error>,
+) -> Result<(), std::io::Error> 
+where
+    S1: AsRef<Path>,
+    D1: AsRef<Path>,
+{
+    let src = src.as_ref();
+    let dst = dst.as_ref();
+
+    let metadata = src.symlink_metadata()?;
+    if metadata.is_dir() {
+        dir(dst)?;
+        let dir_entries = std::fs::read_dir(src)?;
+        for entry in dir_entries {
+            // Forward the error because it's not okay if something is happening
+            // to the files while we are trying to move them.
+            let entry = entry?;
+            let entry_src = entry.path();
+            let entry_dst = dst.join(entry.file_name());
+            execte_src_to_dst_operation(
+                entry_src, entry_dst, dir, file
+            )?;
+        }
+    } else { // Symlink or file
+        file(&src, &dst)?;
+    }
+    Ok(())
+}
+
+/// An error means that a collision was found.
+fn move_items_no_replace(
+    src: impl AsRef<Path>,
+    dst: impl AsRef<Path>
+) -> Result<(), std::io::Error> {
+    let src = src.as_ref();
+    let dst = dst.as_ref();
+    try_create_placeholders(src, dst)?;
+
+    // All placeholders are in place. LET'S OVERWRITE
+    execte_src_to_dst_operation(
+        src, dst, &|_| {Ok(())}, &|src, dst| {std::fs::rename(src, dst)}
+    )
+}
+
+fn try_create_placeholders(
+    src: impl AsRef<Path>,
+    dst: impl AsRef<Path>
+) -> Result<(), std::io::Error> {
+    let src = src.as_ref();
+    let dst = dst.as_ref();
+    execte_src_to_dst_operation(
+        src, dst,
+        &|dst| {std::fs::create_dir(dst)?; Ok(())},
+        &|_src, dst| {OpenOptions::new().create_new(true).write(true).open(dst)?; Ok(())},
+    )
+}
+
 fn parse_uri_path(absolute_file_path: impl AsRef<Path>) -> String {
     let file_path_chars = absolute_file_path.as_ref().to_str().unwrap().chars();
     let url: String = "file://".chars().chain(file_path_chars).collect();
     return url::Url::parse(&url).unwrap().to_file_path().unwrap().to_str().unwrap().into();
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Debug)]
 enum TrashValidity {
     Valid,
     InvalidSymlink,
@@ -348,7 +474,8 @@ fn home_trash() -> Result<PathBuf, Error> {
             let data_home_path = AsRef::<Path>::as_ref(data_home.as_os_str());
             return Ok(data_home_path.join("Trash").into());
         }
-    } else if let Some(home) = std::env::var_os("HOME") {
+    }
+    if let Some(home) = std::env::var_os("HOME") {
         if home.len() > 0 {
             let home_path = AsRef::<Path>::as_ref(home.as_os_str());
             return Ok(home_path.join(".local/share/Trash").into());
@@ -399,102 +526,4 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         panic!();
     }
     Ok(result)
-}
-
-#[derive(PartialEq)]
-enum DesktopEnvironment {
-    Other,
-    Cinnamon,
-    Gnome,
-    // KDE3, KDE4 and KDE5 are sufficiently different that we count
-    // them as different desktop environments here.
-    Kde3,
-    Kde4,
-    Kde5,
-    Pantheon,
-    Unity,
-    Xfce,
-}
-
-fn env_has_var(name: &str) -> bool {
-    env::var_os(name).is_some()
-}
-
-/// See: https://chromium.googlesource.com/chromium/src/+/dd407d416fa941c04e33d81f2b1d8cab8196b633/base/nix/xdg_util.cc#57
-fn get_desktop_environment() -> DesktopEnvironment {
-    static KDE_SESSION_ENV_VAR: &str = "KDE_SESSION_VERSION";
-    // XDG_CURRENT_DESKTOP is the newest standard circa 2012.
-    if let Ok(xdg_current_desktop) = env::var("XDG_CURRENT_DESKTOP") {
-        // It could have multiple values separated by colon in priority order.
-        for value in xdg_current_desktop.split(":") {
-            let value = value.trim();
-            if value.len() == 0 {
-                continue;
-            }
-            if value == "Unity" {
-                // gnome-fallback sessions set XDG_CURRENT_DESKTOP to Unity
-                // DESKTOP_SESSION can be gnome-fallback or gnome-fallback-compiz
-                if let Ok(desktop_session) = env::var("DESKTOP_SESSION") {
-                    if desktop_session.find("gnome-fallback").is_some() {
-                        return DesktopEnvironment::Gnome;
-                    }
-                }
-                return DesktopEnvironment::Unity;
-            }
-            if value == "GNOME" {
-                return DesktopEnvironment::Gnome;
-            }
-            if value == "X-Cinnamon" {
-                return DesktopEnvironment::Cinnamon;
-            }
-            if value == "KDE" {
-                if let Ok(kde_session) = env::var(KDE_SESSION_ENV_VAR) {
-                    if kde_session == "5" {
-                        return DesktopEnvironment::Kde5;
-                    }
-                }
-                return DesktopEnvironment::Kde4;
-            }
-            if value == "Pantheon" {
-                return DesktopEnvironment::Pantheon;
-            }
-            if value == "XFCE" {
-                return DesktopEnvironment::Xfce;
-            }
-        }
-    }
-
-    // DESKTOP_SESSION was what everyone  used in 2010.
-    if let Ok(desktop_session) = env::var("DESKTOP_SESSION") {
-        if desktop_session == "gnome" || desktop_session == "mate" {
-            return DesktopEnvironment::Gnome;
-        }
-        if desktop_session == "kde4" || desktop_session == "kde-plasma" {
-            return DesktopEnvironment::Kde4;
-        }
-        if desktop_session == "kde" {
-            // This may mean KDE4 on newer systems, so we have to check.
-            if env_has_var(KDE_SESSION_ENV_VAR) {
-                return DesktopEnvironment::Kde4;
-            }
-            return DesktopEnvironment::Kde3;
-        }
-        if desktop_session.find("xfce").is_some() || desktop_session == "xubuntu" {
-            return DesktopEnvironment::Xfce;
-        }
-    }
-
-    // Fall back on some older environment variables.
-    // Useful particularly in the DESKTOP_SESSION=default case.
-    if env_has_var("GNOME_DESKTOP_SESSION_ID") {
-        return DesktopEnvironment::Gnome;
-    }
-    if env_has_var("KDE_FULL_SESSION") {
-        if env_has_var(KDE_SESSION_ENV_VAR) {
-            return DesktopEnvironment::Kde4;
-        }
-        return DesktopEnvironment::Kde3;
-    }
-
-    return DesktopEnvironment::Other;
 }
