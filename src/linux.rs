@@ -11,18 +11,15 @@ use std::env;
 use std::ffi::OsString;
 use std::ffi::{CStr, CString};
 use std::fs::{File, OpenOptions};
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use chrono;
 use libc;
 use scopeguard::defer;
 
 use crate::{Error, ErrorKind, TrashItem};
-
-static DEFAULT_TRASH: &str = "gio";
 
 /// This is based on the electron library's implementation.
 /// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
@@ -53,7 +50,7 @@ where
     let root = Path::new("/");
     let home_trash = home_trash()?;
     let mount_points = get_mount_points()?;
-        
+
     for path in full_paths {
         let mut topdir = None;
         for mount_point in mount_points.iter() {
@@ -336,33 +333,50 @@ fn move_to_trash(src: impl AsRef<Path>, trash_folder: impl AsRef<Path>) -> Resul
             filename.to_str().unwrap().into()
         };
         let info_name = format!("{}.trashinfo", in_trash_name);
-        let path = info.join(&info_name);
-        let info_result = OpenOptions::new().create_new(true).write(true).open(&path);
+        let info_file_path = info.join(&info_name);
+        let info_result = OpenOptions::new().create_new(true).write(true).open(&info_file_path);
         match info_result {
             Err(error) => {
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
-                    return Err(Error::new(ErrorKind::Filesystem {
-                        path: path.into()
-                    }, Box::new(error)));
+                    return Err(Error::new(
+                        ErrorKind::Filesystem { path: info_file_path.into() },
+                        Box::new(error),
+                    ));
                 }
             }
-            Ok(_) => {
-                // Do something
+            Ok(mut file) => {
+                // Write the info file before actually moving anything
+                let now = chrono::Local::now();
+                writeln!(file, "[Trash Info]")
+                    .and_then(|_| {
+                        writeln!(file, "Path={}", encode_uri_path(src)).and_then(|_| {
+                            writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
+                        })
+                    })
+                    .map_err(|e| {
+                        Error::new(
+                            ErrorKind::Filesystem { path: info_file_path.clone() },
+                            Box::new(e),
+                        )
+                    })?;
             }
         }
         let path = files.join(&in_trash_name);
         match move_items_no_replace(src, &path) {
             Err(error) => {
+                // Try to delete the info file but in case it fails, we don't care.
+                let _ = std::fs::remove_file(info_file_path);
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
-                    return Err(Error::new(ErrorKind::Filesystem {
-                        path: path.into()
-                    }, Box::new(error)));
+                    return Err(Error::new(
+                        ErrorKind::Filesystem { path: path.into() },
+                        Box::new(error),
+                    ));
                 }
-            },
+            }
             Ok(_) => {
                 // We did it!
                 break;
@@ -378,7 +392,7 @@ fn execte_src_to_dst_operation<S1, D1>(
     dst: D1,
     dir: &'static dyn Fn(&Path) -> Result<(), std::io::Error>,
     file: &'static dyn Fn(&Path, &Path) -> Result<(), std::io::Error>,
-) -> Result<(), std::io::Error> 
+) -> Result<(), std::io::Error>
 where
     S1: AsRef<Path>,
     D1: AsRef<Path>,
@@ -396,11 +410,10 @@ where
             let entry = entry?;
             let entry_src = entry.path();
             let entry_dst = dst.join(entry.file_name());
-            execte_src_to_dst_operation(
-                entry_src, entry_dst, dir, file
-            )?;
+            execte_src_to_dst_operation(entry_src, entry_dst, dir, file)?;
         }
-    } else { // Symlink or file
+    } else {
+        // Symlink or file
         file(&src, &dst)?;
     }
     Ok(())
@@ -409,35 +422,49 @@ where
 /// An error means that a collision was found.
 fn move_items_no_replace(
     src: impl AsRef<Path>,
-    dst: impl AsRef<Path>
+    dst: impl AsRef<Path>,
 ) -> Result<(), std::io::Error> {
     let src = src.as_ref();
     let dst = dst.as_ref();
-    try_create_placeholders(src, dst)?;
+
+    try_creating_placeholders(src, dst)?;
 
     // All placeholders are in place. LET'S OVERWRITE
-    execte_src_to_dst_operation(
-        src, dst, &|_| {Ok(())}, &|src, dst| {std::fs::rename(src, dst)}
-    )
+    execte_src_to_dst_operation(src, dst, &|_| Ok(()), &|src, dst| std::fs::rename(src, dst))?;
+
+    // Once everything is moved, lets recursively remove the directory
+    if src.is_dir() {
+        std::fs::remove_dir_all(src)?;
+    }
+    Ok(())
 }
 
-fn try_create_placeholders(
+fn try_creating_placeholders(
     src: impl AsRef<Path>,
-    dst: impl AsRef<Path>
+    dst: impl AsRef<Path>,
 ) -> Result<(), std::io::Error> {
     let src = src.as_ref();
     let dst = dst.as_ref();
-    execte_src_to_dst_operation(
-        src, dst,
-        &|dst| {std::fs::create_dir(dst)?; Ok(())},
-        &|_src, dst| {OpenOptions::new().create_new(true).write(true).open(dst)?; Ok(())},
-    )
+    let metadata = src.symlink_metadata()?;
+    if metadata.is_dir() {
+        // NOTE create_dir fails if the directory already exists
+        std::fs::create_dir(dst)?;
+    } else {
+        // Symlink or file
+        OpenOptions::new().create_new(true).write(true).open(dst)?;
+    }
+    Ok(())
 }
 
 fn parse_uri_path(absolute_file_path: impl AsRef<Path>) -> String {
     let file_path_chars = absolute_file_path.as_ref().to_str().unwrap().chars();
     let url: String = "file://".chars().chain(file_path_chars).collect();
     return url::Url::parse(&url).unwrap().to_file_path().unwrap().to_str().unwrap().into();
+}
+
+fn encode_uri_path(absolute_file_path: impl AsRef<Path>) -> String {
+    let url = url::Url::from_file_path(absolute_file_path.as_ref()).unwrap();
+    url.path().to_owned()
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -512,9 +539,13 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         if mntent == std::ptr::null_mut() {
             break;
         }
+        let dir = unsafe { CStr::from_ptr((*mntent).mnt_dir).to_str().unwrap() };
+        if dir.bytes().len() == 0 {
+            continue;
+        }
         let mount_point = unsafe {
             MountPoint {
-                mnt_dir: CStr::from_ptr((*mntent).mnt_dir).to_str().unwrap().into(),
+                mnt_dir: dir.into(),
                 _mnt_fsname: CStr::from_ptr((*mntent).mnt_fsname).to_str().unwrap().into(),
                 _mnt_type: CStr::from_ptr((*mntent).mnt_type).to_str().unwrap().into(),
             }
