@@ -7,8 +7,6 @@
 //!
 
 use std::collections::HashSet;
-use std::env;
-use std::ffi::OsString;
 use std::ffi::{CStr, CString};
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
@@ -21,16 +19,11 @@ use scopeguard::defer;
 
 use crate::{Error, ErrorKind, TrashItem};
 
-/// This is based on the electron library's implementation.
-/// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
 pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = T>,
     T: AsRef<Path>,
 {
-    // TODO reimplement this
-    //unimplemented!();
-
     let paths = paths.into_iter();
     let full_paths = paths
         .map(|x| {
@@ -40,17 +33,10 @@ where
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    // Get topfolder, get the appropriate trash folder for the specified topfolder.
-
-    // See if there's another file with the same name already in the trash, if there is
-    // see if there's one with "name.2" and so on and so forth
-
-    // Create the file and do the same with the infofile
-
     let root = Path::new("/");
     let home_trash = home_trash()?;
     let mount_points = get_mount_points()?;
-
+    let uid = unsafe { libc::getuid() };
     for path in full_paths {
         let mut topdir = None;
         for mount_point in mount_points.iter() {
@@ -66,12 +52,9 @@ where
         if topdir == root {
             move_to_trash(path, &home_trash)?;
         } else {
-            // TODO Find the appropriate trash folder on this partition/device
-            // 1, .Trash/uid
-            // 2, .Trash-uid
-            // If none exists, then crate the second one I guess.
-            //move_to_trash(path, );
-            unimplemented!();
+            execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
+                move_to_trash(&path, trash_path)
+            })?;
         }
     }
     Ok(())
@@ -96,39 +79,23 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             home_error = Some(e);
         }
     }
-
     // Get all mountpoints and attemt to find a trash folder in each adding them to the SET of
     // trash folders when found one.
     let uid = unsafe { libc::getuid() };
     let mount_points = get_mount_points()?;
     for mount in mount_points.into_iter() {
-        // See if there's a ".Trash" directory at the mounted location
-        let trash_path = mount.mnt_dir.join("/.Trash");
-        if trash_path.exists() && trash_path.is_dir() {
-            // TODO Report invalidity to the user.
-            if folder_validity(&trash_path)? == TrashValidity::Valid {
-                let users_trash_path = trash_path.join(uid.to_string());
-                if users_trash_path.exists() && trash_path.is_dir() {
-                    trash_folders.insert(users_trash_path.into());
-                }
-            }
-        }
-        // See if there's a ".Trash-$UID" directory at the mounted location
-        let trash_path = mount.mnt_dir.join(format!(".Trash-{}", uid));
-        if trash_path.exists() && trash_path.is_dir() {
-            trash_folders.insert(trash_path.into());
-        }
+        execute_on_mounted_trash_folders(uid, &mount.mnt_dir, false, false, |trash_path| {
+            trash_folders.insert(trash_path);
+            Ok(())
+        })?;
     }
-
     if trash_folders.len() == 0 {
+        // TODO make this a watning
         return Err(home_error.unwrap());
     }
-
-    // List all items from the SET of trash folders
+    // List all items from the set of trash folders
     let mut result = Vec::new();
-    for folder in trash_folders.into_iter() {
-        // List all items from this trash folder
-
+    for folder in trash_folders.iter() {
         // Read the info files for every file
         let trash_folder_parent = folder.parent().unwrap();
         let info_folder = folder.join("info");
@@ -298,6 +265,58 @@ where
         std::fs::remove_file(info_file).map_err(|e| {
             Error::new(ErrorKind::Filesystem { path: info_file.into() }, Box::new(e))
         })?;
+    }
+    Ok(())
+}
+
+/// According to the specification (see at the top of the file) there can be are two kinds of
+/// trash-folders for a mounted drive or partition.
+/// 1, .Trash/uid
+/// 2, .Trash-uid
+/// 
+/// This function executes `op` providing it with a
+/// trash-folder path that's associated with the partition mounted at `topdir`.
+///
+/// Returns Ok(true) if any of the trash folders were found. Returns Ok(false) otherwise.
+fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
+    uid: u32,
+    topdir: impl AsRef<Path>,
+    first_only: bool,
+    create_folder: bool,
+    mut op: F,
+) -> Result<(), Error> {
+    let topdir = topdir.as_ref();
+    // See if there's a ".Trash" directory at the mounted location
+    let trash_path = topdir.join(".Trash");
+    if trash_path.exists() && trash_path.is_dir() {
+        // TODO Report invalidity to the user.
+        if folder_validity(&trash_path)? == TrashValidity::Valid {
+            let users_trash_path = trash_path.join(uid.to_string());
+            if users_trash_path.exists() && users_trash_path.is_dir() {
+                op(users_trash_path)?;
+                if first_only {
+                    return Ok(());
+                }
+            }
+        }
+    }
+    // See if there's a ".Trash-$UID" directory at the mounted location
+    let trash_path = topdir.join(format!(".Trash-{}", uid));
+    let should_execute;
+    if !trash_path.exists() || !trash_path.is_dir() {
+        if create_folder {
+            std::fs::create_dir(&trash_path).map_err(|e| {
+                Error::new(ErrorKind::Filesystem { path: trash_path.clone() }, Box::new(e))
+            })?;
+            should_execute = true;
+        } else {
+            should_execute = false;
+        }
+    } else {
+        should_execute = true;
+    }
+    if should_execute {
+        op(trash_path)?;
     }
     Ok(())
 }
