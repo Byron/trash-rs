@@ -19,6 +19,12 @@ use scopeguard::defer;
 
 use crate::{Error, ErrorKind, TrashItem};
 
+macro_rules! debug_line {
+    () => {
+        eprintln!("{}:{}", file!(), line!());
+    };
+}
+
 pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = T>,
@@ -50,10 +56,17 @@ where
         }
         let topdir = if let Some(t) = topdir { t } else { root };
         if topdir == root {
-            move_to_trash(path, &home_trash)?;
+            // The home trash may not exist yet.
+            // Let's just create it in that case.
+            if home_trash.exists() == false {
+                std::fs::create_dir_all(&home_trash).map_err(|e| {
+                    Error::new(ErrorKind::Filesystem { path: home_trash.clone() }, Box::new(e))
+                })?;
+            }
+            move_to_trash(path, &home_trash, topdir)?;
         } else {
             execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
-                move_to_trash(&path, trash_path)
+                move_to_trash(&path, trash_path, topdir)
             })?;
         }
     }
@@ -66,7 +79,7 @@ pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
 
 pub fn list() -> Result<Vec<TrashItem>, Error> {
     let mut trash_folders = HashSet::new();
-
+    debug_line!();
     // Get home trash folder and add it to the set of trash folders.
     // It may not exist and that's completely fine as long as there are other trash folders.
     let home_error;
@@ -79,16 +92,19 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             home_error = Some(e);
         }
     }
+    debug_line!();
     // Get all mountpoints and attemt to find a trash folder in each adding them to the SET of
     // trash folders when found one.
     let uid = unsafe { libc::getuid() };
     let mount_points = get_mount_points()?;
+    debug_line!();
     for mount in mount_points.into_iter() {
         execute_on_mounted_trash_folders(uid, &mount.mnt_dir, false, false, |trash_path| {
             trash_folders.insert(trash_path);
             Ok(())
         })?;
     }
+    debug_line!();
     if trash_folders.len() == 0 {
         // TODO make this a watning
         return Err(home_error.unwrap());
@@ -96,12 +112,14 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     // List all items from the set of trash folders
     let mut result = Vec::new();
     for folder in trash_folders.iter() {
+        debug_line!();
         // Read the info files for every file
         let trash_folder_parent = folder.parent().unwrap();
         let info_folder = folder.join("info");
         let read_dir = std::fs::read_dir(&info_folder).map_err(|e| {
             Error::new(ErrorKind::Filesystem { path: info_folder.clone() }, Box::new(e))
         })?;
+        debug_line!();
         for entry in read_dir {
             let info_entry;
             if let Ok(entry) = entry {
@@ -273,7 +291,7 @@ where
 /// trash-folders for a mounted drive or partition.
 /// 1, .Trash/uid
 /// 2, .Trash-uid
-/// 
+///
 /// This function executes `op` providing it with a
 /// trash-folder path that's associated with the partition mounted at `topdir`.
 ///
@@ -286,14 +304,19 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     mut op: F,
 ) -> Result<(), Error> {
     let topdir = topdir.as_ref();
+    debug_line!();
     // See if there's a ".Trash" directory at the mounted location
     let trash_path = topdir.join(".Trash");
     if trash_path.exists() && trash_path.is_dir() {
+        debug_line!();
         // TODO Report invalidity to the user.
         if folder_validity(&trash_path)? == TrashValidity::Valid {
+            debug_line!();
             let users_trash_path = trash_path.join(uid.to_string());
             if users_trash_path.exists() && users_trash_path.is_dir() {
+                debug_line!();
                 op(users_trash_path)?;
+                debug_line!();
                 if first_only {
                     return Ok(());
                 }
@@ -303,11 +326,15 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     // See if there's a ".Trash-$UID" directory at the mounted location
     let trash_path = topdir.join(format!(".Trash-{}", uid));
     let should_execute;
+    debug_line!();
     if !trash_path.exists() || !trash_path.is_dir() {
+        debug_line!();
         if create_folder {
+            debug_line!();
             std::fs::create_dir(&trash_path).map_err(|e| {
                 Error::new(ErrorKind::Filesystem { path: trash_path.clone() }, Box::new(e))
             })?;
+            debug_line!();
             should_execute = true;
         } else {
             should_execute = false;
@@ -316,15 +343,22 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
         should_execute = true;
     }
     if should_execute {
+        debug_line!();
         op(trash_path)?;
+        debug_line!();
     }
     Ok(())
 }
 
-fn move_to_trash(src: impl AsRef<Path>, trash_folder: impl AsRef<Path>) -> Result<(), Error> {
+fn move_to_trash(
+    src: impl AsRef<Path>,
+    trash_folder: impl AsRef<Path>,
+    topdir: impl AsRef<Path>,
+) -> Result<(), Error> {
     let src = src.as_ref();
     let trash_folder = trash_folder.as_ref();
-
+    let topdir = topdir.as_ref();
+    let root = Path::new("/");
     let files = trash_folder.join("files");
     let info = trash_folder.join("info");
     // This kind of validity must only apply ot administrator style trash folders
@@ -359,6 +393,7 @@ fn move_to_trash(src: impl AsRef<Path>, trash_folder: impl AsRef<Path>) -> Resul
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
+                    debug_line!();
                     return Err(Error::new(
                         ErrorKind::Filesystem { path: info_file_path.into() },
                         Box::new(error),
@@ -370,7 +405,17 @@ fn move_to_trash(src: impl AsRef<Path>, trash_folder: impl AsRef<Path>) -> Resul
                 let now = chrono::Local::now();
                 writeln!(file, "[Trash Info]")
                     .and_then(|_| {
-                        writeln!(file, "Path={}", encode_uri_path(src)).and_then(|_| {
+                        // TODO The path has to be relative to the topdir.
+                        let absolute_uri = encode_uri_path(src);
+                        let topdir_uri = encode_uri_path(topdir);
+                        let relative_untrimmed = absolute_uri
+                            .chars()
+                            .skip(topdir_uri.chars().count())
+                            .collect::<String>();
+                        let relative_uri = relative_untrimmed.trim_start_matches('/');
+                        let path =
+                            if topdir == root { absolute_uri.as_str() } else { relative_uri };
+                        writeln!(file, "Path={}", path).and_then(|_| {
                             writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
                         })
                     })
