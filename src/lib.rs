@@ -99,6 +99,14 @@ pub enum ErrorKind {
     /// obtained with `HRESULT_FROM_WIN32(GetLastError())`
     PlatformApi { function_name: &'static str, code: Option<i32> },
 
+    /// This is a Linux specific Error that occures when neither '/proc/mounts' nor '/etc/mtab'
+    /// could be opened. This may happen during `remove`, `remove_all`, or `list`
+    CantOpenMountPointsFile,
+
+    /// This is a Linux specific Error that occurs when a mount points file could be opened
+    /// but the very first call to `getmntent` returned NULL.
+    ZeroMountPointsFound,
+
     /// Error while canonicalizing path.
     ///
     /// The `source()` function of the `Error` will return a reference to an `std::io::Error`.
@@ -106,18 +114,6 @@ pub enum ErrorKind {
         /// Path that triggered the error.
         original: PathBuf,
     },
-
-    ///
-    /// NOTE: THIS ERROR WAS REMOVED
-    /// The reason for this is that it provides vauge information of the circumstances
-    /// that caused the error. The user would've had to look into the source of the library
-    /// to understand when this error is produced.
-    ///
-    /// Error while performing the remove operation.
-    /// `code` contains a raw os error code if accessible.
-    // Remove {
-    //     code: Option<i32>,
-    // },
 
     /// Error while converting an OsString to a String.
     ///

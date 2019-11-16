@@ -101,7 +101,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         })?;
     }
     if trash_folders.len() == 0 {
-        // TODO make this a watning
+        // TODO make this a warning
         return Err(home_error.unwrap());
     }
     // List all items from the set of trash folders
@@ -604,8 +604,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         file = unsafe { libc::fopen(mtab_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
     }
     if file == std::ptr::null_mut() {
-        // TODO ADD ERROR FOR WHEN NO MONTPOINTS FILE WAS FOUND
-        panic!();
+        return Err(Error::kind_only(ErrorKind::CantOpenMountPointsFile));
     }
     defer! {{ unsafe { libc::fclose(file); } }}
     let mut result = Vec::new();
@@ -628,8 +627,9 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         result.push(mount_point);
     }
     if result.len() == 0 {
-        // TODO add Error for when no mountpoints were found
-        panic!();
+        // If the mountpoints file could be opened but no mountpoints are found
+        // there possibly is a serious issue
+        return Err(Error::kind_only(ErrorKind::ZeroMountPointsFound));
     }
     Ok(result)
 }
