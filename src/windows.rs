@@ -82,7 +82,7 @@ where
     let full_paths = paths
         .map(|x| {
             x.as_ref().canonicalize().map_err(|e| {
-                Error::new(ErrorKind::CanonicalizePath {original: x.as_ref().into()}, Box::new(e))
+                Error::new(ErrorKind::CanonicalizePath { original: x.as_ref().into() }, Box::new(e))
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -113,14 +113,16 @@ where
         lpszProgressTitle: std::ptr::null(),
     };
 
-    let result = unsafe { return_err_on_fail!{
-        SHFileOperationW(&mut fileop as *mut SHFILEOPSTRUCTW)
-    }};
+    let result = unsafe {
+        return_err_on_fail! {
+            SHFileOperationW(&mut fileop as *mut SHFILEOPSTRUCTW)
+        }
+    };
 
     if result == S_OK {
         Ok(())
     } else {
-        Err(Error::kind_only(ErrorKind::PlatformApi{
+        Err(Error::kind_only(ErrorKind::PlatformApi {
             function_name: "SHFileOperationW",
             code: Some(result),
         }))
@@ -152,7 +154,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             )
         };
         if hr != S_OK {
-            return Err(Error::kind_only(ErrorKind::PlatformApi{
+            return Err(Error::kind_only(ErrorKind::PlatformApi {
                 function_name: "EnumObjects",
                 code: Some(hr),
             }));
@@ -171,11 +173,9 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
 
             item_vec.push(TrashItem {
                 id,
-                name: name
-                    .into_string()
-                    .map_err(|original| 
-                        Error::kind_only( ErrorKind::ConvertOsString { original })
-                    )?,
+                name: name.into_string().map_err(|original| {
+                    Error::kind_only(ErrorKind::ConvertOsString { original })
+                })?,
                 original_parent: PathBuf::from(orig_loc),
                 time_deleted: date_deleted,
             });
@@ -368,7 +368,7 @@ unsafe fn variant_time_to_unix_time(from: f64) -> Result<i64, Error> {
     let st = st.assume_init();
     let mut ft = MaybeUninit::<FILETIME>::uninit();
     if SystemTimeToFileTime(&st, ft.as_mut_ptr()) == 0 {
-        return Err(Error::kind_only(ErrorKind::PlatformApi{
+        return Err(Error::kind_only(ErrorKind::PlatformApi {
             function_name: "SystemTimeToFileTime",
             code: Some(HRESULT_FROM_WIN32(GetLastError())),
         }));
@@ -499,11 +499,7 @@ DEFINE_GUID! {
 const PID_DISPLACED_FROM: DWORD = 2;
 const PID_DISPLACED_DATE: DWORD = 3;
 
-const SCID_ORIGINAL_LOCATION: SHCOLUMNID = SHCOLUMNID {
-    fmtid: PSGUID_DISPLACED,
-    pid: PID_DISPLACED_FROM,
-};
-const SCID_DATE_DELETED: SHCOLUMNID = SHCOLUMNID {
-    fmtid: PSGUID_DISPLACED,
-    pid: PID_DISPLACED_DATE,
-};
+const SCID_ORIGINAL_LOCATION: SHCOLUMNID =
+    SHCOLUMNID { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_FROM };
+const SCID_DATE_DELETED: SHCOLUMNID =
+    SHCOLUMNID { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_DATE };

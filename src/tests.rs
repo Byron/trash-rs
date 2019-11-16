@@ -53,9 +53,7 @@ fn create_remove_folder_with_file() {
 fn create_multiple_remove_all() {
     let file_name_prefix = get_unique_name();
     let count: usize = 3;
-    let paths: Vec<_> = (0..count)
-        .map(|i| format!("{}#{}", file_name_prefix, i))
-        .collect();
+    let paths: Vec<_> = (0..count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
     for path in paths.iter() {
         File::create(path).unwrap();
     }
@@ -71,9 +69,8 @@ fn list() {
     let file_name_prefix = get_unique_name();
     let batches: usize = 2;
     let files_per_batch: usize = 3;
-    let names: Vec<_> = (0..files_per_batch)
-        .map(|i| format!("{}#{}", file_name_prefix, i))
-        .collect();
+    let names: Vec<_> =
+        (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
     for _ in 0..batches {
         for path in names.iter() {
             File::create(path).unwrap();
@@ -96,7 +93,10 @@ fn list() {
             map
         });
     for name in names {
-        assert_eq!(items.get(&name).unwrap().len(), batches);
+        match items.get(&name) {
+            Some(items) => assert_eq!(items.len(), batches),
+            None => panic!("ERROR Could not find '{}' in {:#?}", name, items),
+        }
     }
 
     // Let's try to purge all the items we just created but ignore any errors
@@ -109,9 +109,8 @@ fn purge() {
     let file_name_prefix = get_unique_name();
     let batches: usize = 2;
     let files_per_batch: usize = 3;
-    let names: Vec<_> = (0..files_per_batch)
-        .map(|i| format!("{}#{}", file_name_prefix, i))
-        .collect();
+    let names: Vec<_> =
+        (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
     for _ in 0..batches {
         for path in names.iter() {
             File::create(path).unwrap();
@@ -139,9 +138,7 @@ fn purge() {
 fn restore() {
     let file_name_prefix = get_unique_name();
     let file_count: usize = 3;
-    let names: Vec<_> = (0..file_count)
-        .map(|i| format!("{}#{}", file_name_prefix, i))
-        .collect();
+    let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
     for path in names.iter() {
         File::create(path).unwrap();
     }
