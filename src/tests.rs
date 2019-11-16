@@ -169,3 +169,55 @@ fn restore() {
         std::fs::remove_file(path).unwrap();
     }
 }
+
+#[test]
+fn restore_collision() {
+    let file_name_prefix = get_unique_name();
+    let file_count: usize = 3;
+    let collision_remaining = file_count - 1;
+    let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+    for path in names.iter() {
+        File::create(path).unwrap();
+    }
+    trash::remove_all(&names).unwrap();
+    for path in names.iter().skip(file_count - collision_remaining) {
+        File::create(path).unwrap();
+    }
+    let mut targets: Vec<_> = trash::list()
+        .unwrap()
+        .into_iter()
+        .filter(|x| x.name.starts_with(&file_name_prefix))
+        .collect();
+    targets.sort_by(|a, b| a.name.cmp(&b.name));
+    assert_eq!(targets.len(), file_count);
+    let mut remaining_count = 0;
+    match trash::restore_all(targets) {
+        Err(e) => match e.kind() {
+            trash::ErrorKind::RestoreCollision { remaining_items, .. } => {
+                let iter = names.iter().skip(file_count - collision_remaining).zip(remaining_items);
+                for (original, remaining) in iter {
+                    assert_eq!(original, &remaining.name);
+                    remaining_count += 1;
+                }
+            }
+            _ => panic!("{:?}", e),
+        },
+        Ok(()) => panic!(
+            "restore_all was expected to return `trash::ErrorKind::RestoreCollision` but did not."
+        ),
+    }
+    let remaining = trash::list()
+        .unwrap()
+        .into_iter()
+        .filter(|x| x.name.starts_with(&file_name_prefix))
+        .collect::<Vec<_>>();
+    assert_eq!(remaining.len(), remaining_count);
+    // They are not in the trash anymore but they should be at their original location
+    for path in names.iter().take(file_count - collision_remaining) {
+        assert!(File::open(path).is_ok());
+    }
+    trash::purge_all(remaining).unwrap();
+    for path in names.iter() {
+        std::fs::remove_file(path).unwrap();
+    }
+}

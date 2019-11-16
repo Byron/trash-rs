@@ -264,7 +264,38 @@ where
         // TODO add option to forcefully replace any target at the restore location
         // if it already exists.
         let original_path = item.original_path();
-        if original_path.exists() {
+        // Make sure the parent exists so that `create_dir` doesn't faile due to that.
+        std::fs::create_dir_all(&item.original_parent).map_err(|e| {
+            Error::new(ErrorKind::Filesystem { path: item.original_parent.clone() }, Box::new(e))
+        })?;
+        let mut collision = false;
+        if file.is_dir() {
+            // NOTE create_dir_all succeeds when the path already exist but create_dir
+            // fails with `std::io::ErrorKind::AlreadyExists`.
+            if let Err(e) = std::fs::create_dir(&original_path) {
+                if e.kind() == std::io::ErrorKind::AlreadyExists {
+                    collision = true;
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::Filesystem { path: original_path.clone() },
+                        Box::new(e),
+                    ));
+                }
+            }
+        } else {
+            // File or symlink
+            if let Err(e) = OpenOptions::new().create_new(true).write(true).open(&original_path) {
+                if e.kind() == std::io::ErrorKind::AlreadyExists {
+                    collision = true;
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::Filesystem { path: original_path.clone() },
+                        Box::new(e),
+                    ));
+                }
+            }
+        }
+        if collision {
             let remaining: Vec<_> = std::iter::once(item).chain(iter).collect();
             return Err(Error::kind_only(ErrorKind::RestoreCollision {
                 path: original_path,
@@ -386,7 +417,6 @@ fn move_to_trash(
                 let now = chrono::Local::now();
                 writeln!(file, "[Trash Info]")
                     .and_then(|_| {
-                        // TODO The path has to be relative to the topdir.
                         let absolute_uri = encode_uri_path(src);
                         let topdir_uri = encode_uri_path(topdir);
                         let relative_untrimmed = absolute_uri
@@ -554,7 +584,7 @@ fn home_trash() -> Result<PathBuf, Error> {
         }
     }
 
-    panic!("TODO add error kind for when the home trash is not found.");
+    panic!("Neither the XDG_DATA_HOME nor the HOME environment variable was found");
 }
 
 struct MountPoint {

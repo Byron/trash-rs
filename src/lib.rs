@@ -139,9 +139,9 @@ pub enum ErrorKind {
     /// This kind of error happens when a trash item's original parent already contains an item with
     /// the same name and type (file or folder). In this case an error is produced and the
     /// restoration of the files is halted meaning that there may be files that could be restored
-    /// but left in the trash due to the error.
+    /// but were left in the trash due to the error.
     ///
-    /// `path`: The path of the file's blocking the trash item from being restored.
+    /// `path`: The path of the file that's blocking the trash item from being restored.
     /// `remaining_items`: All items that were not restored in the order they were provided,
     /// starting with the item that triggered the error.
     RestoreCollision { path: PathBuf, remaining_items: Vec<TrashItem> },
@@ -203,6 +203,8 @@ impl Hash for TrashItem {
 }
 
 /// Returns all `TrashItem`s that are currently in the trash.
+///
+/// The items are in no particular order and must be sorted when any kind of ordering is required.
 pub fn list() -> Result<Vec<TrashItem>, Error> {
     platform::list()
 }
@@ -223,7 +225,7 @@ where
 ///
 /// It may be the case that when restoring a file or a folder, the `original_path` already has
 /// a new item with the same name. When such a collision happens this function returns a
-///
+/// `RestoreCollision` kind of Error.
 pub fn restore_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
