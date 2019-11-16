@@ -19,12 +19,6 @@ use scopeguard::defer;
 
 use crate::{Error, ErrorKind, TrashItem};
 
-macro_rules! debug_line {
-    () => {
-        eprintln!("{}:{}", file!(), line!());
-    };
-}
-
 pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = T>,
@@ -84,7 +78,6 @@ pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
 
 pub fn list() -> Result<Vec<TrashItem>, Error> {
     let mut trash_folders = HashSet::new();
-    debug_line!();
     // Get home trash folder and add it to the set of trash folders.
     // It may not exist and that's completely fine as long as there are other trash folders.
     let home_error;
@@ -97,19 +90,16 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             home_error = Some(e);
         }
     }
-    debug_line!();
     // Get all mountpoints and attemt to find a trash folder in each adding them to the SET of
     // trash folders when found one.
     let uid = unsafe { libc::getuid() };
     let mount_points = get_mount_points()?;
-    debug_line!();
     for mount in mount_points.into_iter() {
         execute_on_mounted_trash_folders(uid, &mount.mnt_dir, false, false, |trash_path| {
             trash_folders.insert(trash_path);
             Ok(())
         })?;
     }
-    debug_line!();
     if trash_folders.len() == 0 {
         // TODO make this a watning
         return Err(home_error.unwrap());
@@ -117,14 +107,12 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     // List all items from the set of trash folders
     let mut result = Vec::new();
     for folder in trash_folders.iter() {
-        debug_line!();
         // Read the info files for every file
         let trash_folder_parent = folder.parent().unwrap();
         let info_folder = folder.join("info");
         let read_dir = std::fs::read_dir(&info_folder).map_err(|e| {
             Error::new(ErrorKind::Filesystem { path: info_folder.clone() }, Box::new(e))
         })?;
-        debug_line!();
         for entry in read_dir {
             let info_entry;
             if let Ok(entry) = entry {
@@ -309,19 +297,14 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     mut op: F,
 ) -> Result<(), Error> {
     let topdir = topdir.as_ref();
-    debug_line!();
     // See if there's a ".Trash" directory at the mounted location
     let trash_path = topdir.join(".Trash");
     if trash_path.exists() && trash_path.is_dir() {
-        debug_line!();
         // TODO Report invalidity to the user.
         if folder_validity(&trash_path)? == TrashValidity::Valid {
-            debug_line!();
             let users_trash_path = trash_path.join(uid.to_string());
             if users_trash_path.exists() && users_trash_path.is_dir() {
-                debug_line!();
                 op(users_trash_path)?;
-                debug_line!();
                 if first_only {
                     return Ok(());
                 }
@@ -331,15 +314,11 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     // See if there's a ".Trash-$UID" directory at the mounted location
     let trash_path = topdir.join(format!(".Trash-{}", uid));
     let should_execute;
-    debug_line!();
     if !trash_path.exists() || !trash_path.is_dir() {
-        debug_line!();
         if create_folder {
-            debug_line!();
             std::fs::create_dir(&trash_path).map_err(|e| {
                 Error::new(ErrorKind::Filesystem { path: trash_path.clone() }, Box::new(e))
             })?;
-            debug_line!();
             should_execute = true;
         } else {
             should_execute = false;
@@ -348,9 +327,7 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
         should_execute = true;
     }
     if should_execute {
-        debug_line!();
         op(trash_path)?;
-        debug_line!();
     }
     Ok(())
 }
@@ -398,7 +375,6 @@ fn move_to_trash(
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
-                    debug_line!();
                     return Err(Error::new(
                         ErrorKind::Filesystem { path: info_file_path.into() },
                         Box::new(error),
