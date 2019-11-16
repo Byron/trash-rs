@@ -4,7 +4,7 @@
 
 ## About
 
-Trash is a Rust library that provides functionality to move files and folders to the operating system's Recycle Bin (or Trash or Rubbish Bin or what have you).
+Trash is a Rust library that provides functionality to move files and folders to the operating system's Recycle Bin or Trash or Rubbish Bin or what have you.
 
 The library supports Windows, Mac and Linux.
 
