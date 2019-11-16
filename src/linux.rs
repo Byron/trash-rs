@@ -59,8 +59,13 @@ where
             // The home trash may not exist yet.
             // Let's just create it in that case.
             if home_trash.exists() == false {
-                std::fs::create_dir_all(&home_trash).map_err(|e| {
-                    Error::new(ErrorKind::Filesystem { path: home_trash.clone() }, Box::new(e))
+                let info_folder = home_trash.join("info");
+                let files_folder = home_trash.join("files");
+                std::fs::create_dir_all(&info_folder).map_err(|e| {
+                    Error::new(ErrorKind::Filesystem { path: info_folder }, Box::new(e))
+                })?;
+                std::fs::create_dir_all(&files_folder).map_err(|e| {
+                    Error::new(ErrorKind::Filesystem { path: files_folder }, Box::new(e))
                 })?;
             }
             move_to_trash(path, &home_trash, topdir)?;
@@ -359,8 +364,8 @@ fn move_to_trash(
     let trash_folder = trash_folder.as_ref();
     let topdir = topdir.as_ref();
     let root = Path::new("/");
-    let files = trash_folder.join("files");
-    let info = trash_folder.join("info");
+    let files_folder = trash_folder.join("files");
+    let info_folder = trash_folder.join("info");
     // This kind of validity must only apply ot administrator style trash folders
     // See Trash directories, (1) at https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html
     //assert_eq!(folder_validity(trash_folder)?, TrashValidity::Valid);
@@ -386,7 +391,7 @@ fn move_to_trash(
             filename.to_str().unwrap().into()
         };
         let info_name = format!("{}.trashinfo", in_trash_name);
-        let info_file_path = info.join(&info_name);
+        let info_file_path = info_folder.join(&info_name);
         let info_result = OpenOptions::new().create_new(true).write(true).open(&info_file_path);
         match info_result {
             Err(error) => {
@@ -427,7 +432,7 @@ fn move_to_trash(
                     })?;
             }
         }
-        let path = files.join(&in_trash_name);
+        let path = files_folder.join(&in_trash_name);
         match move_items_no_replace(src, &path) {
             Err(error) => {
                 // Try to delete the info file but in case it fails, we don't care.
