@@ -99,14 +99,6 @@ pub enum ErrorKind {
     /// obtained with `HRESULT_FROM_WIN32(GetLastError())`
     PlatformApi { function_name: &'static str, code: Option<i32> },
 
-    /// This is a Linux specific Error that occures when neither '/proc/mounts' nor '/etc/mtab'
-    /// could be opened. This may happen during `remove`, `remove_all`, or `list`
-    CantOpenMountPointsFile,
-
-    /// This is a Linux specific Error that occurs when a mount points file could be opened
-    /// but the very first call to `getmntent` returned NULL.
-    ZeroMountPointsFound,
-
     /// Error while canonicalizing path.
     ///
     /// The `source()` function of the `Error` will return a reference to an `std::io::Error`.

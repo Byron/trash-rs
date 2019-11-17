@@ -583,7 +583,6 @@ fn home_trash() -> Result<PathBuf, Error> {
             return Ok(home_path.join(".local/share/Trash").into());
         }
     }
-
     panic!("Neither the XDG_DATA_HOME nor the HOME environment variable was found");
 }
 
@@ -604,7 +603,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         file = unsafe { libc::fopen(mtab_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
     }
     if file == std::ptr::null_mut() {
-        return Err(Error::kind_only(ErrorKind::CantOpenMountPointsFile));
+        panic!("Neither '/proc/mounts' nor '/etc/mtab' could be opened.");
     }
     defer! {{ unsafe { libc::fclose(file); } }}
     let mut result = Vec::new();
@@ -627,9 +626,9 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         result.push(mount_point);
     }
     if result.len() == 0 {
-        // If the mountpoints file could be opened but no mountpoints are found
-        // there possibly is a serious issue
-        return Err(Error::kind_only(ErrorKind::ZeroMountPointsFound));
+        panic!(
+            "A mount points file could be opened but the first call to `getmntent` returned NULL."
+        );
     }
     Ok(result)
 }
