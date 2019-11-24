@@ -47,10 +47,7 @@ where
         .map(|p| format!("POSIX file \"{}\"", p))
         .collect::<Vec<String>>()
         .join(", ");
-    let script = format!(
-        "tell application \"Finder\" to delete {{ {} }}",
-        posix_files
-    );
+    let script = format!("tell application \"Finder\" to delete {{ {} }}", posix_files);
 
     let argv: Vec<OsString> = vec!["-e".into(), script.into()];
     command.args(argv);
@@ -58,10 +55,7 @@ where
     // Execute command
     let result = command.output().map_err(|e| {
         Error::new(
-            ErrorKind::PlatformApi {
-                function_name: APPLESCRIPT,
-                code: e.raw_os_error(),
-            },
+            ErrorKind::PlatformApi { function_name: APPLESCRIPT, code: e.raw_os_error() },
             Box::new(e),
         )
     })?;
