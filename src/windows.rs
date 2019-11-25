@@ -1,4 +1,4 @@
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::mem::MaybeUninit;
 use std::ops::DerefMut;
 use std::os::windows::prelude::*;
@@ -10,8 +10,7 @@ use winapi::DEFINE_GUID;
 use winapi::{
     ctypes::{c_int, c_void},
     shared::guiddef::REFIID,
-    shared::minwindef::{DWORD, FILETIME, LPVOID, UINT},
-    shared::windef::HWND,
+    shared::minwindef::{DWORD, FILETIME, LPVOID},
     shared::winerror::{HRESULT_FROM_WIN32, SUCCEEDED, S_OK},
     shared::wtypes::{VT_BSTR, VT_DATE},
     um::combaseapi::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL},
@@ -23,25 +22,19 @@ use winapi::{
         COINIT_SPEED_OVER_MEMORY,
     },
     um::oleauto::{VariantChangeType, VariantClear, VariantTimeToSystemTime},
-    um::shellapi::{
-        SHFileOperationW, FOF_ALLOWUNDO, FOF_NO_UI, FOF_SILENT, FOF_WANTNUKEWARNING, FO_DELETE,
-        SHFILEOPSTRUCTW,
-    },
+    um::shellapi::{FOF_ALLOWUNDO, FOF_NO_UI, FOF_WANTNUKEWARNING},
     um::shlobj::CSIDL_BITBUCKET,
     um::shlwapi::StrRetToStrW,
     um::shobjidl_core::{
-        FileOperation, IContextMenu, IEnumIDList, IFileOperation, IShellFolder, IShellFolder2,
-        IShellItem, SHCreateItemWithParent, CMF_NORMAL, CMIC_MASK_FLAG_NO_UI,
-        CMINVOKECOMMANDINFOEX, SHCONTF_FOLDERS, SHCONTF_NONFOLDERS, SHGDNF, SHGDN_FORPARSING,
-        SHGDN_INFOLDER,
+        FileOperation, IEnumIDList, IFileOperation, IShellFolder, IShellFolder2, IShellItem,
+        SHCreateItemFromParsingName, SHCreateItemWithParent, FOFX_EARLYFAILURE, SHCONTF_FOLDERS,
+        SHCONTF_NONFOLDERS, SHGDNF, SHGDN_FORPARSING, SHGDN_INFOLDER,
     },
     um::shtypes::{
-        PCUITEMID_CHILD, PCUITEMID_CHILD_ARRAY, PIDLIST_ABSOLUTE, PIDLIST_RELATIVE, PITEMID_CHILD,
-        SHCOLUMNID, STRRET,
+        PCUITEMID_CHILD, PIDLIST_ABSOLUTE, PIDLIST_RELATIVE, PITEMID_CHILD, SHCOLUMNID, STRRET,
     },
     um::timezoneapi::SystemTimeToFileTime,
-    um::winnt::{PCZZWSTR, PWSTR, ULARGE_INTEGER},
-    um::winuser::{CreatePopupMenu, DestroyMenu},
+    um::winnt::{PWSTR, ULARGE_INTEGER},
     Class, Interface,
 };
 
@@ -78,6 +71,7 @@ where
     I: IntoIterator<Item = T>,
     T: AsRef<Path>,
 {
+    ensure_com_initialized();
     let paths = paths.into_iter();
     let full_paths = paths
         .map(|x| {
@@ -86,46 +80,59 @@ where
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let mut wide_paths = Vec::with_capacity(full_paths.len());
-    for path in full_paths.iter() {
-        let mut os_string = OsString::from(path);
-        os_string.push("\0");
-        let mut encode_wide = os_string.as_os_str().encode_wide();
-        // Remove the "\\?\" prefix as `SHFileOperationW` fails if such a prefix is part of the
-        // path. See: https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
-        assert_eq!(encode_wide.next(), Some('\\' as u16));
-        assert_eq!(encode_wide.next(), Some('\\' as u16));
-        assert_eq!(encode_wide.next(), Some('?' as u16));
-        assert_eq!(encode_wide.next(), Some('\\' as u16));
-        let mut wide_path: Vec<_> = encode_wide.collect();
-        wide_paths.append(&mut wide_path);
-    }
-    wide_paths.push(0); // The string has to be double zero terminated.
-
-    let mut fileop = SHFILEOPSTRUCTW {
-        hwnd: 0 as HWND,
-        wFunc: FO_DELETE as UINT,
-        pFrom: wide_paths.as_ptr() as PCZZWSTR,
-        pTo: std::ptr::null(),
-        fFlags: FOF_ALLOWUNDO | FOF_SILENT | FOF_WANTNUKEWARNING,
-        fAnyOperationsAborted: 0,
-        hNameMappings: std::ptr::null_mut(),
-        lpszProgressTitle: std::ptr::null(),
-    };
-
-    let result = unsafe {
+    unsafe {
+        let mut recycle_bin = MaybeUninit::<*mut IShellFolder2>::uninit();
+        bind_to_csidl(
+            CSIDL_BITBUCKET,
+            &IShellFolder2::uuidof() as *const _,
+            recycle_bin.as_mut_ptr() as *mut *mut c_void,
+        )?;
+        let recycle_bin = recycle_bin.assume_init();
+        defer! {{ (*recycle_bin).Release(); }}
+        // let mut pbc = MaybeUninit::<*mut IBindCtx>::uninit();
+        // return_err_on_fail! { CreateBindCtx(0, pbc.as_mut_ptr()) };
+        // let pbc = pbc.assume_init();
+        // defer! {{ (*pbc).Release(); }}
+        // (*pbc).
+        let mut pfo = MaybeUninit::<*mut IFileOperation>::uninit();
         return_err_on_fail! {
-            SHFileOperationW(&mut fileop as *mut SHFILEOPSTRUCTW)
+            CoCreateInstance(
+                &FileOperation::uuidof() as *const _,
+                std::ptr::null_mut(),
+                CLSCTX_ALL,
+                &IFileOperation::uuidof() as *const _,
+                pfo.as_mut_ptr() as *mut *mut c_void,
+            )
+        };
+        let pfo = pfo.assume_init();
+        defer! {{ (*pfo).Release(); }}
+        return_err_on_fail! { (*pfo).SetOperationFlags(
+            FOF_NO_UI as DWORD | FOF_ALLOWUNDO as DWORD | FOF_WANTNUKEWARNING as DWORD
+        )};
+        for full_path in full_paths.iter() {
+            let path_prefix = ['\\' as u16, '\\' as u16, '?' as u16, '\\' as u16];
+            let wide_path_container: Vec<_> =
+                full_path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+            let wide_path_slice = if wide_path_container.starts_with(&path_prefix) {
+                &wide_path_container[path_prefix.len()..]
+            } else {
+                &wide_path_container[0..]
+            };
+            let mut shi = MaybeUninit::<*mut IShellItem>::uninit();
+            return_err_on_fail! {
+                SHCreateItemFromParsingName(
+                    wide_path_slice.as_ptr(),
+                    std::ptr::null_mut(),
+                    &IShellItem::uuidof() as *const _,
+                    shi.as_mut_ptr() as *mut *mut c_void,
+                )
+            };
+            let shi = shi.assume_init();
+            defer! {{ (*shi).Release(); }}
+            return_err_on_fail! { (*pfo).DeleteItem(shi, std::ptr::null_mut()) };
         }
-    };
-
-    if result == S_OK {
+        return_err_on_fail! { (*pfo).PerformOperations() };
         Ok(())
-    } else {
-        Err(Error::kind_only(ErrorKind::PlatformApi {
-            function_name: "SHFileOperationW",
-            code: Some(result),
-        }))
     }
 }
 
@@ -249,7 +256,96 @@ pub fn restore_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
-    execute_verb_on_all(items.into_iter(), "undelete")
+    let items: Vec<_> = items.into_iter().collect();
+
+    // Do a quick and dirty check if the target items already exist at the location
+    // and if they do, return all of them, if they don't just go ahead with the processing
+    // without giving a damn.
+    // Note that this is not 'thread safe' meaning that if a paralell thread (or process)
+    // does this operation the exact same time or creates files or folders right after this check,
+    // then the files that would collide will not be detected and returned as part of an error.
+    // Instead Windows will display a prompt to the user whether they want to replace or skip.
+    for item in items.iter() {
+        let path = item.original_path();
+        if path.exists() {
+            return Err(Error::kind_only(ErrorKind::RestoreCollision {
+                path: path,
+                remaining_items: items.into(),
+            }));
+        }
+    }
+    ensure_com_initialized();
+    unsafe {
+        let mut recycle_bin = MaybeUninit::<*mut IShellFolder2>::uninit();
+        bind_to_csidl(
+            CSIDL_BITBUCKET,
+            &IShellFolder2::uuidof() as *const _,
+            recycle_bin.as_mut_ptr() as *mut *mut c_void,
+        )?;
+        let recycle_bin = recycle_bin.assume_init();
+        defer! {{ (*recycle_bin).Release(); }}
+        let mut pfo = MaybeUninit::<*mut IFileOperation>::uninit();
+        return_err_on_fail! {
+            CoCreateInstance(
+                &FileOperation::uuidof() as *const _,
+                std::ptr::null_mut(),
+                CLSCTX_ALL,
+                &IFileOperation::uuidof() as *const _,
+                pfo.as_mut_ptr() as *mut *mut c_void,
+            )
+        };
+        let pfo = pfo.assume_init();
+        defer! {{ (*pfo).Release(); }}
+        return_err_on_fail! { (*pfo).SetOperationFlags(FOF_NO_UI as DWORD | FOFX_EARLYFAILURE) };
+        for item in items {
+            let mut id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
+            let mut pidl = MaybeUninit::<PIDLIST_RELATIVE>::uninit();
+            return_err_on_fail! {
+                (*recycle_bin).ParseDisplayName(
+                    0 as _,
+                    std::ptr::null_mut(),
+                    id_wstr.as_mut_ptr(),
+                    std::ptr::null_mut(),
+                    pidl.as_mut_ptr(),
+                    std::ptr::null_mut(),
+                )
+            };
+            let pidl = pidl.assume_init();
+            defer! {{ CoTaskMemFree(pidl as LPVOID); }}
+            let mut trash_item_shi = MaybeUninit::<*mut IShellItem>::uninit();
+            return_err_on_fail! {
+                SHCreateItemWithParent(
+                    std::ptr::null_mut(),
+                    recycle_bin as *mut _,
+                    pidl,
+                    &IShellItem::uuidof() as *const _,
+                    trash_item_shi.as_mut_ptr() as *mut *mut c_void,
+                )
+            };
+            let trash_item_shi = trash_item_shi.assume_init();
+            defer! {{ (*trash_item_shi).Release(); }}
+            let parent_path_wide: Vec<_> =
+                item.original_parent.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+            let mut orig_folder_shi = MaybeUninit::<*mut IShellItem>::uninit();
+            return_err_on_fail! {
+                SHCreateItemFromParsingName(
+                    parent_path_wide.as_ptr(),
+                    std::ptr::null_mut(),
+                    &IShellItem::uuidof() as *const _,
+                    orig_folder_shi.as_mut_ptr() as *mut *mut c_void,
+                )
+            };
+            let orig_folder_shi = orig_folder_shi.assume_init();
+            defer! {{ (*orig_folder_shi).Release(); }}
+            let name_wstr: Vec<_> = AsRef::<OsStr>::as_ref(&item.name)
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect();
+            return_err_on_fail! { (*pfo).MoveItem(trash_item_shi, orig_folder_shi, name_wstr.as_ptr(), std::ptr::null_mut()) };
+        }
+        return_err_on_fail! { (*pfo).PerformOperations() };
+        Ok(())
+    }
 }
 
 struct CoInitializer {}
@@ -262,7 +358,7 @@ impl CoInitializer {
         } else if cfg!(coinit_apartmentthreaded) {
             init_mode |= COINIT_APARTMENTTHREADED;
         }
-        // else missing intentionaly. These flags can be combined
+        // `else` missing intentionaly. These flags can be combined.
         if cfg!(coinit_disable_ole1dde) {
             init_mode |= COINIT_DISABLE_OLE1DDE;
         }
@@ -406,94 +502,9 @@ unsafe fn get_date_unix(
     Ok(unix_time)
 }
 
-unsafe fn invoke_verb(pcm: *mut IContextMenu, verb: &'static str) -> Result<(), Error> {
-    // Recycle bin verbs:
-    // undelete
-    // cut
-    // delete
-    // properties
-    let hmenu = CreatePopupMenu();
-    if hmenu == std::ptr::null_mut() {
-        return Err(Error::kind_only(ErrorKind::PlatformApi {
-            function_name: "CreatePopupMenu",
-            code: Some(HRESULT_FROM_WIN32(GetLastError())),
-        }));
-    }
-    defer! {{ DestroyMenu(hmenu); }}
-    return_err_on_fail! {(*pcm).QueryContextMenu(hmenu, 0, 1, 0x7FFF, CMF_NORMAL)};
-    let zero_terminated_verb: Vec<_> = verb.bytes().chain(std::iter::once(0)).collect();
-    let mut info = MaybeUninit::<CMINVOKECOMMANDINFOEX>::zeroed().assume_init();
-    info.cbSize = std::mem::size_of::<CMINVOKECOMMANDINFOEX>() as u32;
-    info.lpVerb = zero_terminated_verb.as_ptr() as *const i8;
-    info.fMask = CMIC_MASK_FLAG_NO_UI;
-    return_err_on_fail! {(*pcm).InvokeCommand(&mut info as *mut _ as *mut _)};
-    Ok(())
-}
-
-fn execute_verb_on_all(
-    items: impl Iterator<Item = TrashItem>,
-    verb: &'static str,
-) -> Result<(), Error> {
-    ensure_com_initialized();
-    unsafe {
-        let mut recycle_bin = MaybeUninit::<*mut IShellFolder2>::uninit();
-        bind_to_csidl(
-            CSIDL_BITBUCKET,
-            &IShellFolder2::uuidof() as *const _,
-            recycle_bin.as_mut_ptr() as *mut *mut c_void,
-        )?;
-        let recycle_bin = recycle_bin.assume_init();
-        defer! {{ (*recycle_bin).Release(); }};
-        let mut items_pidl = scopeguard::guard(Vec::new(), |items_pidl| {
-            for &pidl in items_pidl.iter() {
-                CoTaskMemFree(pidl as LPVOID);
-            }
-        });
-        for item in items {
-            let mut id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
-            let mut pidl = MaybeUninit::<PIDLIST_RELATIVE>::uninit();
-            return_err_on_fail! {
-                (*recycle_bin).ParseDisplayName(
-                    0 as _,
-                    std::ptr::null_mut(),
-                    id_wstr.as_mut_ptr(),
-                    std::ptr::null_mut(),
-                    pidl.as_mut_ptr(),
-                    std::ptr::null_mut(),
-                )
-            };
-            items_pidl.push(pidl.assume_init());
-        }
-        if items_pidl.len() > 0 {
-            let mut pcm = MaybeUninit::<*mut IContextMenu>::uninit();
-            //IContextMenu* pcm;
-            return_err_on_fail! {
-                (*recycle_bin).GetUIObjectOf(
-                    0 as _,
-                    items_pidl.len() as u32,
-                    items_pidl.as_ptr() as PCUITEMID_CHILD_ARRAY,
-                    &IID_IContextMenu as *const _,
-                    std::ptr::null_mut(),
-                    pcm.as_mut_ptr() as *mut _
-                )
-            };
-            let pcm = pcm.assume_init();
-            defer! {{ (*pcm).Release(); }}
-            invoke_verb(pcm, verb)?;
-        }
-        Ok(())
-    }
-}
-
 DEFINE_GUID! {
     PSGUID_DISPLACED,
     0x9b174b33, 0x40ff, 0x11d2, 0xa2, 0x7e, 0x00, 0xc0, 0x4f, 0xc3, 0x8, 0x71
-}
-
-// TODO MOVE THIS TO WINAPI-RS
-DEFINE_GUID! {
-    IID_IContextMenu,
-    0x000214e4, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46
 }
 
 const PID_DISPLACED_FROM: DWORD = 2;

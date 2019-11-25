@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::ffi::OsString;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -49,6 +50,9 @@ impl Error {
     }
     pub fn kind(&self) -> &ErrorKind {
         &self.kind
+    }
+    pub fn into_kind(self) -> ErrorKind {
+        self.kind
     }
     pub fn into_source(self) -> Option<Box<dyn std::error::Error + 'static>> {
         self.source
@@ -129,10 +133,22 @@ pub enum ErrorKind {
     /// restoration of the files is halted meaning that there may be files that could be restored
     /// but were left in the trash due to the error.
     ///
+    /// One should not assume any relationship between the order that the items were supplied and
+    /// the list of remaining items. That is to say, it may be that the item that collided was in
+    /// the middle of the provided list but the remaining items' list contains all the provided
+    /// items.
+    ///
     /// `path`: The path of the file that's blocking the trash item from being restored.
     /// `remaining_items`: All items that were not restored in the order they were provided,
     /// starting with the item that triggered the error.
     RestoreCollision { path: PathBuf, remaining_items: Vec<TrashItem> },
+
+    /// This sort of error is returned when multiple items with the same `original_path` were
+    /// requested to be restored. These items are referred to as twins here.
+    ///
+    /// `path`: The `original_path` of the twins.
+    /// `items`: The complete list of items that were handed over to the `restore_all` function.
+    RestoreTwins { path: PathBuf, items: Vec<TrashItem> },
 }
 
 /// This struct holds information about a single item within the trash.
@@ -218,6 +234,29 @@ pub fn restore_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
+    // Check for twins here cause that's pretty platform independent.
+    struct ItemWrapper<'a>(&'a TrashItem);
+    impl<'a> PartialEq for ItemWrapper<'a> {
+        fn eq(&self, other: &Self) -> bool {
+            self.0.original_path() == other.0.original_path()
+        }
+    }
+    impl<'a> Eq for ItemWrapper<'a> {}
+    impl<'a> Hash for ItemWrapper<'a> {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.0.original_path().hash(state);
+        }
+    }
+    let items = items.into_iter().collect::<Vec<_>>();
+    let mut item_set = HashSet::with_capacity(items.len());
+    for item in items.iter() {
+        if !item_set.insert(ItemWrapper(item)) {
+            return Err(Error::kind_only(ErrorKind::RestoreTwins {
+                path: item.original_path(),
+                items: items,
+            }));
+        }
+    }
     platform::restore_all(items)
 }
 

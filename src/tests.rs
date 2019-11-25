@@ -190,15 +190,23 @@ fn restore_collision() {
         .collect();
     targets.sort_by(|a, b| a.name.cmp(&b.name));
     assert_eq!(targets.len(), file_count);
-    let mut remaining_count = 0;
+    let remaining_count;
     match trash::restore_all(targets) {
         Err(e) => match e.kind() {
             trash::ErrorKind::RestoreCollision { remaining_items, .. } => {
-                let iter = names.iter().skip(file_count - collision_remaining).zip(remaining_items);
-                for (original, remaining) in iter {
-                    assert_eq!(original, &remaining.name);
-                    remaining_count += 1;
+                let contains = |v: &Vec<trash::TrashItem>, name: &String| {
+                    for curr in v.iter() {
+                        if *curr.name == *name {
+                            return true;
+                        }
+                    }
+                    false
+                };
+                // Are all items that got restored, reside in the folder?
+                for path in names.iter().filter(|filename| !contains(&remaining_items, filename)) {
+                    assert!(File::open(path).is_ok());
                 }
+                remaining_count = remaining_items.len();
             }
             _ => panic!("{:?}", e),
         },
@@ -212,12 +220,49 @@ fn restore_collision() {
         .filter(|x| x.name.starts_with(&file_name_prefix))
         .collect::<Vec<_>>();
     assert_eq!(remaining.len(), remaining_count);
-    // They are not in the trash anymore but they should be at their original location
-    for path in names.iter().take(file_count - collision_remaining) {
-        assert!(File::open(path).is_ok());
-    }
     trash::purge_all(remaining).unwrap();
     for path in names.iter() {
-        std::fs::remove_file(path).unwrap();
+        // This will obviously fail on the items that both didn't collide and weren't restored.
+        let _ = std::fs::remove_file(path);
+    }
+}
+
+#[test]
+fn restore_twins() {
+    let file_name_prefix = get_unique_name();
+    let file_count: usize = 4;
+    let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+    for path in names.iter() {
+        File::create(path).unwrap();
+    }
+    trash::remove_all(&names).unwrap();
+
+    let twin_name = &names[1];
+    File::create(twin_name).unwrap();
+    trash::remove(&twin_name).unwrap();
+
+    let mut targets: Vec<_> = trash::list()
+        .unwrap()
+        .into_iter()
+        .filter(|x| x.name.starts_with(&file_name_prefix))
+        .collect();
+    targets.sort_by(|a, b| a.name.cmp(&b.name));
+    assert_eq!(targets.len(), file_count + 1); // plus one for one of the twins
+    match trash::restore_all(targets) {
+        Err(e) => match e.kind() {
+            trash::ErrorKind::RestoreTwins { path, .. } => {
+                assert_eq!(path.file_name().unwrap().to_str().unwrap(), twin_name);
+                match e.into_kind() {
+                    trash::ErrorKind::RestoreTwins { items, .. } => {
+                        trash::purge_all(items).unwrap();
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            _ => panic!("{:?}", e),
+        },
+        Ok(()) => panic!(
+            "restore_all was expected to return `trash::ErrorKind::RestoreTwins` but did not."
+        ),
     }
 }
