@@ -1,7 +1,7 @@
 use trash;
 
 fn main() {
-    let list = trash::list().unwrap();
+    let list = trash::linux_windows::list().unwrap();
 
     for item in list.iter() {
         println!("------------------------------------------------");

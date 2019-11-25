@@ -64,205 +64,214 @@ fn create_multiple_remove_all() {
     }
 }
 
-#[test]
-fn list() {
-    let file_name_prefix = get_unique_name();
-    let batches: usize = 2;
-    let files_per_batch: usize = 3;
-    let names: Vec<_> =
-        (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
-    for _ in 0..batches {
-        for path in names.iter() {
-            File::create(path).unwrap();
-        }
-        trash::remove_all(&names).unwrap();
-    }
-    let items = trash::list().unwrap();
-    let items: HashMap<_, Vec<_>> = items
-        .into_iter()
-        .filter(|x| x.name.starts_with(&file_name_prefix))
-        .fold(HashMap::new(), |mut map, x| {
-            match map.entry(x.name.clone()) {
-                Entry::Occupied(mut entry) => {
-                    entry.get_mut().push(x);
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(vec![x]);
-                }
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+mod linux_windows {
+    use super::*;
+
+    #[test]
+    fn list() {
+        let file_name_prefix = get_unique_name();
+        let batches: usize = 2;
+        let files_per_batch: usize = 3;
+        let names: Vec<_> =
+            (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        for _ in 0..batches {
+            for path in names.iter() {
+                File::create(path).unwrap();
             }
-            map
-        });
-    for name in names {
-        match items.get(&name) {
-            Some(items) => assert_eq!(items.len(), batches),
-            None => panic!("ERROR Could not find '{}' in {:#?}", name, items),
+            trash::remove_all(&names).unwrap();
         }
+        let items = trash::linux_windows::list().unwrap();
+        let items: HashMap<_, Vec<_>> = items
+            .into_iter()
+            .filter(|x| x.name.starts_with(&file_name_prefix))
+            .fold(HashMap::new(), |mut map, x| {
+                match map.entry(x.name.clone()) {
+                    Entry::Occupied(mut entry) => {
+                        entry.get_mut().push(x);
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(vec![x]);
+                    }
+                }
+                map
+            });
+        for name in names {
+            match items.get(&name) {
+                Some(items) => assert_eq!(items.len(), batches),
+                None => panic!("ERROR Could not find '{}' in {:#?}", name, items),
+            }
+        }
+
+        // Let's try to purge all the items we just created but ignore any errors
+        // as this test should succeed as long as `list` works properly.
+        let _ =
+            trash::linux_windows::purge_all(items.into_iter().map(|(_name, item)| item).flatten());
     }
 
-    // Let's try to purge all the items we just created but ignore any errors
-    // as this test should succeed as long as `list` works properly.
-    let _ = trash::purge_all(items.into_iter().map(|(_name, item)| item).flatten());
-}
+    #[test]
+    fn purge() {
+        let file_name_prefix = get_unique_name();
+        let batches: usize = 2;
+        let files_per_batch: usize = 3;
+        let names: Vec<_> =
+            (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        for _ in 0..batches {
+            for path in names.iter() {
+                File::create(path).unwrap();
+            }
+            trash::remove_all(&names).unwrap();
+        }
 
-#[test]
-fn purge() {
-    let file_name_prefix = get_unique_name();
-    let batches: usize = 2;
-    let files_per_batch: usize = 3;
-    let names: Vec<_> =
-        (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
-    for _ in 0..batches {
+        // Collect it because we need the exact number of items gathered.
+        let targets: Vec<_> = trash::linux_windows::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.starts_with(&file_name_prefix))
+            .collect();
+        assert_eq!(targets.len(), batches * files_per_batch);
+        trash::linux_windows::purge_all(targets).unwrap();
+        let remaining = trash::linux_windows::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.starts_with(&file_name_prefix))
+            .count();
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn restore() {
+        let file_name_prefix = get_unique_name();
+        let file_count: usize = 3;
+        let names: Vec<_> =
+            (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
         for path in names.iter() {
             File::create(path).unwrap();
         }
         trash::remove_all(&names).unwrap();
+
+        // Collect it because we need the exact number of items gathered.
+        let targets: Vec<_> = trash::linux_windows::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.starts_with(&file_name_prefix))
+            .collect();
+        assert_eq!(targets.len(), file_count);
+        trash::linux_windows::restore_all(targets).unwrap();
+        let remaining = trash::linux_windows::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.starts_with(&file_name_prefix))
+            .count();
+        assert_eq!(remaining, 0);
+
+        // They are not in the trash anymore but they should be at their original location
+        for path in names.iter() {
+            assert!(File::open(path).is_ok());
+        }
+
+        // Good ol' remove to clean up
+        for path in names.iter() {
+            std::fs::remove_file(path).unwrap();
+        }
     }
 
-    // Collect it because we need the exact number of items gathered.
-    let targets: Vec<_> = trash::list()
-        .unwrap()
-        .into_iter()
-        .filter(|x| x.name.starts_with(&file_name_prefix))
-        .collect();
-    assert_eq!(targets.len(), batches * files_per_batch);
-    trash::purge_all(targets).unwrap();
-    let remaining = trash::list()
-        .unwrap()
-        .into_iter()
-        .filter(|x| x.name.starts_with(&file_name_prefix))
-        .count();
-    assert_eq!(remaining, 0);
-}
-
-#[test]
-fn restore() {
-    let file_name_prefix = get_unique_name();
-    let file_count: usize = 3;
-    let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
-    for path in names.iter() {
-        File::create(path).unwrap();
-    }
-    trash::remove_all(&names).unwrap();
-
-    // Collect it because we need the exact number of items gathered.
-    let targets: Vec<_> = trash::list()
-        .unwrap()
-        .into_iter()
-        .filter(|x| x.name.starts_with(&file_name_prefix))
-        .collect();
-    assert_eq!(targets.len(), file_count);
-    trash::restore_all(targets).unwrap();
-    let remaining = trash::list()
-        .unwrap()
-        .into_iter()
-        .filter(|x| x.name.starts_with(&file_name_prefix))
-        .count();
-    assert_eq!(remaining, 0);
-
-    // They are not in the trash anymore but they should be at their original location
-    for path in names.iter() {
-        assert!(File::open(path).is_ok());
-    }
-
-    // Good ol' remove to clean up
-    for path in names.iter() {
-        std::fs::remove_file(path).unwrap();
-    }
-}
-
-#[test]
-fn restore_collision() {
-    let file_name_prefix = get_unique_name();
-    let file_count: usize = 3;
-    let collision_remaining = file_count - 1;
-    let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
-    for path in names.iter() {
-        File::create(path).unwrap();
-    }
-    trash::remove_all(&names).unwrap();
-    for path in names.iter().skip(file_count - collision_remaining) {
-        File::create(path).unwrap();
-    }
-    let mut targets: Vec<_> = trash::list()
-        .unwrap()
-        .into_iter()
-        .filter(|x| x.name.starts_with(&file_name_prefix))
-        .collect();
-    targets.sort_by(|a, b| a.name.cmp(&b.name));
-    assert_eq!(targets.len(), file_count);
-    let remaining_count;
-    match trash::restore_all(targets) {
-        Err(e) => match e.kind() {
-            trash::ErrorKind::RestoreCollision { remaining_items, .. } => {
-                let contains = |v: &Vec<trash::TrashItem>, name: &String| {
-                    for curr in v.iter() {
-                        if *curr.name == *name {
-                            return true;
+    #[test]
+    fn restore_collision() {
+        let file_name_prefix = get_unique_name();
+        let file_count: usize = 3;
+        let collision_remaining = file_count - 1;
+        let names: Vec<_> =
+            (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        for path in names.iter() {
+            File::create(path).unwrap();
+        }
+        trash::remove_all(&names).unwrap();
+        for path in names.iter().skip(file_count - collision_remaining) {
+            File::create(path).unwrap();
+        }
+        let mut targets: Vec<_> = trash::linux_windows::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.starts_with(&file_name_prefix))
+            .collect();
+        targets.sort_by(|a, b| a.name.cmp(&b.name));
+        assert_eq!(targets.len(), file_count);
+        let remaining_count;
+        match trash::linux_windows::restore_all(targets) {
+            Err(e) => match e.kind() {
+                trash::ErrorKind::RestoreCollision { remaining_items, .. } => {
+                    let contains = |v: &Vec<trash::TrashItem>, name: &String| {
+                        for curr in v.iter() {
+                            if *curr.name == *name {
+                                return true;
+                            }
                         }
+                        false
+                    };
+                    // Are all items that got restored reside in the folder?
+                    for path in names.iter().filter(|filename| !contains(&remaining_items, filename)) {
+                        assert!(File::open(path).is_ok());
                     }
-                    false
-                };
-                // Are all items that got restored, reside in the folder?
-                for path in names.iter().filter(|filename| !contains(&remaining_items, filename)) {
-                    assert!(File::open(path).is_ok());
+                    remaining_count = remaining_items.len();
                 }
-                remaining_count = remaining_items.len();
-            }
-            _ => panic!("{:?}", e),
-        },
-        Ok(()) => panic!(
-            "restore_all was expected to return `trash::ErrorKind::RestoreCollision` but did not."
-        ),
+                _ => panic!("{:?}", e),
+            },
+            Ok(()) => panic!(
+                "restore_all was expected to return `trash::ErrorKind::RestoreCollision` but did not."
+            ),
+        }
+        let remaining = trash::linux_windows::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.starts_with(&file_name_prefix))
+            .collect::<Vec<_>>();
+        assert_eq!(remaining.len(), remaining_count);
+        trash::linux_windows::purge_all(remaining).unwrap();
+        for path in names.iter() {
+            // This will obviously fail on the items that both didn't collide and weren't restored.
+            let _ = std::fs::remove_file(path);
+        }
     }
-    let remaining = trash::list()
-        .unwrap()
-        .into_iter()
-        .filter(|x| x.name.starts_with(&file_name_prefix))
-        .collect::<Vec<_>>();
-    assert_eq!(remaining.len(), remaining_count);
-    trash::purge_all(remaining).unwrap();
-    for path in names.iter() {
-        // This will obviously fail on the items that both didn't collide and weren't restored.
-        let _ = std::fs::remove_file(path);
-    }
-}
 
-#[test]
-fn restore_twins() {
-    let file_name_prefix = get_unique_name();
-    let file_count: usize = 4;
-    let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
-    for path in names.iter() {
-        File::create(path).unwrap();
-    }
-    trash::remove_all(&names).unwrap();
+    #[test]
+    fn restore_twins() {
+        let file_name_prefix = get_unique_name();
+        let file_count: usize = 4;
+        let names: Vec<_> =
+            (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        for path in names.iter() {
+            File::create(path).unwrap();
+        }
+        trash::remove_all(&names).unwrap();
 
-    let twin_name = &names[1];
-    File::create(twin_name).unwrap();
-    trash::remove(&twin_name).unwrap();
+        let twin_name = &names[1];
+        File::create(twin_name).unwrap();
+        trash::remove(&twin_name).unwrap();
 
-    let mut targets: Vec<_> = trash::list()
-        .unwrap()
-        .into_iter()
-        .filter(|x| x.name.starts_with(&file_name_prefix))
-        .collect();
-    targets.sort_by(|a, b| a.name.cmp(&b.name));
-    assert_eq!(targets.len(), file_count + 1); // plus one for one of the twins
-    match trash::restore_all(targets) {
-        Err(e) => match e.kind() {
-            trash::ErrorKind::RestoreTwins { path, .. } => {
-                assert_eq!(path.file_name().unwrap().to_str().unwrap(), twin_name);
-                match e.into_kind() {
-                    trash::ErrorKind::RestoreTwins { items, .. } => {
-                        trash::purge_all(items).unwrap();
+        let mut targets: Vec<_> = trash::linux_windows::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.starts_with(&file_name_prefix))
+            .collect();
+        targets.sort_by(|a, b| a.name.cmp(&b.name));
+        assert_eq!(targets.len(), file_count + 1); // plus one for one of the twins
+        match trash::linux_windows::restore_all(targets) {
+            Err(e) => match e.kind() {
+                trash::ErrorKind::RestoreTwins { path, .. } => {
+                    assert_eq!(path.file_name().unwrap().to_str().unwrap(), twin_name);
+                    match e.into_kind() {
+                        trash::ErrorKind::RestoreTwins { items, .. } => {
+                            trash::linux_windows::purge_all(items).unwrap();
+                        }
+                        _ => unreachable!(),
                     }
-                    _ => unreachable!(),
                 }
-            }
-            _ => panic!("{:?}", e),
-        },
-        Ok(()) => panic!(
-            "restore_all was expected to return `trash::ErrorKind::RestoreTwins` but did not."
-        ),
+                _ => panic!("{:?}", e),
+            },
+            Ok(()) => panic!(
+                "restore_all was expected to return `trash::ErrorKind::RestoreTwins` but did not."
+            ),
+        }
     }
 }

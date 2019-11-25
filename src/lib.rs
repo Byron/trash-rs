@@ -206,60 +206,6 @@ impl Hash for TrashItem {
     }
 }
 
-/// Returns all `TrashItem`s that are currently in the trash.
-///
-/// The items are in no particular order and must be sorted when any kind of ordering is required.
-pub fn list() -> Result<Vec<TrashItem>, Error> {
-    platform::list()
-}
-
-/// Deletes all the provided items permanently.
-///
-/// This function consumes the provided `TrashItem`s.
-pub fn purge_all<I>(items: I) -> Result<(), Error>
-where
-    I: IntoIterator<Item = TrashItem>,
-{
-    platform::purge_all(items)
-}
-
-/// Restores all the provided items to their original location.
-///
-/// This function consumes the provided `TrashItem`s.
-///
-/// It may be the case that when restoring a file or a folder, the `original_path` already has
-/// a new item with the same name. When such a collision happens this function returns a
-/// `RestoreCollision` kind of Error.
-pub fn restore_all<I>(items: I) -> Result<(), Error>
-where
-    I: IntoIterator<Item = TrashItem>,
-{
-    // Check for twins here cause that's pretty platform independent.
-    struct ItemWrapper<'a>(&'a TrashItem);
-    impl<'a> PartialEq for ItemWrapper<'a> {
-        fn eq(&self, other: &Self) -> bool {
-            self.0.original_path() == other.0.original_path()
-        }
-    }
-    impl<'a> Eq for ItemWrapper<'a> {}
-    impl<'a> Hash for ItemWrapper<'a> {
-        fn hash<H: Hasher>(&self, state: &mut H) {
-            self.0.original_path().hash(state);
-        }
-    }
-    let items = items.into_iter().collect::<Vec<_>>();
-    let mut item_set = HashSet::with_capacity(items.len());
-    for item in items.iter() {
-        if !item_set.insert(ItemWrapper(item)) {
-            return Err(Error::kind_only(ErrorKind::RestoreTwins {
-                path: item.original_path(),
-                items: items,
-            }));
-        }
-    }
-    platform::restore_all(items)
-}
-
 /// Removes a single file or directory.
 ///
 /// # Example
@@ -296,4 +242,62 @@ where
     T: AsRef<Path>,
 {
     platform::remove_all(paths)
+}
+
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+pub mod linux_windows {
+    use super::*;
+    /// Returns all `TrashItem`s that are currently in the trash.
+    ///
+    /// The items are in no particular order and must be sorted when any kind of ordering is required.
+    pub fn list() -> Result<Vec<TrashItem>, Error> {
+        platform::list()
+    }
+
+    /// Deletes all the provided items permanently.
+    ///
+    /// This function consumes the provided `TrashItem`s.
+    pub fn purge_all<I>(items: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = TrashItem>,
+    {
+        platform::purge_all(items)
+    }
+
+    /// Restores all the provided items to their original location.
+    ///
+    /// This function consumes the provided `TrashItem`s.
+    ///
+    /// It may be the case that when restoring a file or a folder, the `original_path` already has
+    /// a new item with the same name. When such a collision happens this function returns a
+    /// `RestoreCollision` kind of Error.
+    pub fn restore_all<I>(items: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = TrashItem>,
+    {
+        // Check for twins here cause that's pretty platform independent.
+        struct ItemWrapper<'a>(&'a TrashItem);
+        impl<'a> PartialEq for ItemWrapper<'a> {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.original_path() == other.0.original_path()
+            }
+        }
+        impl<'a> Eq for ItemWrapper<'a> {}
+        impl<'a> Hash for ItemWrapper<'a> {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.0.original_path().hash(state);
+            }
+        }
+        let items = items.into_iter().collect::<Vec<_>>();
+        let mut item_set = HashSet::with_capacity(items.len());
+        for item in items.iter() {
+            if !item_set.insert(ItemWrapper(item)) {
+                return Err(Error::kind_only(ErrorKind::RestoreTwins {
+                    path: item.original_path(),
+                    items: items,
+                }));
+            }
+        }
+        platform::restore_all(items)
+    }
 }
