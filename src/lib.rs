@@ -1,3 +1,24 @@
+//! This crate provides functions that allow moving files to the operating system's Recycle Bin or
+//! Trash, or the equivalent.
+//!
+//! Furthermore on Linux and on Windows the [`list`], [`purge_all`], and [`restore_all`] functions
+//! can be used to list the contents of the trash, remove selected items permanently, and restore
+//! selected items from the trash, respectively. Unfortunately MacOS does not seem to provide the
+//! necessary APIs or tools to implement these. If you have an idea how these could be implemented
+//! on a Mac, please don't hesitate to get involved at https://github.com/ArturKovacs/trash.
+//!
+//! # Notes on the Linux implementation
+//!
+//! This library implements version 1.0 of the [Freedesktop.org Trash](https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html)
+//! specification and aims to match the behaviour of Ubuntu 18.04 in cases of ambiguity. Most if
+//! not all Linux distributions that ship with a desktop environment follow this specification.
+//! This crate blindly assumes that the Linux distribution it runs on follows this specification.
+//!
+//! [`list`]: linux_windows/fn.list.html
+//! [`purge_all`]: linux_windows/fn.purge_all.html
+//! [`restore_all`]: linux_windows/fn.restore_all.html
+//!
+
 use std::collections::HashSet;
 use std::ffi::OsString;
 use std::hash::{Hash, Hasher};
@@ -72,7 +93,8 @@ impl Error {
 /// (from `std::error::Error`) on [`Error`] will return a reference to a certain type of
 /// `std::error::Error`.
 ///
-/// For example further information can be extracted from a `CanonicalizePath` error
+/// For example further information can be extracted from a `CanonicalizePath` error as shown
+/// below.
 ///
 /// ```rust
 /// use std::error::Error;
@@ -166,8 +188,6 @@ pub struct TrashItem {
     /// `SHGDN_FORPARSING` flag.
     ///
     /// On Linux it is an absolute path to the `.trashinfo` file associated with the item.
-    ///
-    /// On MacOS ...
     pub id: OsString,
 
     /// The name of the item. For example if the folder '/home/user/New Folder' was deleted,
@@ -246,17 +266,52 @@ where
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 pub mod linux_windows {
+    //!
+    //! This module contains functions that are only available on Windows and Linux.
+    //! See the [crate description] for more.
+    //!
+    //! [crate description]: ../index.html
+    //!
+
     use super::*;
-    /// Returns all `TrashItem`s that are currently in the trash.
+
+    /// Returns all [`TrashItem`]s that are currently in the trash.
     ///
     /// The items are in no particular order and must be sorted when any kind of ordering is required.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use trash::{remove, linux_windows::list};
+    /// let trash_items = list().unwrap();
+    /// println!("{:#?}", trash_items);
+    /// ```
+    ///
+    /// [`TrashItem`]: ../struct.TrashItem.html
     pub fn list() -> Result<Vec<TrashItem>, Error> {
         platform::list()
     }
 
-    /// Deletes all the provided items permanently.
+    /// Deletes all the provided [`TrashItem`]s permanently.
     ///
-    /// This function consumes the provided `TrashItem`s.
+    /// This function consumes the provided items.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::fs::File;
+    /// use trash::{remove, linux_windows::{list, purge_all}};
+    /// let filename = "trash-purge_all-example";
+    /// File::create(filename).unwrap();
+    /// remove(filename).unwrap();
+    /// // Collect the filtered list just so that we can make sure there's exactly one element.
+    /// // There's no need to `collect` it otherwise.
+    /// let selected: Vec<_> = list().unwrap().into_iter().filter(|x| x.name == filename).collect();
+    /// assert_eq!(selected.len(), 1);
+    /// purge_all(selected).unwrap();
+    /// ```
+    ///
+    /// [`TrashItem`]: ../struct.TrashItem.html
     pub fn purge_all<I>(items: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = TrashItem>,
@@ -264,13 +319,32 @@ pub mod linux_windows {
         platform::purge_all(items)
     }
 
-    /// Restores all the provided items to their original location.
+    /// Restores all the provided [`TrashItem`] to their original location.
     ///
-    /// This function consumes the provided `TrashItem`s.
+    /// This function consumes the provided items.
+    ///
+    /// # Errors
     ///
     /// It may be the case that when restoring a file or a folder, the `original_path` already has
     /// a new item with the same name. When such a collision happens this function returns a
-    /// `RestoreCollision` kind of Error.
+    /// [`RestoreCollision`] kind of error.
+    ///
+    /// If two or more of the provided items have identical `original_path`s then a
+    /// [`RestoreTwins`] kind of error is returned.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::fs::File;
+    /// use trash::{remove, linux_windows::{list, restore_all}};
+    /// let filename = "trash-restore_all-example";
+    /// File::create(filename).unwrap();
+    /// restore_all(list().unwrap().into_iter().filter(|x| x.name == filename)).unwrap();
+    /// std::fs::remove_file(filename).unwrap();
+    /// ```
+    ///
+    /// [`RestoreCollision`]: ../enum.ErrorKind.html#variant.RestoreCollision
+    /// [`RestoreTwins`]: ../enum.ErrorKind.html#variant.RestoreTwins
     pub fn restore_all<I>(items: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = TrashItem>,

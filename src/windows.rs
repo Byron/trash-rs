@@ -218,7 +218,9 @@ where
         let pfo = pfo.assume_init();
         defer! {{ (*pfo).Release(); }}
         return_err_on_fail! { (*pfo).SetOperationFlags(FOF_NO_UI as DWORD) };
+        let mut at_least_one = false;
         for item in items {
+            at_least_one = true;
             let mut id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
             let mut pidl = MaybeUninit::<PIDLIST_RELATIVE>::uninit();
             return_err_on_fail! {
@@ -247,7 +249,9 @@ where
             defer! {{ (*shi).Release(); }}
             return_err_on_fail! { (*pfo).DeleteItem(shi, std::ptr::null_mut()) };
         }
-        return_err_on_fail! { (*pfo).PerformOperations() };
+        if at_least_one {
+            return_err_on_fail! { (*pfo).PerformOperations() };
+        }
         Ok(())
     }
 }
@@ -297,7 +301,7 @@ where
         let pfo = pfo.assume_init();
         defer! {{ (*pfo).Release(); }}
         return_err_on_fail! { (*pfo).SetOperationFlags(FOF_NO_UI as DWORD | FOFX_EARLYFAILURE) };
-        for item in items {
+        for item in items.iter() {
             let mut id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
             let mut pidl = MaybeUninit::<PIDLIST_RELATIVE>::uninit();
             return_err_on_fail! {
@@ -343,7 +347,9 @@ where
                 .collect();
             return_err_on_fail! { (*pfo).MoveItem(trash_item_shi, orig_folder_shi, name_wstr.as_ptr(), std::ptr::null_mut()) };
         }
-        return_err_on_fail! { (*pfo).PerformOperations() };
+        if items.len() > 0 {
+            return_err_on_fail! { (*pfo).PerformOperations() };
+        }
         Ok(())
     }
 }

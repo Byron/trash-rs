@@ -110,6 +110,16 @@ mod linux_windows {
     }
 
     #[test]
+    fn purge_empty() {
+        trash::linux_windows::purge_all(vec![]).unwrap();
+    }
+
+    #[test]
+    fn restore_empty() {
+        trash::linux_windows::restore_all(vec![]).unwrap();
+    }
+
+    #[test]
     fn purge() {
         let file_name_prefix = get_unique_name();
         let batches: usize = 2;
