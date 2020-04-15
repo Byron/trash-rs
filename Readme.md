@@ -8,9 +8,9 @@ Trash is a Rust library that provides functionality to move files and folders to
 
 The library supports Windows, Mac and Linux.
 
-Version 2 is currently under development, which will add the ability to list all items within the
-trahs, delete selected items permanently from the trash, or restore selected items.
-See the `v2-dev` branch for details.
+Version 2 would add `list`, `purge_all`, and `restore_all` that would allow for listing, permanently removing or restoring trashed items.
+Development for Version 2 is currently suspended as I couldn't manage to get these features to work on Mac.
+An imperfect alternative would be to release those features for Linux and Windows both of which at this point have a more or less complete implementation of these features on the `v2-dev` branch but currently I have other priorities. If you'd be interested having access to the above mentionned on Windows and Linux feel free to open an issue.
 
 ## Usage
 
