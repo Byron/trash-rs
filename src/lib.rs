@@ -325,6 +325,8 @@ pub mod linux_windows {
     ///
     /// # Errors
     ///
+    /// Errors this function may return include but are not limited to the following.
+    ///
     /// It may be the case that when restoring a file or a folder, the `original_path` already has
     /// a new item with the same name. When such a collision happens this function returns a
     /// [`RestoreCollision`] kind of error.
