@@ -18,25 +18,25 @@ mod platform;
 /// Error that might happen during a remove operation.
 #[derive(Debug)]
 pub enum Error {
-    Unknown,
+	Unknown,
 
-    /// Error while canonicalizing path.
-    /// `code` contains a raw os error code if accessible.
-    CanonicalizePath {
-        code: Option<i32>,
-    },
+	/// Error while canonicalizing path.
+	/// `code` contains a raw os error code if accessible.
+	CanonicalizePath {
+		code: Option<i32>,
+	},
 
-    /// Error while performing the remove operation.
-    /// `code` contains a raw os error code if accessible.
-    Remove {
-        code: Option<i32>,
-    },
+	/// Error while performing the remove operation.
+	/// `code` contains a raw os error code if accessible.
+	Remove {
+		code: Option<i32>,
+	},
 }
 
 /// Removes a single file or directory.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// extern crate trash;
 /// use std::fs::File;
@@ -46,13 +46,13 @@ pub enum Error {
 /// assert!(File::open("remove_me").is_err());
 /// ```
 pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
-    platform::remove(path)
+	platform::remove(path)
 }
 
 /// Removes all files/directories specified by the collection of paths provided as an argument.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// extern crate trash;
 /// use std::fs::File;
@@ -65,13 +65,13 @@ pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
 /// ```
 pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
 where
-    I: IntoIterator<Item = T>,
-    T: AsRef<Path>,
+	I: IntoIterator<Item = T>,
+	T: AsRef<Path>,
 {
-    platform::remove_all(paths)
+	platform::remove_all(paths)
 }
 
 /// Returns true if the functions are implemented on the current platform.
 pub fn is_implemented() -> bool {
-    platform::is_implemented()
+	platform::is_implemented()
 }
