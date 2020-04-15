@@ -264,8 +264,10 @@ where
     platform::remove_all(paths)
 }
 
+pub use linux_windows::*;
+
 #[cfg(any(target_os = "linux", target_os = "windows"))]
-pub mod linux_windows {
+mod linux_windows {
     //!
     //! This module contains functions that are only available on Windows and Linux.
     //! See the [crate description] for more.
