@@ -94,9 +94,9 @@ fn get_desktop_environment() -> DesktopEnvironment {
 	// XDG_CURRENT_DESKTOP is the newest standard circa 2012.
 	if let Ok(xdg_current_desktop) = env::var("XDG_CURRENT_DESKTOP") {
 		// It could have multiple values separated by colon in priority order.
-		for value in xdg_current_desktop.split(":") {
+		for value in xdg_current_desktop.split(':') {
 			let value = value.trim();
-			if value.len() == 0 {
+			if value.is_empty() {
 				continue;
 			}
 			if value == "Unity" {
