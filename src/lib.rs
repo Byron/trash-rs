@@ -7,7 +7,7 @@ mod tests;
 #[path = "windows.rs"]
 mod platform;
 
-#[cfg(target_os = "linux")]
+#[cfg(all(unix, not(target_os = "macos")))]
 #[path = "linux.rs"]
 mod platform;
 
