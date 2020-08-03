@@ -1,3 +1,5 @@
+use std::error;
+use std::fmt;
 use std::path::Path;
 
 #[cfg(test)]
@@ -32,6 +34,18 @@ pub enum Error {
 		code: Option<i32>,
 	},
 }
+
+impl fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Unknown => write!(f, "Unknown error"),
+			Self::CanonicalizePath { .. } => write!(f, "Error while canonicalizing path"),
+			Self::Remove { .. } => write!(f, "Error while performing the remove operation"),
+		}
+	}
+}
+
+impl error::Error for Error {}
 
 /// Removes a single file or directory.
 ///
