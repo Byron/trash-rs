@@ -39,8 +39,20 @@ impl fmt::Display for Error {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::Unknown => write!(f, "Unknown error"),
-			Self::CanonicalizePath { .. } => write!(f, "Error while canonicalizing path"),
-			Self::Remove { .. } => write!(f, "Error while performing the remove operation"),
+			Self::CanonicalizePath { code } => {
+				let code_str = match code {
+					Some(i) => format!("Error code was {}", i),
+					None => "No error code was available".into(),
+				};
+				write!(f, "Error while canonicalizing path. {}", code_str)
+			}
+			Self::Remove { code } => {
+				let code_str = match code {
+					Some(i) => format!("Error code was {}", i),
+					None => "No error code was available".into(),
+				};
+				write!(f, "Error while performing the remove operation. {}", code_str)
+			}
 		}
 	}
 }
