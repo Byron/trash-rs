@@ -1,6 +1,6 @@
 [package]
 name = "trash"
-version = "1.1.0"
+version = "1.1.1"
 authors = ["Artur Kovacs <kovacs.artur.barnabas@gmail.com>"]
 license = "MIT"
 readme = "Readme.md"

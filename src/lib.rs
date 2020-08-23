@@ -98,6 +98,10 @@ where
 }
 
 /// Returns true if the functions are implemented on the current platform.
+#[deprecated(
+	since = "1.0.0",
+	note = "This function always returns true. This crate simply does not compile on platforms that are not supported."
+)]
 pub fn is_implemented() -> bool {
 	platform::is_implemented()
 }
