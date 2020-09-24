@@ -2,9 +2,6 @@ use std::error;
 use std::fmt;
 use std::path::Path;
 
-#[cfg(test)]
-mod tests;
-
 #[cfg(target_os = "windows")]
 #[path = "windows.rs"]
 mod platform;

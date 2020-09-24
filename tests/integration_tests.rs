@@ -1,9 +1,10 @@
-use crate::{remove, remove_all};
 use std::fs::{create_dir, File};
 use std::path::PathBuf;
 
+use trash::{remove, remove_all};
+
 #[test]
-fn create_remove() {
+fn test_remove_file() {
 	let path = "test_file_to_remove";
 	File::create(path).unwrap();
 
@@ -12,7 +13,7 @@ fn create_remove() {
 }
 
 #[test]
-fn create_remove_folder() {
+fn test_remove_folder() {
 	let path = PathBuf::from("test_folder_to_remove");
 	create_dir(&path).unwrap();
 	File::create(path.join("file_in_folder")).unwrap();
@@ -23,7 +24,7 @@ fn create_remove_folder() {
 }
 
 #[test]
-fn create_multiple_remove_all() {
+fn test_remove_all() {
 	let count: usize = 3;
 
 	let paths: Vec<_> = (0..count).map(|i| format!("test_file_to_remove_{}", i)).collect();
