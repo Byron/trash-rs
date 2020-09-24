@@ -7,7 +7,7 @@ use std::path::Path;
 mod platform;
 
 #[cfg(all(unix, not(target_os = "macos")))]
-#[path = "linux.rs"]
+#[path = "xdg.rs"]
 mod platform;
 
 #[cfg(target_os = "macos")]
