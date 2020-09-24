@@ -61,9 +61,9 @@ impl error::Error for Error {}
 /// # Example
 ///
 /// ```
-/// extern crate trash;
 /// use std::fs::File;
 /// use trash::remove;
+///
 /// File::create("remove_me").unwrap();
 /// trash::remove("remove_me").unwrap();
 /// assert!(File::open("remove_me").is_err());
@@ -77,9 +77,9 @@ pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
 /// # Example
 ///
 /// ```
-/// extern crate trash;
 /// use std::fs::File;
 /// use trash::remove_all;
+///
 /// File::create("remove_me_1").unwrap();
 /// File::create("remove_me_2").unwrap();
 /// remove_all(&["remove_me_1", "remove_me_2"]).unwrap();
