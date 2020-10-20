@@ -1,6 +1,6 @@
 use std::env;
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::Error;
@@ -13,17 +13,8 @@ pub fn is_implemented() -> bool {
 
 /// This is based on the electron library's implementation.
 /// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
-pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
-where
-	I: IntoIterator<Item = T>,
-	T: AsRef<Path>,
+pub fn remove_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error>
 {
-	let paths = paths.into_iter();
-	let full_paths = paths
-		.map(|x| x.as_ref().canonicalize())
-		.collect::<Result<Vec<_>, _>>()
-		.map_err(|e| Error::CanonicalizePath { code: e.raw_os_error() })?;
-
 	let trash = {
 		// Determine desktop environment and set accordingly.
 		let desktop_env = get_desktop_environment();
@@ -63,6 +54,20 @@ where
 	}
 
 	Ok(())
+}
+
+pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
+where
+	I: IntoIterator<Item = T>,
+	T: AsRef<Path>,
+{
+	let paths = paths.into_iter();
+	let full_paths = paths
+		.map(|x| x.as_ref().canonicalize())
+		.collect::<Result<Vec<_>, _>>()
+		.map_err(|e| Error::CanonicalizePath { code: e.raw_os_error() })?;
+
+	remove_all_canonicalized(full_paths)
 }
 
 pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
