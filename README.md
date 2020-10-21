@@ -13,7 +13,7 @@ The library supports Windows, macOS, Linux, and BSD.
 ```toml
 # In Cargo.toml
 [dependencies]
-trash = "1.1"
+trash = "1.2"
 ```
 
 ```rust
