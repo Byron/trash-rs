@@ -24,7 +24,7 @@ use trash;
 fn main() {
     // Let's create and remove a single file
     File::create("remove-me").unwrap();
-    trash::remove("remove-me").unwrap();
+    trash::delete("remove-me").unwrap();
     assert!(File::open("remove-me").is_err());
 
     // Now let's remove multiple files at once
@@ -32,7 +32,7 @@ fn main() {
     for name in the_others.iter() {
         File::create(name).unwrap();
     }
-    trash::remove_all(&the_others).unwrap();
+    trash::delete_all(&the_others).unwrap();
     for name in the_others.iter() {
         assert!(File::open(name).is_err());
     }
