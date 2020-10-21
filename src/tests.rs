@@ -3,6 +3,9 @@ use crate::{delete, delete_all, remove, remove_all};
 use std::fs::{create_dir, File};
 use std::path::PathBuf;
 
+#[allow(unused_imports)]
+use std::path::Path;
+
 #[test]
 #[allow(deprecated)]
 #[cfg(unix)]
