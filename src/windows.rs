@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStrExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use winapi::{
 	shared::minwindef::UINT,
@@ -19,16 +19,8 @@ pub fn is_implemented() -> bool {
 	true
 }
 
-pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
-where
-	I: IntoIterator<Item = T>,
-	T: AsRef<Path>,
+pub fn remove_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error>
 {
-	let paths = paths.into_iter();
-	let full_paths = paths
-		.map(|x| x.as_ref().canonicalize())
-		.collect::<Result<Vec<_>, _>>()
-		.map_err(|e| Error::CanonicalizePath { code: e.raw_os_error() })?;
 	let mut wide_paths = Vec::with_capacity(full_paths.len());
 	for path in full_paths.iter() {
 		let mut os_string = OsString::from(path);
@@ -64,6 +56,19 @@ where
 	} else {
 		Err(Error::Remove { code: Some(result) })
 	}
+}
+
+pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
+where
+	I: IntoIterator<Item = T>,
+	T: AsRef<Path>,
+{
+	let paths = paths.into_iter();
+	let full_paths = paths
+		.map(|x| x.as_ref().canonicalize())
+		.collect::<Result<Vec<_>, _>>()
+		.map_err(|e| Error::CanonicalizePath { code: e.raw_os_error() })?;
+	remove_all_canonicalized(full_paths)
 }
 
 /// See https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
