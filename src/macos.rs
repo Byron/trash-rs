@@ -8,11 +8,11 @@ pub fn is_implemented() -> bool {
 	true
 }
 
-pub fn remove_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error>
-{
-	let full_paths = full_paths.into_iter().map(|p| {
-		p.to_str().ok_or(Error::Unknown).map(|s| s.to_owned())
-	}).collect::<Result<Vec<_>, _>>()?;
+pub fn remove_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
+	let full_paths = full_paths
+		.into_iter()
+		.map(|p| p.to_str().ok_or(Error::Unknown).map(|s| s.to_owned()))
+		.collect::<Result<Vec<_>, _>>()?;
 	// AppleScript command to move files (or directories) to Trash looks like
 	//   osascript -e 'tell application "Finder" to delete { POSIX file "file1", POSIX "file2" }'
 	// The `-e` flag is used to execute only one line of AppleScript.

@@ -69,7 +69,7 @@ impl error::Error for Error {}
 /// Removes a single file or directory.
 ///
 /// Warning: when a symbolic link is provided to this function the link target will be removed and
-/// the link will become dangling. That is if 'sl' refers to 'my-text-file' and `remove("sl")` is 
+/// the link will become dangling. That is if 'sl' refers to 'my-text-file' and `remove("sl")` is
 /// called then 'my-text-file' will be removed and 'sl' will be left dangling.
 ///
 /// # Example
@@ -93,9 +93,9 @@ pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
 /// Removes all files/directories specified by the collection of paths provided as an argument.
 ///
 /// Warning: when a symbolic link is provided to this function the link target will be removed and
-/// the link will become dangling. That is if 'sl' refers to 'my-text-file' and `remove("sl")` is 
+/// the link will become dangling. That is if 'sl' refers to 'my-text-file' and `remove("sl")` is
 /// called then 'my-text-file' will be removed and 'sl' will be left dangling.
-/// 
+///
 /// # Example
 ///
 /// ```
@@ -123,7 +123,7 @@ where
 /// Removes a single file or directory.
 ///
 /// When a symbolic link is provided to this function, the sybolic link will be removed and the link
-/// target will be kept intact. 
+/// target will be kept intact.
 ///
 /// # Example
 ///
@@ -141,8 +141,8 @@ pub fn delete<T: AsRef<Path>>(path: T) -> Result<(), Error> {
 /// Removes all files/directories specified by the collection of paths provided as an argument.
 ///
 /// When a symbolic link is provided to this function, the sybolic link will be removed and the link
-/// target will be kept intact. 
-/// 
+/// target will be kept intact.
+///
 /// # Example
 ///
 /// ```
@@ -163,9 +163,9 @@ where
 	let full_paths = paths
 		.map(|x| {
 			let target = x.as_ref();
-			let cannonical = target.canonicalize().map_err(|e| {
-				Error::CanonicalizePath { code: e.raw_os_error() }
-			})?;
+			let cannonical = target
+				.canonicalize()
+				.map_err(|e| Error::CanonicalizePath { code: e.raw_os_error() })?;
 			let parent = cannonical.parent().ok_or(Error::TargetedRoot)?;
 			if let Some(file_name) = target.file_name() {
 				Ok(parent.join(file_name))

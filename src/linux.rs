@@ -13,8 +13,7 @@ pub fn is_implemented() -> bool {
 
 /// This is based on the electron library's implementation.
 /// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
-pub fn remove_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error>
-{
+pub fn remove_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
 	let trash = {
 		// Determine desktop environment and set accordingly.
 		let desktop_env = get_desktop_environment();

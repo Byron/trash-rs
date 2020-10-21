@@ -1,7 +1,7 @@
 #[allow(deprecated)]
-use crate::{remove, remove_all, delete, delete_all};
+use crate::{delete, delete_all, remove, remove_all};
 use std::fs::{create_dir, File};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[test]
 #[allow(deprecated)]

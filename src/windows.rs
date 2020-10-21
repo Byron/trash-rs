@@ -19,8 +19,7 @@ pub fn is_implemented() -> bool {
 	true
 }
 
-pub fn remove_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error>
-{
+pub fn remove_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
 	let mut wide_paths = Vec::with_capacity(full_paths.len());
 	for path in full_paths.iter() {
 		let mut os_string = OsString::from(path);
