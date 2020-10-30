@@ -103,55 +103,64 @@ fn get_desktop_environment() -> DesktopEnvironment {
 			if value.is_empty() {
 				continue;
 			}
-			if value == "Unity" {
-				// gnome-fallback sessions set XDG_CURRENT_DESKTOP to Unity
-				// DESKTOP_SESSION can be gnome-fallback or gnome-fallback-compiz
-				if let Ok(desktop_session) = env::var("DESKTOP_SESSION") {
-					if desktop_session.find("gnome-fallback").is_some() {
-						return DesktopEnvironment::Gnome;
+			match value {
+				"Unity" => {
+					// gnome-fallback sessions set XDG_CURRENT_DESKTOP to Unity
+					// DESKTOP_SESSION can be gnome-fallback or gnome-fallback-compiz
+					if let Ok(desktop_session) = env::var("DESKTOP_SESSION") {
+						if desktop_session.find("gnome-fallback").is_some() {
+							return DesktopEnvironment::Gnome;
+						}
 					}
+					return DesktopEnvironment::Unity;
 				}
-				return DesktopEnvironment::Unity;
-			}
-			if value == "GNOME" {
-				return DesktopEnvironment::Gnome;
-			}
-			if value == "X-Cinnamon" {
-				return DesktopEnvironment::Cinnamon;
-			}
-			if value == "KDE" {
-				if let Ok(kde_session) = env::var(KDE_SESSION_ENV_VAR) {
-					if kde_session == "5" {
-						return DesktopEnvironment::Kde5;
+				"GNOME" => {
+					return DesktopEnvironment::Gnome;
+				}
+				"X-Cinnamon" => {
+					return DesktopEnvironment::Cinnamon;
+				}
+				"KDE" => {
+					if let Ok(kde_session) = env::var(KDE_SESSION_ENV_VAR) {
+						if kde_session == "5" {
+							return DesktopEnvironment::Kde5;
+						}
 					}
+					return DesktopEnvironment::Kde4;
 				}
-				return DesktopEnvironment::Kde4;
-			}
-			if value == "Pantheon" {
-				return DesktopEnvironment::Pantheon;
-			}
-			if value == "XFCE" {
-				return DesktopEnvironment::Xfce;
+				"Pantheon" => {
+					return DesktopEnvironment::Pantheon;
+				}
+				"XFCE" => {
+					return DesktopEnvironment::Xfce;
+				}
+				_ => {}
 			}
 		}
 	}
 
 	// DESKTOP_SESSION was what everyone  used in 2010.
 	if let Ok(desktop_session) = env::var("DESKTOP_SESSION") {
-		if desktop_session == "gnome" || desktop_session == "mate" {
-			return DesktopEnvironment::Gnome;
-		}
-		if desktop_session == "kde4" || desktop_session == "kde-plasma" {
-			return DesktopEnvironment::Kde4;
-		}
-		if desktop_session == "kde" {
-			// This may mean KDE4 on newer systems, so we have to check.
-			if env_has_var(KDE_SESSION_ENV_VAR) {
+		match desktop_session.as_str() {
+			"gnome" | "mate" => {
+				return DesktopEnvironment::Gnome;
+			}
+			"kde4" | "kde-plasma" => {
 				return DesktopEnvironment::Kde4;
 			}
-			return DesktopEnvironment::Kde3;
+			"kde" => {
+				// This may mean KDE4 on newer systems, so we have to check.
+				if env_has_var(KDE_SESSION_ENV_VAR) {
+					return DesktopEnvironment::Kde4;
+				}
+				return DesktopEnvironment::Kde3;
+			}
+			"xubuntu" => {
+				return DesktopEnvironment::Xfce;
+			}
+			_ => {}
 		}
-		if desktop_session.find("xfce").is_some() || desktop_session == "xubuntu" {
+		if desktop_session.find("xfce").is_some() {
 			return DesktopEnvironment::Xfce;
 		}
 	}
@@ -160,8 +169,7 @@ fn get_desktop_environment() -> DesktopEnvironment {
 	// Useful particularly in the DESKTOP_SESSION=default case.
 	if env_has_var("GNOME_DESKTOP_SESSION_ID") {
 		return DesktopEnvironment::Gnome;
-	}
-	if env_has_var("KDE_FULL_SESSION") {
+	} else if env_has_var("KDE_FULL_SESSION") {
 		if env_has_var(KDE_SESSION_ENV_VAR) {
 			return DesktopEnvironment::Kde4;
 		}
