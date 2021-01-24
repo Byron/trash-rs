@@ -1,6 +1,5 @@
-use std::error;
-use std::fmt;
-use std::path::Path;
+
+use std::{error, env::current_dir, fmt, fs::symlink_metadata, path::Path};
 
 #[cfg(test)]
 mod tests;
@@ -28,6 +27,11 @@ pub enum Error {
 	/// and this error is returned, then it's guaranteed that none of the items is removed.
 	TargetedRoot,
 
+	/// The `target` does not exist or the process has insufficient permissions to access it.
+	CouldNotAccess {
+		target: String,
+	},
+
 	/// Error while canonicalizing path.
 	/// `code` contains a raw os error code if accessible.
 	CanonicalizePath {
@@ -46,6 +50,9 @@ impl fmt::Display for Error {
 		match self {
 			Self::Unknown => write!(f, "Unknown error"),
 			Self::TargetedRoot => write!(f, "One of the target items was a root folder"),
+			Self::CouldNotAccess {target} => {
+				write!(f, "The following does not exist or the process has insufficient permissions to access it: '{}'", target)
+			}
 			Self::CanonicalizePath { code } => {
 				let code_str = match code {
 					Some(i) => format!("Error code was {}", i),
@@ -162,15 +169,24 @@ where
 	let paths = paths.into_iter();
 	let full_paths = paths
 		.map(|x| {
-			let target = x.as_ref();
-			let cannonical = target
+			let target_ref = x.as_ref();
+			let target = if target_ref.is_relative() {
+				let curr_dir =  current_dir().map_err(|_| {
+					Error::CouldNotAccess { target: "[Current working directory]".into() }
+				})?;
+				curr_dir.join(target_ref)
+			} else {
+				target_ref.to_owned()
+			};
+			let parent = target.parent().ok_or(Error::TargetedRoot)?;
+			let canonical_parent = parent
 				.canonicalize()
 				.map_err(|e| Error::CanonicalizePath { code: e.raw_os_error() })?;
-			let parent = cannonical.parent().ok_or(Error::TargetedRoot)?;
 			if let Some(file_name) = target.file_name() {
-				Ok(parent.join(file_name))
+				Ok(canonical_parent.join(file_name))
 			} else {
-				Ok(parent.to_owned())
+				// `file_name` is none if the path ends with `..`
+				Ok(canonical_parent)
 			}
 		})
 		.collect::<Result<Vec<_>, _>>()?;
