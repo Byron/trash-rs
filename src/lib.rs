@@ -49,7 +49,7 @@ impl fmt::Display for Error {
 		match self {
 			Self::Unknown => write!(f, "Unknown error"),
 			Self::TargetedRoot => write!(f, "One of the target items was a root folder"),
-			Self::CouldNotAccess {target} => {
+			Self::CouldNotAccess { target } => {
 				write!(f, "The following does not exist or the process has insufficient permissions to access it: '{}'", target)
 			}
 			Self::CanonicalizePath { code } => {
