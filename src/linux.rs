@@ -108,7 +108,7 @@ fn get_desktop_environment() -> DesktopEnvironment {
 					// gnome-fallback sessions set XDG_CURRENT_DESKTOP to Unity
 					// DESKTOP_SESSION can be gnome-fallback or gnome-fallback-compiz
 					if let Ok(desktop_session) = env::var("DESKTOP_SESSION") {
-						if desktop_session.find("gnome-fallback").is_some() {
+						if desktop_session.contains("gnome-fallback") {
 							return DesktopEnvironment::Gnome;
 						}
 					}
@@ -160,7 +160,7 @@ fn get_desktop_environment() -> DesktopEnvironment {
 			}
 			_ => {}
 		}
-		if desktop_session.find("xfce").is_some() {
+		if desktop_session.contains("xfce") {
 			return DesktopEnvironment::Xfce;
 		}
 	}
