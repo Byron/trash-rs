@@ -1,5 +1,4 @@
-
-use std::{error, env::current_dir, fmt, fs::symlink_metadata, path::Path};
+use std::{env::current_dir, error, fmt, path::Path};
 
 #[cfg(test)]
 mod tests;
@@ -171,8 +170,8 @@ where
 		.map(|x| {
 			let target_ref = x.as_ref();
 			let target = if target_ref.is_relative() {
-				let curr_dir =  current_dir().map_err(|_| {
-					Error::CouldNotAccess { target: "[Current working directory]".into() }
+				let curr_dir = current_dir().map_err(|_| Error::CouldNotAccess {
+					target: "[Current working directory]".into(),
 				})?;
 				curr_dir.join(target_ref)
 			} else {

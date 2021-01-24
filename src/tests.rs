@@ -80,8 +80,8 @@ fn test_delete_all() {
 mod unix {
 	#[allow(deprecated)]
 	use crate::{delete, remove};
+	use std::fs::{create_dir, remove_dir_all, remove_file, File};
 	use std::os::unix::fs::symlink;
-	use std::fs::{File, create_dir, remove_file, remove_dir_all};
 
 	use std::path::Path;
 
