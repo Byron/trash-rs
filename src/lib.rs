@@ -24,9 +24,10 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use std::fmt;
+use std::{env::current_dir, error};
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 #[cfg(target_os = "windows")]
 #[path = "windows.rs"]
@@ -41,50 +42,45 @@ mod platform;
 mod platform;
 
 /// Error that might happen during a trash operation.
-#[derive(Debug)]
-pub struct Error {
-    source: Option<Box<dyn std::error::Error + 'static>>,
-    kind: ErrorKind,
-}
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let intro = "Error during a `trash` operation:";
-        if let Some(ref source) = self.source {
-            write!(f, "{} ( {:?} ) Source was '{}'", intro, self.kind, source)
-        } else {
-            write!(f, "{} ( {:?} ) Source error is not specified.", intro, self.kind)
-        }
-    }
-}
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(self.source.as_ref()?.as_ref())
-    }
-}
-impl Error {
-    pub fn new(kind: ErrorKind, source: Box<dyn std::error::Error + 'static>) -> Error {
-        Error { source: Some(source), kind }
-    }
-    pub fn kind_only(kind: ErrorKind) -> Error {
-        Error { source: None, kind }
-    }
-    pub fn kind(&self) -> &ErrorKind {
-        &self.kind
-    }
-    pub fn into_kind(self) -> ErrorKind {
-        self.kind
-    }
-    pub fn into_source(self) -> Option<Box<dyn std::error::Error + 'static>> {
-        self.source
-    }
-    /// Returns `Some` if the source is an `std::io::Error` error. Returns `None` otherwise.
-    ///
-    /// In other words this is a shorthand for
-    /// `self.source().map(|x| x.downcast_ref::<std::io::Error>())`
-    pub fn io_error_source(&self) -> Option<&std::io::Error> {
-        self.source.as_ref()?.downcast_ref::<std::io::Error>()
-    }
-}
+// impl fmt::Display for Error {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         let intro = "Error during a `trash` operation:";
+//         if let Some(ref source) = self.source {
+//             write!(f, "{} ( {:?} ) Source was '{}'", intro, self.kind, source)
+//         } else {
+//             write!(f, "{} ( {:?} ) Source error is not specified.", intro, self.kind)
+//         }
+//     }
+// }
+// impl std::error::Error for Error {
+//     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+//         Some(self.source.as_ref()?.as_ref())
+//     }
+// }
+// impl Error {
+//     pub fn new(kind: ErrorKind, source: Box<dyn std::error::Error + 'static>) -> Error {
+//         Error { source: Some(source), kind }
+//     }
+//     pub fn kind_only(kind: ErrorKind) -> Error {
+//         Error { source: None, kind }
+//     }
+//     pub fn kind(&self) -> &ErrorKind {
+//         &self.kind
+//     }
+//     pub fn into_kind(self) -> ErrorKind {
+//         self.kind
+//     }
+//     pub fn into_source(self) -> Option<Box<dyn std::error::Error + 'static>> {
+//         self.source
+//     }
+//     /// Returns `Some` if the source is an `std::io::Error` error. Returns `None` otherwise.
+//     ///
+//     /// In other words this is a shorthand for
+//     /// `self.source().map(|x| x.downcast_ref::<std::io::Error>())`
+//     pub fn io_error_source(&self) -> Option<&std::io::Error> {
+//         self.source.as_ref()?.downcast_ref::<std::io::Error>()
+//     }
+// }
 
 ///
 /// A type that is contained within [`Error`]. It provides information about why the error was
@@ -92,29 +88,23 @@ impl Error {
 /// (from `std::error::Error`) on [`Error`] will return a reference to a certain type of
 /// `std::error::Error`.
 ///
-/// For example further information can be extracted from a `CanonicalizePath` error as shown
-/// below.
-///
-/// ```rust
-/// use std::error::Error;
-/// let result = trash::remove_all(&["non-existing"]);
-/// if let Err(err) = result {
-///     match err.kind() {
-///         trash::ErrorKind::CanonicalizePath{..} => (), // This is what we expect
-///         _ => panic!()
-///     };
-///     // Long format
-///     let io_kind = err.source().unwrap().downcast_ref::<std::io::Error>().unwrap().kind();
-///     assert_eq!(io_kind, std::io::ErrorKind::NotFound);
-///     // Short format
-///     let io_kind = err.io_error_source().unwrap().kind();
-///     assert_eq!(io_kind, std::io::ErrorKind::NotFound);
-/// }
-/// ```
-///
 /// [`Error`]: struct.Error.html
 #[derive(Debug)]
-pub enum ErrorKind {
+pub enum Error {
+    Unknown {
+        description: String,
+    },
+
+    /// One of the target items was a root folder.
+    /// If a list of items are requested to be removed by a single function call (e.g. `delete_all`)
+    /// and this error is returned, then it's guaranteed that none of the items is removed.
+    TargetedRoot,
+
+    /// The `target` does not exist or the process has insufficient permissions to access it.
+    CouldNotAccess {
+        target: String,
+    },
+
     /// Any error that might happen during a direct call to a platform specific API.
     ///
     /// `function_name`: the name of the function during which the error occured.
@@ -122,7 +112,10 @@ pub enum ErrorKind {
     ///
     /// On Windows the `code` will contain the HRESULT that the function returned or that was
     /// obtained with `HRESULT_FROM_WIN32(GetLastError())`
-    PlatformApi { function_name: &'static str, code: Option<i32> },
+    PlatformApi {
+        function_name: &'static str,
+        code: Option<i32>,
+    },
 
     /// Error while canonicalizing path.
     ///
@@ -148,7 +141,9 @@ pub enum ErrorKind {
     ///
     /// `path`: The path to the file or folder on which this error occured.
     // TODO: Add a description field
-    Filesystem { path: PathBuf },
+    Filesystem {
+        path: PathBuf,
+    },
 
     /// This kind of error happens when a trash item's original parent already contains an item with
     /// the same name and type (file or folder). In this case an error is produced and the
@@ -165,7 +160,10 @@ pub enum ErrorKind {
     /// starting with the item that triggered the error.
     // TODO: Rework this error such that all files are restored which can be restored,
     // and only the ones that collide, are returned.
-    RestoreCollision { path: PathBuf, remaining_items: Vec<TrashItem> },
+    RestoreCollision {
+        path: PathBuf,
+        remaining_items: Vec<TrashItem>,
+    },
 
     /// This sort of error is returned when multiple items with the same `original_path` were
     /// requested to be restored. These items are referred to as twins here. If there are twins
@@ -173,45 +171,92 @@ pub enum ErrorKind {
     ///
     /// `path`: The `original_path` of the twins.
     /// `items`: The complete list of items that were handed over to the `restore_all` function.
-    RestoreTwins { path: PathBuf, items: Vec<TrashItem> },
+    RestoreTwins {
+        path: PathBuf,
+        items: Vec<TrashItem>,
+    },
 }
 
-/// Removes a single file or directory.
-///
-/// # Example
-///
-/// ```
-/// extern crate trash;
-/// use std::fs::File;
-/// use trash::remove;
-/// File::create("remove_me").unwrap();
-/// trash::remove("remove_me").unwrap();
-/// assert!(File::open("remove_me").is_err());
-/// ```
-pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
-    platform::remove(path)
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Error during a `trash` operation: {:?}", self)
+    }
 }
 
-/// Removes all files/directories specified by the collection of paths provided as an argument.
-///
-/// # Example
-///
-/// ```
-/// extern crate trash;
-/// use std::fs::File;
-/// use trash::remove_all;
-/// File::create("remove_me_1").unwrap();
-/// File::create("remove_me_2").unwrap();
-/// remove_all(&["remove_me_1", "remove_me_2"]).unwrap();
-/// assert!(File::open("remove_me_1").is_err());
-/// assert!(File::open("remove_me_2").is_err());
-/// ```
-pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
+impl error::Error for Error {}
+
+pub(crate) fn canonicalize_paths<I, T>(paths: I) -> Result<Vec<PathBuf>, Error>
 where
     I: IntoIterator<Item = T>,
     T: AsRef<Path>,
 {
-    platform::remove_all(paths)
+    let paths = paths.into_iter();
+    paths
+        .map(|x| {
+            let target_ref = x.as_ref();
+            let target = if target_ref.is_relative() {
+                let curr_dir = current_dir().map_err(|_| Error::CouldNotAccess {
+                    target: "[Current working directory]".into(),
+                })?;
+                curr_dir.join(target_ref)
+            } else {
+                target_ref.to_owned()
+            };
+            let parent = target.parent().ok_or(Error::TargetedRoot)?;
+            let canonical_parent = parent
+                .canonicalize()
+                .map_err(|_| Error::CanonicalizePath { original: parent.to_owned() })?;
+            if let Some(file_name) = target.file_name() {
+                Ok(canonical_parent.join(file_name))
+            } else {
+                // `file_name` is none if the path ends with `..`
+                Ok(canonical_parent)
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()
+}
+
+/// Removes a single file or directory.
+///
+/// When a symbolic link is provided to this function, the sybolic link will be removed and the link
+/// target will be kept intact.
+///
+/// # Example
+///
+/// ```
+/// use std::fs::File;
+/// use trash::delete;
+/// File::create("delete_me").unwrap();
+/// trash::delete("delete_me").unwrap();
+/// assert!(File::open("delete_me").is_err());
+/// ```
+pub fn delete<T: AsRef<Path>>(path: T) -> Result<(), Error> {
+    delete_all(&[path])
+}
+
+/// Removes all files/directories specified by the collection of paths provided as an argument.
+///
+/// When a symbolic link is provided to this function, the sybolic link will be removed and the link
+/// target will be kept intact.
+///
+/// # Example
+///
+/// ```
+/// use std::fs::File;
+/// use trash::delete_all;
+/// File::create("delete_me_1").unwrap();
+/// File::create("delete_me_2").unwrap();
+/// delete_all(&["delete_me_1", "delete_me_2"]).unwrap();
+/// assert!(File::open("delete_me_1").is_err());
+/// assert!(File::open("delete_me_2").is_err());
+/// ```
+pub fn delete_all<I, T>(paths: I) -> Result<(), Error>
+where
+    I: IntoIterator<Item = T>,
+    T: AsRef<Path>,
+{
+    let full_paths = canonicalize_paths(paths)?;
+    platform::delete_all_canonicalized(full_paths)
 }
 
 /// This struct holds information about a single item within the trash.
@@ -275,7 +320,7 @@ pub mod extra {
         hash::{Hash, Hasher},
     };
 
-    use super::{platform, Error, ErrorKind, TrashItem};
+    use super::{platform, Error, TrashItem};
 
     /// Returns all [`TrashItem`]s that are currently in the trash.
     ///
@@ -370,10 +415,7 @@ pub mod extra {
         let mut item_set = HashSet::with_capacity(items.len());
         for item in items.iter() {
             if !item_set.insert(ItemWrapper(item)) {
-                return Err(Error::kind_only(ErrorKind::RestoreTwins {
-                    path: item.original_path(),
-                    items: items,
-                }));
+                return Err(Error::RestoreTwins { path: item.original_path(), items: items });
             }
         }
         platform::restore_all(items)

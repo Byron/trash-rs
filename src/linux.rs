@@ -17,22 +17,9 @@ use chrono;
 use libc;
 use scopeguard::defer;
 
-use crate::{Error, ErrorKind, TrashItem};
+use crate::{Error, TrashItem};
 
-pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
-where
-    I: IntoIterator<Item = T>,
-    T: AsRef<Path>,
-{
-    let paths = paths.into_iter();
-    let full_paths = paths
-        .map(|x| {
-            x.as_ref().canonicalize().map_err(|e| {
-                Error::new(ErrorKind::CanonicalizePath { original: x.as_ref().into() }, Box::new(e))
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
+pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
     let root = Path::new("/");
     let home_trash = home_trash()?;
     let mount_points = get_mount_points()?;
@@ -55,12 +42,10 @@ where
             if home_trash.exists() == false {
                 let info_folder = home_trash.join("info");
                 let files_folder = home_trash.join("files");
-                std::fs::create_dir_all(&info_folder).map_err(|e| {
-                    Error::new(ErrorKind::Filesystem { path: info_folder }, Box::new(e))
-                })?;
-                std::fs::create_dir_all(&files_folder).map_err(|e| {
-                    Error::new(ErrorKind::Filesystem { path: files_folder }, Box::new(e))
-                })?;
+                std::fs::create_dir_all(&info_folder)
+                    .map_err(|_| Error::Filesystem { path: info_folder })?;
+                std::fs::create_dir_all(&files_folder)
+                    .map_err(|_| Error::Filesystem { path: files_folder })?;
             }
             move_to_trash(path, &home_trash, topdir)?;
         } else {
@@ -70,10 +55,6 @@ where
         }
     }
     Ok(())
-}
-
-pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
-    remove_all(&[path])
 }
 
 pub fn list() -> Result<Vec<TrashItem>, Error> {
@@ -110,9 +91,8 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         // Read the info files for every file
         let trash_folder_parent = folder.parent().unwrap();
         let info_folder = folder.join("info");
-        let read_dir = std::fs::read_dir(&info_folder).map_err(|e| {
-            Error::new(ErrorKind::Filesystem { path: info_folder.clone() }, Box::new(e))
-        })?;
+        let read_dir = std::fs::read_dir(&info_folder)
+            .map_err(|_| Error::Filesystem { path: info_folder.clone() })?;
         for entry in read_dir {
             let info_entry;
             if let Ok(entry) = entry {
@@ -223,18 +203,13 @@ where
         let file = trash_folder.join("files").join(&name_in_trash);
         assert!(file.exists());
         if file.is_dir() {
-            std::fs::remove_dir_all(&file).map_err(|e| {
-                Error::new(ErrorKind::Filesystem { path: file.into() }, Box::new(e))
-            })?;
+            std::fs::remove_dir_all(&file).map_err(|_| Error::Filesystem { path: file.into() })?;
         // TODO Update directory size cache if there's one.
         } else {
-            std::fs::remove_file(&file).map_err(|e| {
-                Error::new(ErrorKind::Filesystem { path: file.into() }, Box::new(e))
-            })?;
+            std::fs::remove_file(&file).map_err(|_| Error::Filesystem { path: file.into() })?;
         }
-        std::fs::remove_file(info_file).map_err(|e| {
-            Error::new(ErrorKind::Filesystem { path: info_file.into() }, Box::new(e))
-        })?;
+        std::fs::remove_file(info_file)
+            .map_err(|_| Error::Filesystem { path: info_file.into() })?;
     }
 
     Ok(())
@@ -265,9 +240,8 @@ where
         // if it already exists.
         let original_path = item.original_path();
         // Make sure the parent exists so that `create_dir` doesn't faile due to that.
-        std::fs::create_dir_all(&item.original_parent).map_err(|e| {
-            Error::new(ErrorKind::Filesystem { path: item.original_parent.clone() }, Box::new(e))
-        })?;
+        std::fs::create_dir_all(&item.original_parent)
+            .map_err(|_| Error::Filesystem { path: item.original_parent.clone() })?;
         let mut collision = false;
         if file.is_dir() {
             // NOTE create_dir_all succeeds when the path already exist but create_dir
@@ -276,10 +250,7 @@ where
                 if e.kind() == std::io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::Filesystem { path: original_path.clone() },
-                        Box::new(e),
-                    ));
+                    return Err(Error::Filesystem { path: original_path.clone() });
                 }
             }
         } else {
@@ -288,30 +259,25 @@ where
                 if e.kind() == std::io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::Filesystem { path: original_path.clone() },
-                        Box::new(e),
-                    ));
+                    return Err(Error::Filesystem { path: original_path.clone() });
                 }
             }
         }
         if collision {
             let remaining: Vec<_> = std::iter::once(item).chain(iter).collect();
-            return Err(Error::kind_only(ErrorKind::RestoreCollision {
+            return Err(Error::RestoreCollision {
                 path: original_path,
                 remaining_items: remaining,
-            }));
+            });
         }
-        std::fs::rename(&file, &original_path)
-            .map_err(|e| Error::new(ErrorKind::Filesystem { path: file }, Box::new(e)))?;
-        std::fs::remove_file(info_file).map_err(|e| {
-            Error::new(ErrorKind::Filesystem { path: info_file.into() }, Box::new(e))
-        })?;
+        std::fs::rename(&file, &original_path).map_err(|_| Error::Filesystem { path: file })?;
+        std::fs::remove_file(info_file)
+            .map_err(|_| Error::Filesystem { path: info_file.into() })?;
     }
     Ok(())
 }
 
-/// According to the specification (see at the top of the file) there can be are two kinds of
+/// According to the specification (see at the top of the file) there are two kinds of
 /// trash-folders for a mounted drive or partition.
 /// 1, .Trash/uid
 /// 2, .Trash-uid
@@ -347,9 +313,8 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     let should_execute;
     if !trash_path.exists() || !trash_path.is_dir() {
         if create_folder {
-            std::fs::create_dir(&trash_path).map_err(|e| {
-                Error::new(ErrorKind::Filesystem { path: trash_path.clone() }, Box::new(e))
-            })?;
+            std::fs::create_dir(&trash_path)
+                .map_err(|_| Error::Filesystem { path: trash_path.clone() })?;
             should_execute = true;
         } else {
             should_execute = false;
@@ -406,10 +371,7 @@ fn move_to_trash(
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::Filesystem { path: info_file_path.into() },
-                        Box::new(error),
-                    ));
+                    return Err(Error::Filesystem { path: info_file_path.into() });
                 }
             }
             Ok(mut file) => {
@@ -430,12 +392,7 @@ fn move_to_trash(
                             writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
                         })
                     })
-                    .map_err(|e| {
-                        Error::new(
-                            ErrorKind::Filesystem { path: info_file_path.clone() },
-                            Box::new(e),
-                        )
-                    })?;
+                    .map_err(|_| Error::Filesystem { path: info_file_path.clone() })?;
             }
         }
         let path = files_folder.join(&in_trash_name);
@@ -446,10 +403,7 @@ fn move_to_trash(
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::Filesystem { path: path.into() },
-                        Box::new(error),
-                    ));
+                    return Err(Error::Filesystem { path: path.into() });
                 }
             }
             Ok(_) => {
@@ -554,9 +508,10 @@ fn folder_validity(path: impl AsRef<Path>) -> Result<TrashValidity, Error> {
     /// Taken from: http://man7.org/linux/man-pages/man7/inode.7.html
     const S_ISVTX: u32 = 0x1000;
 
-    let metadata = path.as_ref().symlink_metadata().map_err(|e| {
-        Error::new(ErrorKind::Filesystem { path: path.as_ref().into() }, Box::new(e))
-    })?;
+    let metadata = path
+        .as_ref()
+        .symlink_metadata()
+        .map_err(|_| Error::Filesystem { path: path.as_ref().into() })?;
     if metadata.file_type().is_symlink() {
         return Ok(TrashValidity::InvalidSymlink);
     }
@@ -631,4 +586,232 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         );
     }
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        collections::{hash_map::Entry, HashMap},
+        env,
+        ffi::OsString,
+        fs::File,
+        path::{Path, PathBuf},
+        process::Command,
+    };
+
+    use crate::{
+        canonicalize_paths,
+        extra::{list, purge_all},
+        tests::get_unique_name,
+        Error,
+    };
+
+    #[test]
+    fn test_list() {
+        let file_name_prefix = get_unique_name();
+        let batches: usize = 2;
+        let files_per_batch: usize = 3;
+        let names: Vec<_> =
+            (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        for _ in 0..batches {
+            for path in names.iter() {
+                File::create(path).unwrap();
+            }
+            delete_all_using_system_program(&names).unwrap();
+        }
+        let items = list().unwrap();
+        let items: HashMap<_, Vec<_>> = items
+            .into_iter()
+            .filter(|x| x.name.starts_with(&file_name_prefix))
+            .fold(HashMap::new(), |mut map, x| {
+                match map.entry(x.name.clone()) {
+                    Entry::Occupied(mut entry) => {
+                        entry.get_mut().push(x);
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(vec![x]);
+                    }
+                }
+                map
+            });
+        for name in names {
+            match items.get(&name) {
+                Some(items) => assert_eq!(items.len(), batches),
+                None => panic!("ERROR Could not find '{}' in {:#?}", name, items),
+            }
+        }
+
+        // Let's try to purge all the items we just created but ignore any errors
+        // as this test should succeed as long as `list` works properly.
+        let _ = purge_all(items.into_iter().map(|(_name, item)| item).flatten());
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////
+    /// System
+    //////////////////////////////////////////////////////////////////////////////////////
+    static DEFAULT_TRASH: &str = "gio";
+
+    /// This is based on the electron library's implementation.
+    /// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
+    pub fn delete_all_canonicalized_using_system_program(
+        full_paths: Vec<PathBuf>,
+    ) -> Result<(), Error> {
+        let trash = {
+            // Determine desktop environment and set accordingly.
+            let desktop_env = get_desktop_environment();
+            if desktop_env == DesktopEnvironment::Kde4 || desktop_env == DesktopEnvironment::Kde5 {
+                "kioclient5"
+            } else if desktop_env == DesktopEnvironment::Kde3 {
+                "kioclient"
+            } else {
+                DEFAULT_TRASH
+            }
+        };
+
+        let mut argv = Vec::<OsString>::with_capacity(full_paths.len() + 2);
+
+        if trash == "kioclient5" || trash == "kioclient" {
+            //argv.push(trash.into());
+            argv.push("move".into());
+            for full_path in full_paths.iter() {
+                argv.push(full_path.into());
+            }
+            argv.push("trash:/".into());
+        } else {
+            //argv.push_back(ELECTRON_DEFAULT_TRASH);
+            argv.push("trash".into());
+            for full_path in full_paths.iter() {
+                argv.push(full_path.into());
+            }
+        }
+
+        // Execute command
+        let mut command = Command::new(trash);
+        command.args(argv);
+        let result =
+            command.output().map_err(|e| Error::Unknown { description: format!("{}", e) })?;
+        if !result.status.success() {
+            let stderr = String::from_utf8_lossy(&result.stderr);
+            return Err(Error::Unknown {
+                description: format!("Used '{}', stderr: {}", trash, stderr),
+            });
+        }
+
+        Ok(())
+    }
+
+    pub fn delete_all_using_system_program<I, T>(paths: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = T>,
+        T: AsRef<Path>,
+    {
+        let full_paths = canonicalize_paths(paths)?;
+        delete_all_canonicalized_using_system_program(full_paths)
+    }
+
+    #[derive(PartialEq)]
+    enum DesktopEnvironment {
+        Other,
+        Cinnamon,
+        Gnome,
+        // KDE3, KDE4 and KDE5 are sufficiently different that we count
+        // them as different desktop environments here.
+        Kde3,
+        Kde4,
+        Kde5,
+        Pantheon,
+        Unity,
+        Xfce,
+    }
+
+    fn env_has_var(name: &str) -> bool {
+        env::var_os(name).is_some()
+    }
+
+    /// See: https://chromium.googlesource.com/chromium/src/+/dd407d416fa941c04e33d81f2b1d8cab8196b633/base/nix/xdg_util.cc#57
+    fn get_desktop_environment() -> DesktopEnvironment {
+        static KDE_SESSION_ENV_VAR: &str = "KDE_SESSION_VERSION";
+        // XDG_CURRENT_DESKTOP is the newest standard circa 2012.
+        if let Ok(xdg_current_desktop) = env::var("XDG_CURRENT_DESKTOP") {
+            // It could have multiple values separated by colon in priority order.
+            for value in xdg_current_desktop.split(':') {
+                let value = value.trim();
+                if value.is_empty() {
+                    continue;
+                }
+                match value {
+                    "Unity" => {
+                        // gnome-fallback sessions set XDG_CURRENT_DESKTOP to Unity
+                        // DESKTOP_SESSION can be gnome-fallback or gnome-fallback-compiz
+                        if let Ok(desktop_session) = env::var("DESKTOP_SESSION") {
+                            if desktop_session.contains("gnome-fallback") {
+                                return DesktopEnvironment::Gnome;
+                            }
+                        }
+                        return DesktopEnvironment::Unity;
+                    }
+                    "GNOME" => {
+                        return DesktopEnvironment::Gnome;
+                    }
+                    "X-Cinnamon" => {
+                        return DesktopEnvironment::Cinnamon;
+                    }
+                    "KDE" => {
+                        if let Ok(kde_session) = env::var(KDE_SESSION_ENV_VAR) {
+                            if kde_session == "5" {
+                                return DesktopEnvironment::Kde5;
+                            }
+                        }
+                        return DesktopEnvironment::Kde4;
+                    }
+                    "Pantheon" => {
+                        return DesktopEnvironment::Pantheon;
+                    }
+                    "XFCE" => {
+                        return DesktopEnvironment::Xfce;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // DESKTOP_SESSION was what everyone  used in 2010.
+        if let Ok(desktop_session) = env::var("DESKTOP_SESSION") {
+            match desktop_session.as_str() {
+                "gnome" | "mate" => {
+                    return DesktopEnvironment::Gnome;
+                }
+                "kde4" | "kde-plasma" => {
+                    return DesktopEnvironment::Kde4;
+                }
+                "kde" => {
+                    // This may mean KDE4 on newer systems, so we have to check.
+                    if env_has_var(KDE_SESSION_ENV_VAR) {
+                        return DesktopEnvironment::Kde4;
+                    }
+                    return DesktopEnvironment::Kde3;
+                }
+                "xubuntu" => {
+                    return DesktopEnvironment::Xfce;
+                }
+                _ => {}
+            }
+            if desktop_session.contains("xfce") {
+                return DesktopEnvironment::Xfce;
+            }
+        }
+
+        // Fall back on some older environment variables.
+        // Useful particularly in the DESKTOP_SESSION=default case.
+        if env_has_var("GNOME_DESKTOP_SESSION_ID") {
+            return DesktopEnvironment::Gnome;
+        } else if env_has_var("KDE_FULL_SESSION") {
+            if env_has_var(KDE_SESSION_ENV_VAR) {
+                return DesktopEnvironment::Kde4;
+            }
+            return DesktopEnvironment::Kde3;
+        }
+
+        DesktopEnvironment::Other
+    }
 }

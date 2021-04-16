@@ -1,4 +1,3 @@
-use crate as trash;
 use std::collections::{hash_map::Entry, HashMap};
 use std::fs::{create_dir, File};
 use std::path::PathBuf;
@@ -7,66 +6,103 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use chrono;
 use lazy_static::lazy_static;
 
+#[allow(deprecated)]
+use crate::{delete, delete_all};
+
 // WARNING Expecting that `cargo test` won't be invoked on the same computer more than once within
 // a single millisecond
 lazy_static! {
     static ref INSTANCE_ID: i64 = chrono::Local::now().timestamp_millis();
     static ref ID_OFFSET: AtomicI64 = AtomicI64::new(0);
 }
-fn get_unique_name() -> String {
+pub fn get_unique_name() -> String {
     let id = ID_OFFSET.fetch_add(1, Ordering::SeqCst);
     format!("trash-test-{}-{}", *INSTANCE_ID, id)
 }
 
 #[test]
-fn create_remove() {
-    let file_name = get_unique_name();
-    File::create(&file_name).unwrap();
-    trash::remove(&file_name).unwrap();
-    assert!(File::open(&file_name).is_err());
+fn test_delete_file() {
+    let path = "test_file_to_delete";
+    File::create(path).unwrap();
+
+    delete(path).unwrap();
+    assert!(File::open(path).is_err());
 }
 
 #[test]
-fn create_remove_empty_folder() {
-    let folder_name = get_unique_name();
-    let path = PathBuf::from(folder_name);
-    create_dir(&path).unwrap();
-
-    assert!(path.exists());
-    trash::remove(&path).unwrap();
-    assert!(path.exists() == false);
-}
-
-#[test]
-fn create_remove_folder_with_file() {
-    let folder_name = get_unique_name();
-    let path = PathBuf::from(folder_name);
+fn test_delete_folder() {
+    let path = PathBuf::from("test_folder_to_delete");
     create_dir(&path).unwrap();
     File::create(path.join("file_in_folder")).unwrap();
 
     assert!(path.exists());
-    trash::remove(&path).unwrap();
+    delete(&path).unwrap();
     assert!(path.exists() == false);
 }
 
 #[test]
-fn create_multiple_remove_all() {
-    let file_name_prefix = get_unique_name();
+fn test_delete_all() {
     let count: usize = 3;
-    let paths: Vec<_> = (0..count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+
+    let paths: Vec<_> = (0..count).map(|i| format!("test_file_to_delete_{}", i)).collect();
     for path in paths.iter() {
         File::create(path).unwrap();
     }
 
-    trash::remove_all(&paths).unwrap();
+    delete_all(&paths).unwrap();
     for path in paths.iter() {
         assert!(File::open(path).is_err());
+    }
+}
+
+#[cfg(unix)]
+mod unix {
+    #[allow(deprecated)]
+    use crate::delete;
+    use std::fs::{create_dir, remove_dir_all, remove_file, File};
+    use std::os::unix::fs::symlink;
+
+    use std::path::Path;
+
+    #[test]
+    fn test_delete_symlink() {
+        let target_path = "test_link_target_for_delete";
+        File::create(target_path).unwrap();
+
+        let link_path = "test_link_to_delete";
+        symlink(target_path, link_path).unwrap();
+
+        delete(link_path).unwrap();
+        assert!(File::open(link_path).is_err());
+        assert!(File::open(target_path).is_ok());
+        // Cleanup
+        remove_file(target_path).unwrap();
+    }
+
+    #[test]
+    fn test_delete_symlink_in_folder() {
+        let target_path = "test_link_target_for_delete_from_folder";
+        File::create(target_path).unwrap();
+
+        let folder = Path::new("test_parent_folder_for_link_to_delete");
+        create_dir(folder).unwrap();
+        let link_path = folder.join("test_link_to_delete_from_folder");
+        symlink(target_path, &link_path).unwrap();
+
+        delete(&link_path).unwrap();
+        assert!(File::open(link_path).is_err());
+        assert!(File::open(target_path).is_ok());
+        // Cleanup
+        remove_file(target_path).unwrap();
+        remove_dir_all(folder).unwrap();
     }
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 mod extra {
     use super::*;
+
+    use crate as trash;
 
     #[test]
     fn list() {
@@ -79,7 +115,7 @@ mod extra {
             for path in names.iter() {
                 File::create(path).unwrap();
             }
-            trash::remove_all(&names).unwrap();
+            trash::delete_all(&names).unwrap();
         }
         let items = trash::extra::list().unwrap();
         let items: HashMap<_, Vec<_>> = items
@@ -129,7 +165,7 @@ mod extra {
             for path in names.iter() {
                 File::create(path).unwrap();
             }
-            trash::remove_all(&names).unwrap();
+            trash::delete_all(&names).unwrap();
         }
 
         // Collect it because we need the exact number of items gathered.
@@ -157,7 +193,7 @@ mod extra {
         for path in names.iter() {
             File::create(path).unwrap();
         }
-        trash::remove_all(&names).unwrap();
+        trash::delete_all(&names).unwrap();
 
         // Collect it because we need the exact number of items gathered.
         let targets: Vec<_> = trash::extra::list()
@@ -195,7 +231,7 @@ mod extra {
         for path in names.iter() {
             File::create(path).unwrap();
         }
-        trash::remove_all(&names).unwrap();
+        trash::delete_all(&names).unwrap();
         for path in names.iter().skip(file_count - collision_remaining) {
             File::create(path).unwrap();
         }
@@ -208,25 +244,22 @@ mod extra {
         assert_eq!(targets.len(), file_count);
         let remaining_count;
         match trash::extra::restore_all(targets) {
-            Err(e) => match e.kind() {
-                trash::ErrorKind::RestoreCollision { remaining_items, .. } => {
-                    let contains = |v: &Vec<trash::TrashItem>, name: &String| {
-                        for curr in v.iter() {
-                            if *curr.name == *name {
-                                return true;
-                            }
+            Err(trash::Error::RestoreCollision { remaining_items, .. }) => {
+                let contains = |v: &Vec<trash::TrashItem>, name: &String| {
+                    for curr in v.iter() {
+                        if *curr.name == *name {
+                            return true;
                         }
-                        false
-                    };
-                    // Are all items that got restored reside in the folder?
-                    for path in names.iter().filter(|filename| !contains(&remaining_items, filename)) {
-                        assert!(File::open(path).is_ok());
                     }
-                    remaining_count = remaining_items.len();
+                    false
+                };
+                // Are all items that got restored reside in the folder?
+                for path in names.iter().filter(|filename| !contains(&remaining_items, filename)) {
+                    assert!(File::open(path).is_ok());
                 }
-                _ => panic!("{:?}", e),
+                remaining_count = remaining_items.len();
             },
-            Ok(()) => panic!(
+            _ => panic!(
                 "restore_all was expected to return `trash::ErrorKind::RestoreCollision` but did not."
             ),
         }
@@ -252,11 +285,11 @@ mod extra {
         for path in names.iter() {
             File::create(path).unwrap();
         }
-        trash::remove_all(&names).unwrap();
+        trash::delete_all(&names).unwrap();
 
         let twin_name = &names[1];
         File::create(twin_name).unwrap();
-        trash::remove(&twin_name).unwrap();
+        trash::delete(&twin_name).unwrap();
 
         let mut targets: Vec<_> = trash::extra::list()
             .unwrap()
@@ -266,19 +299,11 @@ mod extra {
         targets.sort_by(|a, b| a.name.cmp(&b.name));
         assert_eq!(targets.len(), file_count + 1); // plus one for one of the twins
         match trash::extra::restore_all(targets) {
-            Err(e) => match e.kind() {
-                trash::ErrorKind::RestoreTwins { path, .. } => {
-                    assert_eq!(path.file_name().unwrap().to_str().unwrap(), twin_name);
-                    match e.into_kind() {
-                        trash::ErrorKind::RestoreTwins { items, .. } => {
-                            trash::extra::purge_all(items).unwrap();
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-                _ => panic!("{:?}", e),
-            },
-            Ok(()) => panic!(
+            Err(trash::Error::RestoreTwins { path, items }) => {
+                assert_eq!(path.file_name().unwrap().to_str().unwrap(), twin_name);
+                trash::extra::purge_all(items).unwrap();
+            }
+            _ => panic!(
                 "restore_all was expected to return `trash::ErrorKind::RestoreTwins` but did not."
             ),
         }

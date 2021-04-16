@@ -1,6 +1,8 @@
+use std::ffi::OsString;
 use std::ffi::{OsStr, OsString};
 use std::mem::MaybeUninit;
 use std::ops::DerefMut;
+use std::os::windows::ffi::OsStrExt;
 use std::os::windows::prelude::*;
 use std::path::{Path, PathBuf};
 
@@ -10,7 +12,10 @@ use winapi::DEFINE_GUID;
 use winapi::{
     ctypes::{c_int, c_void},
     shared::guiddef::REFIID,
+    shared::minwindef::UINT,
     shared::minwindef::{DWORD, FILETIME, LPVOID},
+    shared::windef::HWND,
+    shared::winerror::S_OK,
     shared::winerror::{HRESULT_FROM_WIN32, SUCCEEDED, S_OK},
     shared::wtypes::{VT_BSTR, VT_DATE},
     um::combaseapi::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL},
@@ -22,6 +27,10 @@ use winapi::{
         COINIT_SPEED_OVER_MEMORY,
     },
     um::oleauto::{VariantChangeType, VariantClear, VariantTimeToSystemTime},
+    um::shellapi::{
+        SHFileOperationW, FOF_ALLOWUNDO, FOF_SILENT, FOF_WANTNUKEWARNING, FO_DELETE,
+        SHFILEOPSTRUCTW,
+    },
     um::shellapi::{FOF_ALLOWUNDO, FOF_NO_UI, FOF_WANTNUKEWARNING},
     um::shlobj::CSIDL_BITBUCKET,
     um::shlwapi::StrRetToStrW,
@@ -34,6 +43,7 @@ use winapi::{
         PCUITEMID_CHILD, PIDLIST_ABSOLUTE, PIDLIST_RELATIVE, PITEMID_CHILD, SHCOLUMNID, STRRET,
     },
     um::timezoneapi::SystemTimeToFileTime,
+    um::winnt::PCZZWSTR,
     um::winnt::{PWSTR, ULARGE_INTEGER},
     Class, Interface,
 };
@@ -66,20 +76,9 @@ macro_rules! return_err_on_fail {
     })
 }
 
-pub fn remove_all<I, T>(paths: I) -> Result<(), Error>
-where
-    I: IntoIterator<Item = T>,
-    T: AsRef<Path>,
-{
+/// See https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
+pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
     ensure_com_initialized();
-    let paths = paths.into_iter();
-    let full_paths = paths
-        .map(|x| {
-            x.as_ref().canonicalize().map_err(|e| {
-                Error::new(ErrorKind::CanonicalizePath { original: x.as_ref().into() }, Box::new(e))
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
     unsafe {
         let mut recycle_bin = MaybeUninit::<*mut IShellFolder2>::uninit();
         bind_to_csidl(
@@ -134,11 +133,6 @@ where
         return_err_on_fail! { (*pfo).PerformOperations() };
         Ok(())
     }
-}
-
-/// See https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
-pub fn remove<T: AsRef<Path>>(path: T) -> Result<(), Error> {
-    remove_all(&[path])
 }
 
 pub fn list() -> Result<Vec<TrashItem>, Error> {
