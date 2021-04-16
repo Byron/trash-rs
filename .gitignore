@@ -1,10 +1,5 @@
 /target
 /.vscode
 **/*.rs.bk
-<<<<<<< HEAD
 Cargo.lock
-
-.vscode
-=======
 .DS_Store
->>>>>>> master
