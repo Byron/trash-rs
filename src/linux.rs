@@ -605,7 +605,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     if file == std::ptr::null_mut() {
         panic!("Neither '/proc/mounts' nor '/etc/mtab' could be opened.");
     }
-    defer! {{ unsafe { libc::fclose(file); } }}
+    defer! { unsafe { libc::fclose(file); } }
     let mut result = Vec::new();
     loop {
         let mntent = unsafe { libc::getmntent(file) };

@@ -19,7 +19,6 @@
 //! [`restore_all`]: linux_windows/fn.restore_all.html
 //!
 
-use std::collections::HashSet;
 use std::ffi::OsString;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -33,7 +32,7 @@ mod tests;
 #[path = "windows.rs"]
 mod platform;
 
-#[cfg(target_os = "linux")]
+#[cfg(all(unix, not(target_os = "macos")))]
 #[path = "linux.rs"]
 mod platform;
 
@@ -148,6 +147,7 @@ pub enum ErrorKind {
     /// `std::io::Error` but this is not guaranteed.
     ///
     /// `path`: The path to the file or folder on which this error occured.
+    // TODO: Add a description field
     Filesystem { path: PathBuf },
 
     /// This kind of error happens when a trash item's original parent already contains an item with
@@ -163,67 +163,17 @@ pub enum ErrorKind {
     /// `path`: The path of the file that's blocking the trash item from being restored.
     /// `remaining_items`: All items that were not restored in the order they were provided,
     /// starting with the item that triggered the error.
+    // TODO: Rework this error such that all files are restored which can be restored,
+    // and only the ones that collide, are returned.
     RestoreCollision { path: PathBuf, remaining_items: Vec<TrashItem> },
 
     /// This sort of error is returned when multiple items with the same `original_path` were
-    /// requested to be restored. These items are referred to as twins here.
+    /// requested to be restored. These items are referred to as twins here. If there are twins
+    /// among the items, then none of the items are restored.
     ///
     /// `path`: The `original_path` of the twins.
     /// `items`: The complete list of items that were handed over to the `restore_all` function.
     RestoreTwins { path: PathBuf, items: Vec<TrashItem> },
-}
-
-/// This struct holds information about a single item within the trash.
-///
-/// Some functions associated with this struct are defined in the `TrahsItemPlatformDep` trait.
-/// That trait is implemented for `TrashItem` by each platform specific source file individually.
-///
-/// A trahs item can be a file or folder or any other object that the target operating system
-/// allows to put into the trash.
-#[derive(Debug)]
-pub struct TrashItem {
-    /// A system specific identifier of the item in the trash.
-    ///
-    /// On Windows it is the string returned by `IShellFolder::GetDisplayNameOf` with the
-    /// `SHGDN_FORPARSING` flag.
-    ///
-    /// On Linux it is an absolute path to the `.trashinfo` file associated with the item.
-    pub id: OsString,
-
-    /// The name of the item. For example if the folder '/home/user/New Folder' was deleted,
-    /// its `name` is 'New Folder'
-    pub name: String,
-
-    /// The path to the parent folder of this item before it was put inside the trash.
-    /// For example if the folder '/home/user/New Folder' is in the trash, its `original_parent`
-    /// is '/home/user'.
-    ///
-    /// To get the full path to the file in its original location use the `original_path`
-    /// function.
-    pub original_parent: PathBuf,
-
-    /// The date and time in UNIX Epoch time when the item was put into the trash.
-    pub time_deleted: i64,
-}
-/// Platform independent functions of `TrashItem`.
-///
-/// See `TrahsItemPlatformDep` for platform dependent functions.
-impl TrashItem {
-    /// Joins the `original_parent` and `name` fields to obtain the full path to the original file.
-    pub fn original_path(&self) -> PathBuf {
-        self.original_parent.join(&self.name)
-    }
-}
-impl PartialEq for TrashItem {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-impl Eq for TrashItem {}
-impl Hash for TrashItem {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
 }
 
 /// Removes a single file or directory.
@@ -264,16 +214,68 @@ where
     platform::remove_all(paths)
 }
 
-#[cfg(any(target_os = "linux", target_os = "windows"))]
-pub mod linux_windows {
-    //!
-    //! This module contains functions that are only available on Windows and Linux.
-    //! See the [crate description] for more.
-    //!
-    //! [crate description]: ../index.html
-    //!
+/// This struct holds information about a single item within the trash.
+///
+/// Some functions associated with this struct are defined in the `TrahsItemPlatformDep` trait.
+/// That trait is implemented for `TrashItem` by each platform specific source file individually.
+///
+/// A trahs item can be a file or folder or any other object that the target operating system
+/// allows to put into the trash.
+#[derive(Debug)]
+pub struct TrashItem {
+    /// A system specific identifier of the item in the trash.
+    ///
+    /// On Windows it is the string returned by `IShellFolder::GetDisplayNameOf` with the
+    /// `SHGDN_FORPARSING` flag.
+    ///
+    /// On Linux it is an absolute path to the `.trashinfo` file associated with the item.
+    pub id: OsString,
 
-    use super::*;
+    /// The name of the item. For example if the folder '/home/user/New Folder' was deleted,
+    /// its `name` is 'New Folder'
+    pub name: String,
+
+    /// The path to the parent folder of this item before it was put inside the trash.
+    /// For example if the folder '/home/user/New Folder' is in the trash, its `original_parent`
+    /// is '/home/user'.
+    ///
+    /// To get the full path to the file in its original location use the `original_path`
+    /// function.
+    pub original_parent: PathBuf,
+
+    /// The date and time in UNIX Epoch time when the item was put into the trash.
+    pub time_deleted: i64,
+}
+
+/// Platform independent functions of `TrashItem`.
+///
+/// See `TrahsItemPlatformDep` for platform dependent functions.
+impl TrashItem {
+    /// Joins the `original_parent` and `name` fields to obtain the full path to the original file.
+    pub fn original_path(&self) -> PathBuf {
+        self.original_parent.join(&self.name)
+    }
+}
+impl PartialEq for TrashItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+impl Eq for TrashItem {}
+impl Hash for TrashItem {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+pub mod extra {
+    use std::{
+        collections::HashSet,
+        hash::{Hash, Hasher},
+    };
+
+    use super::{platform, Error, ErrorKind, TrashItem};
 
     /// Returns all [`TrashItem`]s that are currently in the trash.
     ///

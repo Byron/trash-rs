@@ -65,7 +65,7 @@ fn create_multiple_remove_all() {
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
-mod linux_windows {
+mod extra {
     use super::*;
 
     #[test]
@@ -81,7 +81,7 @@ mod linux_windows {
             }
             trash::remove_all(&names).unwrap();
         }
-        let items = trash::linux_windows::list().unwrap();
+        let items = trash::extra::list().unwrap();
         let items: HashMap<_, Vec<_>> = items
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
@@ -105,18 +105,17 @@ mod linux_windows {
 
         // Let's try to purge all the items we just created but ignore any errors
         // as this test should succeed as long as `list` works properly.
-        let _ =
-            trash::linux_windows::purge_all(items.into_iter().map(|(_name, item)| item).flatten());
+        let _ = trash::extra::purge_all(items.into_iter().map(|(_name, item)| item).flatten());
     }
 
     #[test]
     fn purge_empty() {
-        trash::linux_windows::purge_all(vec![]).unwrap();
+        trash::extra::purge_all(vec![]).unwrap();
     }
 
     #[test]
     fn restore_empty() {
-        trash::linux_windows::restore_all(vec![]).unwrap();
+        trash::extra::restore_all(vec![]).unwrap();
     }
 
     #[test]
@@ -134,14 +133,14 @@ mod linux_windows {
         }
 
         // Collect it because we need the exact number of items gathered.
-        let targets: Vec<_> = trash::linux_windows::list()
+        let targets: Vec<_> = trash::extra::list()
             .unwrap()
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
             .collect();
         assert_eq!(targets.len(), batches * files_per_batch);
-        trash::linux_windows::purge_all(targets).unwrap();
-        let remaining = trash::linux_windows::list()
+        trash::extra::purge_all(targets).unwrap();
+        let remaining = trash::extra::list()
             .unwrap()
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
@@ -161,14 +160,14 @@ mod linux_windows {
         trash::remove_all(&names).unwrap();
 
         // Collect it because we need the exact number of items gathered.
-        let targets: Vec<_> = trash::linux_windows::list()
+        let targets: Vec<_> = trash::extra::list()
             .unwrap()
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
             .collect();
         assert_eq!(targets.len(), file_count);
-        trash::linux_windows::restore_all(targets).unwrap();
-        let remaining = trash::linux_windows::list()
+        trash::extra::restore_all(targets).unwrap();
+        let remaining = trash::extra::list()
             .unwrap()
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
@@ -200,7 +199,7 @@ mod linux_windows {
         for path in names.iter().skip(file_count - collision_remaining) {
             File::create(path).unwrap();
         }
-        let mut targets: Vec<_> = trash::linux_windows::list()
+        let mut targets: Vec<_> = trash::extra::list()
             .unwrap()
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
@@ -208,7 +207,7 @@ mod linux_windows {
         targets.sort_by(|a, b| a.name.cmp(&b.name));
         assert_eq!(targets.len(), file_count);
         let remaining_count;
-        match trash::linux_windows::restore_all(targets) {
+        match trash::extra::restore_all(targets) {
             Err(e) => match e.kind() {
                 trash::ErrorKind::RestoreCollision { remaining_items, .. } => {
                     let contains = |v: &Vec<trash::TrashItem>, name: &String| {
@@ -231,13 +230,13 @@ mod linux_windows {
                 "restore_all was expected to return `trash::ErrorKind::RestoreCollision` but did not."
             ),
         }
-        let remaining = trash::linux_windows::list()
+        let remaining = trash::extra::list()
             .unwrap()
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
             .collect::<Vec<_>>();
         assert_eq!(remaining.len(), remaining_count);
-        trash::linux_windows::purge_all(remaining).unwrap();
+        trash::extra::purge_all(remaining).unwrap();
         for path in names.iter() {
             // This will obviously fail on the items that both didn't collide and weren't restored.
             let _ = std::fs::remove_file(path);
@@ -259,20 +258,20 @@ mod linux_windows {
         File::create(twin_name).unwrap();
         trash::remove(&twin_name).unwrap();
 
-        let mut targets: Vec<_> = trash::linux_windows::list()
+        let mut targets: Vec<_> = trash::extra::list()
             .unwrap()
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
             .collect();
         targets.sort_by(|a, b| a.name.cmp(&b.name));
         assert_eq!(targets.len(), file_count + 1); // plus one for one of the twins
-        match trash::linux_windows::restore_all(targets) {
+        match trash::extra::restore_all(targets) {
             Err(e) => match e.kind() {
                 trash::ErrorKind::RestoreTwins { path, .. } => {
                     assert_eq!(path.file_name().unwrap().to_str().unwrap(), twin_name);
                     match e.into_kind() {
                         trash::ErrorKind::RestoreTwins { items, .. } => {
-                            trash::linux_windows::purge_all(items).unwrap();
+                            trash::extra::purge_all(items).unwrap();
                         }
                         _ => unreachable!(),
                     }
