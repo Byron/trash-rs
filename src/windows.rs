@@ -1,14 +1,12 @@
 use std::{
-    ffi::{c_void, OsStr, OsString},
-    fmt::format,
+    ffi::{c_void, OsString},
     mem::MaybeUninit,
     ops::DerefMut,
     os::{
         raw::c_int,
         windows::{ffi::OsStrExt, prelude::*},
     },
-    path::{Path, PathBuf},
-    ptr::null_mut,
+    path::PathBuf,
 };
 
 use scopeguard::defer;
@@ -53,7 +51,7 @@ const FOF_NO_UI: u32 = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOC
 
 use crate::{Error, TrashItem};
 
-macro_rules! return_err_on_fail {
+macro_rules! check_hresult {
     {$f_name:ident($($args:tt)*)} => ({
         let hr = $f_name($($args)*);
         if hr.is_err() {
@@ -61,12 +59,23 @@ macro_rules! return_err_on_fail {
                 description: format!("`{}` failed with the result: {:?}", stringify!($f_name), hr)
             });
         }
-        hr
     });
     {$obj:ident.$f_name:ident($($args:tt)*)} => ({
-        return_err_on_fail!{($obj).$f_name($($args)*)}
+        let _ = check_and_get_hresult!{$obj.$f_name($($args)*)};
     });
-    {($obj:expr).$f_name:ident($($args:tt)*)} => ({
+    // {($obj:expr).$f_name:ident($($args:tt)*)} => ({
+    //     let hr = ($obj).$f_name($($args)*);
+    //     if hr.is_err() {
+    //         return Err(Error::Unknown {
+    //             description: format!("`{}` failed with the result: {:?}", stringify!($f_name), hr)
+    //         });
+    //     }
+    //     hr
+    // })
+}
+
+macro_rules! check_and_get_hresult {
+    {$obj:ident.$f_name:ident($($args:tt)*)} => ({
         let hr = ($obj).$f_name($($args)*);
         if hr.is_err() {
             return Err(Error::Unknown {
@@ -74,21 +83,21 @@ macro_rules! return_err_on_fail {
             });
         }
         hr
-    })
+    });
 }
 
 /// See https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
 pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
     ensure_com_initialized();
     unsafe {
-        let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as c_int)?;
+        // let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as c_int)?;
         // let mut pbc = MaybeUninit::<*mut IBindCtx>::uninit();
         // return_err_on_fail! { CreateBindCtx(0, pbc.as_mut_ptr()) };
         // let pbc = pbc.assume_init();
         // defer! {{ (*pbc).Release(); }}
         // (*pbc).
         let mut pfo = MaybeUninit::<IFileOperation>::uninit();
-        return_err_on_fail! {
+        check_hresult! {
             CoCreateInstance(
                 &FileOperation as *const _,
                 None,
@@ -98,7 +107,7 @@ pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
             )
         };
         let pfo = pfo.assume_init();
-        return_err_on_fail! { pfo.SetOperationFlags(FOF_NO_UI | FOF_ALLOWUNDO | FOF_WANTNUKEWARNING) };
+        check_hresult! { pfo.SetOperationFlags(FOF_NO_UI | FOF_ALLOWUNDO | FOF_WANTNUKEWARNING) };
         for full_path in full_paths.iter() {
             let path_prefix = ['\\' as u16, '\\' as u16, '?' as u16, '\\' as u16];
             let mut wide_path_container: Vec<_> =
@@ -109,7 +118,7 @@ pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
                 &mut wide_path_container[0..]
             };
             let mut shi = MaybeUninit::<IShellItem>::uninit();
-            return_err_on_fail! {
+            check_hresult! {
                 SHCreateItemFromParsingName(
                     PWSTR(wide_path_slice.as_mut_ptr()),
                     None,
@@ -118,9 +127,9 @@ pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
                 )
             };
             let shi = shi.assume_init();
-            return_err_on_fail! { pfo.DeleteItem(shi, None) };
+            check_hresult! { pfo.DeleteItem(shi, None) };
         }
-        return_err_on_fail! { pfo.PerformOperations() };
+        check_hresult! { pfo.PerformOperations() };
         Ok(())
     }
 }
@@ -128,10 +137,10 @@ pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
 pub fn list() -> Result<Vec<TrashItem>, Error> {
     ensure_com_initialized();
     unsafe {
-        let mut recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as c_int)?;
+        let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as c_int)?;
         let mut peidl = MaybeUninit::<Option<IEnumIDList>>::uninit();
         let flags = _SHCONTF::SHCONTF_FOLDERS.0 | _SHCONTF::SHCONTF_NONFOLDERS.0;
-        let hr = return_err_on_fail! {
+        let hr = check_and_get_hresult! {
             recycle_bin.EnumObjects(
                 HWND::NULL,
                 flags as u32,
@@ -178,7 +187,56 @@ pub fn purge_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
-    todo!()
+    ensure_com_initialized();
+    unsafe {
+        let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as i32)?;
+        let mut pfo = MaybeUninit::<IFileOperation>::uninit();
+        check_hresult! {
+            CoCreateInstance(
+                &FileOperation as *const _,
+                None,
+                CLSCTX::CLSCTX_ALL,
+                &IFileOperation::IID as *const _,
+                pfo.as_mut_ptr() as *mut *mut c_void,
+            )
+        };
+        let pfo = pfo.assume_init();
+        check_hresult! { pfo.SetOperationFlags(FOF_NO_UI) };
+        let mut at_least_one = false;
+        for item in items {
+            at_least_one = true;
+            let mut id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
+            let mut pidl = MaybeUninit::<*mut ITEMIDLIST>::uninit();
+            check_hresult! {
+                recycle_bin.ParseDisplayName(
+                    HWND::NULL,
+                    None,
+                    PWSTR(id_wstr.as_mut_ptr()),
+                    std::ptr::null_mut(),
+                    pidl.as_mut_ptr(),
+                    std::ptr::null_mut(),
+                )
+            };
+            let pidl = pidl.assume_init();
+            defer! {{ CoTaskMemFree(pidl as *mut c_void); }}
+            let mut shi = MaybeUninit::<IShellItem>::uninit();
+            check_hresult! {
+                SHCreateItemWithParent(
+                    std::ptr::null_mut(),
+                    &recycle_bin,
+                    pidl,
+                    &IShellItem::IID as *const _,
+                    shi.as_mut_ptr() as *mut *mut c_void,
+                )
+            };
+            let shi = shi.assume_init();
+            check_hresult! { pfo.DeleteItem(shi, None) };
+        }
+        if at_least_one {
+            check_hresult! { pfo.PerformOperations() };
+        }
+        Ok(())
+    }
 }
 
 pub fn restore_all<I>(items: I) -> Result<(), Error>
@@ -194,10 +252,10 @@ unsafe fn get_display_name(
     flags: _SHGDNF,
 ) -> Result<OsString, Error> {
     let mut sr = MaybeUninit::<STRRET>::uninit();
-    return_err_on_fail! { psf.GetDisplayNameOf(pidl, flags.0 as u32, sr.as_mut_ptr()) };
+    check_hresult! { psf.GetDisplayNameOf(pidl, flags.0 as u32, sr.as_mut_ptr()) };
     let mut sr = sr.assume_init();
     let mut name = MaybeUninit::<PWSTR>::uninit();
-    return_err_on_fail! { StrRetToStrW(&mut sr as *mut _, pidl, name.as_mut_ptr()) };
+    check_hresult! { StrRetToStrW(&mut sr as *mut _, pidl, name.as_mut_ptr()) };
     let name = name.assume_init();
     let result = wstr_to_os_string(name);
     CoTaskMemFree(name.0 as *mut c_void);
@@ -219,12 +277,13 @@ unsafe fn get_detail(
     pscid: *const PROPERTYKEY,
 ) -> Result<OsString, Error> {
     let mut vt = MaybeUninit::<VARIANT>::uninit();
-    return_err_on_fail! { psf.GetDetailsEx(pidl, pscid, vt.as_mut_ptr()) };
+    check_hresult! { psf.GetDetailsEx(pidl, pscid, vt.as_mut_ptr()) };
     let vt = vt.assume_init();
     let mut vt = scopeguard::guard(vt, |mut vt| {
-        VariantClear(&mut vt as *mut _);
+        // Ignoring the return value
+        let _ = VariantClear(&mut vt as *mut _);
     });
-    return_err_on_fail! {
+    check_hresult! {
         VariantChangeType(vt.deref_mut() as *mut _, vt.deref_mut() as *mut _, 0, VARENUM::VT_BSTR.0 as u16)
     };
     let pstr = vt.Anonymous.Anonymous.Anonymous.bstrVal;
@@ -238,12 +297,13 @@ unsafe fn get_date_unix(
     pscid: *const PROPERTYKEY,
 ) -> Result<i64, Error> {
     let mut vt = MaybeUninit::<VARIANT>::uninit();
-    return_err_on_fail! { psf.GetDetailsEx(pidl, pscid, vt.as_mut_ptr()) };
+    check_hresult! { psf.GetDetailsEx(pidl, pscid, vt.as_mut_ptr()) };
     let vt = vt.assume_init();
     let mut vt = scopeguard::guard(vt, |mut vt| {
-        VariantClear(&mut vt as *mut _);
+        // Ignoring the return value
+        let _ = VariantClear(&mut vt as *mut _);
     });
-    return_err_on_fail! {
+    check_hresult! {
         VariantChangeType(vt.deref_mut() as *mut _, vt.deref_mut() as *mut _, 0, VARENUM::VT_DATE.0 as u16)
     };
     let date = vt.Anonymous.Anonymous.Anonymous.date;
@@ -311,14 +371,14 @@ fn windows_ticks_to_unix_seconds(windows_ticks: u64) -> i64 {
 
 unsafe fn bind_to_csidl<T: Interface>(csidl: c_int) -> Result<T, Error> {
     let mut pidl = MaybeUninit::<*mut ITEMIDLIST>::uninit();
-    return_err_on_fail! {
+    check_hresult! {
         SHGetSpecialFolderLocation(HWND::NULL, csidl, pidl.as_mut_ptr())
     };
     let pidl = pidl.assume_init();
     defer! {{ CoTaskMemFree(pidl as _); }};
 
     let mut desktop = MaybeUninit::<Option<IShellFolder>>::uninit();
-    return_err_on_fail! { SHGetDesktopFolder(desktop.as_mut_ptr()) };
+    check_hresult! { SHGetDesktopFolder(desktop.as_mut_ptr()) };
     let desktop = desktop.assume_init();
     let desktop = desktop.ok_or_else(|| Error::Unknown {
         description: "`SHGetDesktopFolder` set its output to `None`.".into(),
@@ -335,7 +395,7 @@ unsafe fn bind_to_csidl<T: Interface>(csidl: c_int) -> Result<T, Error> {
         // layout to a pointer, and is treated like a pointer by the `windows-rs` implementation.
         // This logic follows how the IUnknown::cast function is implemented in windows-rs 0.8
         let mut target = MaybeUninit::<T>::uninit();
-        return_err_on_fail! { desktop.BindToObject(pidl, None, &iid as *const _, target.as_mut_ptr() as *mut *mut c_void) };
+        check_hresult! { desktop.BindToObject(pidl, None, &iid as *const _, target.as_mut_ptr() as *mut *mut c_void) };
         Ok(target.assume_init())
     } else {
         Ok(desktop.cast().map_err(into_unknown)?)

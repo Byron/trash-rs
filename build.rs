@@ -34,7 +34,8 @@ fn main() {
             _SHCONTF,
             STRRET,
             StrRetToStrW,
-            _SHGDNF
+            _SHGDNF,
+            SHCreateItemWithParent
         },
         Windows::Win32::Com::{
             CoInitializeEx,
