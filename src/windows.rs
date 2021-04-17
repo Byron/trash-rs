@@ -23,23 +23,6 @@ use bindings::Windows::Win32::{
 };
 use windows::{Guid, IUnknown, Interface, IntoParam, Param, RuntimeType, HRESULT};
 
-struct WinNull;
-impl<'a> IntoParam<'a, IBindCtx> for WinNull {
-    fn into_param(self) -> Param<'a, IBindCtx> {
-        Param::None
-    }
-}
-impl<'a> IntoParam<'a, IUnknown> for WinNull {
-    fn into_param(self) -> Param<'a, IUnknown> {
-        Param::None
-    }
-}
-impl<'a> IntoParam<'a, IFileOperationProgressSink> for WinNull {
-    fn into_param(self) -> Param<'a, IFileOperationProgressSink> {
-        Param::None
-    }
-}
-
 ///////////////////////////////////////////////////////////////////////////
 // These don't have bindings in windows-rs for some reason
 ///////////////////////////////////////////////////////////////////////////
@@ -108,7 +91,7 @@ pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
         return_err_on_fail! {
             CoCreateInstance(
                 &FileOperation as *const _,
-                WinNull,
+                None,
                 CLSCTX::CLSCTX_ALL,
                 &IFileOperation::IID as *const _,
                 pfo.as_mut_ptr() as *mut *mut c_void,
@@ -129,13 +112,13 @@ pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
             return_err_on_fail! {
                 SHCreateItemFromParsingName(
                     PWSTR(wide_path_slice.as_mut_ptr()),
-                    WinNull,
+                    None,
                     &IShellItem::IID as *const _,
                     shi.as_mut_ptr() as *mut *mut c_void,
                 )
             };
             let shi = shi.assume_init();
-            return_err_on_fail! { pfo.DeleteItem(shi, WinNull) };
+            return_err_on_fail! { pfo.DeleteItem(shi, None) };
         }
         return_err_on_fail! { pfo.PerformOperations() };
         Ok(())
@@ -352,7 +335,7 @@ unsafe fn bind_to_csidl<T: Interface>(csidl: c_int) -> Result<T, Error> {
         // layout to a pointer, and is treated like a pointer by the `windows-rs` implementation.
         // This logic follows how the IUnknown::cast function is implemented in windows-rs 0.8
         let mut target = MaybeUninit::<T>::uninit();
-        return_err_on_fail! { desktop.BindToObject(pidl, WinNull, &iid as *const _, target.as_mut_ptr() as *mut *mut c_void) };
+        return_err_on_fail! { desktop.BindToObject(pidl, None, &iid as *const _, target.as_mut_ptr() as *mut *mut c_void) };
         Ok(target.assume_init())
     } else {
         Ok(desktop.cast().map_err(into_unknown)?)
