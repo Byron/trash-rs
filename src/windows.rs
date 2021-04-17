@@ -1,5 +1,5 @@
 use std::{
-    ffi::{c_void, OsString},
+    ffi::{c_void, OsStr, OsString},
     mem::MaybeUninit,
     ops::DerefMut,
     os::{
@@ -19,7 +19,7 @@ use bindings::Windows::Win32::{
     Automation::*, Com::*, Shell::*, SystemServices::*, WindowsAndMessaging::*,
     WindowsProgramming::*, WindowsPropertiesSystem::*,
 };
-use windows::{Guid, IUnknown, Interface, IntoParam, Param, RuntimeType, HRESULT};
+use windows::{Guid, Interface, HRESULT};
 
 ///////////////////////////////////////////////////////////////////////////
 // These don't have bindings in windows-rs for some reason
@@ -34,19 +34,13 @@ const SCID_DATE_DELETED: PROPERTYKEY =
     PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_DATE };
 
 const FOF_SILENT: u32 = 0x0004;
-const FOF_RENAMEONCOLLISION: u32 = 0x0008;
 const FOF_NOCONFIRMATION: u32 = 0x0010;
-const FOF_WANTMAPPINGHANDLE: u32 = 0x0020;
 const FOF_ALLOWUNDO: u32 = 0x0040;
-const FOF_FILESONLY: u32 = 0x0080;
-const FOF_SIMPLEPROGRESS: u32 = 0x0100;
 const FOF_NOCONFIRMMKDIR: u32 = 0x0200;
 const FOF_NOERRORUI: u32 = 0x0400;
-const FOF_NOCOPYSECURITYATTRIBS: u32 = 0x0800;
-const FOF_NORECURSION: u32 = 0x1000;
-const FOF_NO_CONNECTED_ELEMENTS: u32 = 0x2000;
 const FOF_WANTNUKEWARNING: u32 = 0x4000;
 const FOF_NO_UI: u32 = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOCONFIRMMKDIR;
+const FOFX_EARLYFAILURE: u32 = 0x00100000;
 ///////////////////////////////////////////////////////////////////////////
 
 use crate::{Error, TrashItem};
@@ -63,15 +57,6 @@ macro_rules! check_hresult {
     {$obj:ident.$f_name:ident($($args:tt)*)} => ({
         let _ = check_and_get_hresult!{$obj.$f_name($($args)*)};
     });
-    // {($obj:expr).$f_name:ident($($args:tt)*)} => ({
-    //     let hr = ($obj).$f_name($($args)*);
-    //     if hr.is_err() {
-    //         return Err(Error::Unknown {
-    //             description: format!("`{}` failed with the result: {:?}", stringify!($f_name), hr)
-    //         });
-    //     }
-    //     hr
-    // })
 }
 
 macro_rules! check_and_get_hresult {
@@ -159,7 +144,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             });
         }
         let peidl = peidl.assume_init().ok_or_else(|| Error::Unknown {
-            description: format!("`EnumObjects` set its output to None."),
+            description: "`EnumObjects` set its output to None.".into(),
         })?;
         let mut item_vec = Vec::new();
         let mut item_uninit = MaybeUninit::<*mut ITEMIDLIST>::uninit();
@@ -179,7 +164,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 time_deleted: date_deleted,
             });
         }
-        return Ok(item_vec);
+        Ok(item_vec)
     }
 }
 
@@ -243,7 +228,85 @@ pub fn restore_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
-    todo!();
+    let items: Vec<_> = items.into_iter().collect();
+
+    // Do a quick and dirty check if the target items already exist at the location
+    // and if they do, return all of them, if they don't just go ahead with the processing
+    // without giving a damn.
+    // Note that this is not 'thread safe' meaning that if a paralell thread (or process)
+    // does this operation the exact same time or creates files or folders right after this check,
+    // then the files that would collide will not be detected and returned as part of an error.
+    // Instead Windows will display a prompt to the user whether they want to replace or skip.
+    for item in items.iter() {
+        let path = item.original_path();
+        if path.exists() {
+            return Err(Error::RestoreCollision { path, remaining_items: items });
+        }
+    }
+    ensure_com_initialized();
+    unsafe {
+        let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as i32)?;
+        let mut pfo = MaybeUninit::<IFileOperation>::uninit();
+        check_hresult! {
+            CoCreateInstance(
+                &FileOperation as *const _,
+                None,
+                CLSCTX::CLSCTX_ALL,
+                &IFileOperation::IID as *const _,
+                pfo.as_mut_ptr() as *mut *mut c_void,
+            )
+        }
+        let pfo = pfo.assume_init();
+        check_hresult! { pfo.SetOperationFlags(FOF_NO_UI | FOFX_EARLYFAILURE) };
+        for item in items.iter() {
+            let mut id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
+            let mut pidl = MaybeUninit::<*mut ITEMIDLIST>::uninit();
+            check_hresult! {
+                recycle_bin.ParseDisplayName(
+                    HWND::NULL,
+                    None,
+                    PWSTR(id_wstr.as_mut_ptr()),
+                    std::ptr::null_mut(),
+                    pidl.as_mut_ptr(),
+                    std::ptr::null_mut(),
+                )
+            };
+            let pidl = pidl.assume_init();
+            defer! {{ CoTaskMemFree(pidl as *mut c_void); }}
+            let mut trash_item_shi = MaybeUninit::<IShellItem>::uninit();
+            check_hresult! {
+                SHCreateItemWithParent(
+                    std::ptr::null_mut(),
+                    &recycle_bin,
+                    pidl,
+                    &IShellItem::IID as *const _,
+                    trash_item_shi.as_mut_ptr() as *mut *mut c_void,
+                )
+            };
+            let trash_item_shi = trash_item_shi.assume_init();
+            let mut parent_path_wide: Vec<_> =
+                item.original_parent.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+            let mut orig_folder_shi = MaybeUninit::<IShellItem>::uninit();
+            check_hresult! {
+                SHCreateItemFromParsingName(
+                    PWSTR(parent_path_wide.as_mut_ptr()),
+                    None,
+                    &IShellItem::IID as *const _,
+                    orig_folder_shi.as_mut_ptr() as *mut *mut c_void,
+                )
+            };
+            let orig_folder_shi = orig_folder_shi.assume_init();
+            let mut name_wstr: Vec<_> = AsRef::<OsStr>::as_ref(&item.name)
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect();
+            check_hresult! { pfo.MoveItem(trash_item_shi, orig_folder_shi, PWSTR(name_wstr.as_mut_ptr()), None) };
+        }
+        if !items.is_empty() {
+            check_hresult! { pfo.PerformOperations() };
+        }
+        Ok(())
+    }
 }
 
 unsafe fn get_display_name(
@@ -287,8 +350,7 @@ unsafe fn get_detail(
         VariantChangeType(vt.deref_mut() as *mut _, vt.deref_mut() as *mut _, 0, VARENUM::VT_BSTR.0 as u16)
     };
     let pstr = vt.Anonymous.Anonymous.Anonymous.bstrVal;
-    let result = Ok(wstr_to_os_string(PWSTR(pstr)));
-    return result;
+    Ok(wstr_to_os_string(PWSTR(pstr)))
 }
 
 unsafe fn get_date_unix(
@@ -366,7 +428,7 @@ fn windows_ticks_to_unix_seconds(windows_ticks: u64) -> i64 {
     // i64 can remain valid until about 6000 years from the very first tick
     const WINDOWS_TICK: u64 = 10000000;
     const SEC_TO_UNIX_EPOCH: i64 = 11644473600;
-    return (windows_ticks / WINDOWS_TICK) as i64 - SEC_TO_UNIX_EPOCH;
+    (windows_ticks / WINDOWS_TICK) as i64 - SEC_TO_UNIX_EPOCH
 }
 
 unsafe fn bind_to_csidl<T: Interface>(csidl: c_int) -> Result<T, Error> {

@@ -329,7 +329,7 @@ pub mod extra {
     /// # Example
     ///
     /// ```
-    /// use trash::{remove, linux_windows::list};
+    /// use trash::extra::list;
     /// let trash_items = list().unwrap();
     /// println!("{:#?}", trash_items);
     /// ```
@@ -347,10 +347,10 @@ pub mod extra {
     ///
     /// ```
     /// use std::fs::File;
-    /// use trash::{remove, linux_windows::{list, purge_all}};
+    /// use trash::{delete, extra::{list, purge_all}};
     /// let filename = "trash-purge_all-example";
     /// File::create(filename).unwrap();
-    /// remove(filename).unwrap();
+    /// delete(filename).unwrap();
     /// // Collect the filtered list just so that we can make sure there's exactly one element.
     /// // There's no need to `collect` it otherwise.
     /// let selected: Vec<_> = list().unwrap().into_iter().filter(|x| x.name == filename).collect();
@@ -385,7 +385,7 @@ pub mod extra {
     ///
     /// ```
     /// use std::fs::File;
-    /// use trash::{remove, linux_windows::{list, restore_all}};
+    /// use trash::extra::{list, restore_all};
     /// let filename = "trash-restore_all-example";
     /// File::create(filename).unwrap();
     /// restore_all(list().unwrap().into_iter().filter(|x| x.name == filename)).unwrap();
@@ -415,7 +415,7 @@ pub mod extra {
         let mut item_set = HashSet::with_capacity(items.len());
         for item in items.iter() {
             if !item_set.insert(ItemWrapper(item)) {
-                return Err(Error::RestoreTwins { path: item.original_path(), items: items });
+                return Err(Error::RestoreTwins { path: item.original_path(), items });
             }
         }
         platform::restore_all(items)
