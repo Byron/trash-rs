@@ -32,9 +32,12 @@ scopeguard = "1.0.0"
 url = "2.1.0"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "^0.3.0", features = ["shellapi", "winerror"] }
+scopeguard = "1.0.0"
+windows = "0.8.0"
 
-# scopeguard = "1.0.0"
+[target.'cfg(windows)'.build-dependencies]
+windows = "0.8.0"
+
 # [target.'cfg(windows)'.dependencies.winapi]
 # git = "https://github.com/ArturKovacs/winapi-rs.git"
 # rev = "fe297b9830c804b274e2206d3aebfe9dc33e39cb"
