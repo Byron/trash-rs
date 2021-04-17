@@ -17,8 +17,11 @@ mod bindings {
     ::windows::include_bindings!();
 }
 
-use bindings::Windows::Win32::{Com::*, Shell::*, SystemServices::*, WindowsAndMessaging::*, WindowsPropertiesSystem::*, Automation::*, WindowsProgramming::*};
-use windows::{HRESULT, Guid, IUnknown, Interface, IntoParam, Param, RuntimeType};
+use bindings::Windows::Win32::{
+    Automation::*, Com::*, Shell::*, SystemServices::*, WindowsAndMessaging::*,
+    WindowsProgramming::*, WindowsPropertiesSystem::*,
+};
+use windows::{Guid, IUnknown, Interface, IntoParam, Param, RuntimeType, HRESULT};
 
 struct WinNull;
 impl<'a> IntoParam<'a, IBindCtx> for WinNull {
@@ -40,15 +43,14 @@ impl<'a> IntoParam<'a, IFileOperationProgressSink> for WinNull {
 ///////////////////////////////////////////////////////////////////////////
 // These don't have bindings in windows-rs for some reason
 ///////////////////////////////////////////////////////////////////////////
-const PSGUID_DISPLACED: Guid = Guid::from_values(0x9b174b33, 0x40ff, 0x11d2, [0xa2, 0x7e, 0x00, 0xc0, 0x4f, 0xc3, 0x8, 0x71]);
+const PSGUID_DISPLACED: Guid =
+    Guid::from_values(0x9b174b33, 0x40ff, 0x11d2, [0xa2, 0x7e, 0x00, 0xc0, 0x4f, 0xc3, 0x8, 0x71]);
 const PID_DISPLACED_FROM: u32 = 2;
 const PID_DISPLACED_DATE: u32 = 3;
-const SCID_ORIGINAL_LOCATION: PROPERTYKEY = PROPERTYKEY {
-    fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_FROM
-};
-const SCID_DATE_DELETED: PROPERTYKEY = PROPERTYKEY {
-    fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_DATE
-};
+const SCID_ORIGINAL_LOCATION: PROPERTYKEY =
+    PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_FROM };
+const SCID_DATE_DELETED: PROPERTYKEY =
+    PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_DATE };
 
 const FOF_SILENT: u32 = 0x0004;
 const FOF_RENAMEONCOLLISION: u32 = 0x0008;
@@ -140,7 +142,6 @@ pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
     }
 }
 
-
 pub fn list() -> Result<Vec<TrashItem>, Error> {
     ensure_com_initialized();
     unsafe {
@@ -159,11 +160,14 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         // but here we want to be more strict and only accept S_OK.
         if hr != S_OK {
             return Err(Error::Unknown {
-                description: format!("`EnumObjects` returned with HRESULT {:X}, but 0x0 was expected.", hr.0)
+                description: format!(
+                    "`EnumObjects` returned with HRESULT {:X}, but 0x0 was expected.",
+                    hr.0
+                ),
             });
         }
         let peidl = peidl.assume_init().ok_or_else(|| Error::Unknown {
-            description: format!("`EnumObjects` set its output to None.")
+            description: format!("`EnumObjects` set its output to None."),
         })?;
         let mut item_vec = Vec::new();
         let mut item_uninit = MaybeUninit::<*mut ITEMIDLIST>::uninit();
@@ -178,9 +182,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
 
             item_vec.push(TrashItem {
                 id,
-                name: name.into_string().map_err(|original| {
-                    Error::ConvertOsString { original }
-                })?,
+                name: name.into_string().map_err(|original| Error::ConvertOsString { original })?,
                 original_parent: PathBuf::from(orig_loc),
                 time_deleted: date_deleted,
             });
@@ -188,7 +190,6 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         return Ok(item_vec);
     }
 }
-
 
 pub fn purge_all<I>(items: I) -> Result<(), Error>
 where
@@ -228,7 +229,6 @@ unsafe fn wstr_to_os_string(wstr: PWSTR) -> OsString {
     let wstr_slice = std::slice::from_raw_parts(wstr.0, len as usize);
     OsString::from_wide(wstr_slice)
 }
-
 
 unsafe fn get_detail(
     psf: &IShellFolder2,
@@ -278,28 +278,31 @@ unsafe fn variant_time_to_unix_time(from: f64) -> Result<i64, Error> {
     #[repr(C)]
     union LargeInteger {
         parts: LargeIntegerParts,
-        whole: u64
+        whole: u64,
     }
     let mut st = MaybeUninit::<SYSTEMTIME>::uninit();
     if 0 == VariantTimeToSystemTime(from, st.as_mut_ptr()) {
         return Err(Error::Unknown {
-            description: format!("`VariantTimeToSystemTime` indicated failure for the parameter {:?}", from)
+            description: format!(
+                "`VariantTimeToSystemTime` indicated failure for the parameter {:?}",
+                from
+            ),
         });
     }
     let st = st.assume_init();
     let mut ft = MaybeUninit::<FILETIME>::uninit();
     if SystemTimeToFileTime(&st, ft.as_mut_ptr()) == false {
         return Err(Error::Unknown {
-            description: format!("`SystemTimeToFileTime` failed with: {:?}", HRESULT::from_thread())
+            description: format!(
+                "`SystemTimeToFileTime` failed with: {:?}",
+                HRESULT::from_thread()
+            ),
         });
     }
     let ft = ft.assume_init();
 
     let large_int = LargeInteger {
-        parts: LargeIntegerParts {
-            low_part: ft.dwLowDateTime,
-            high_part: ft.dwHighDateTime
-        }
+        parts: LargeIntegerParts { low_part: ft.dwLowDateTime, high_part: ft.dwHighDateTime },
     };
 
     // Applying assume init straight away because there's no explicit support to initialize struct
