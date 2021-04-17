@@ -98,7 +98,7 @@ mod unix {
     }
 }
 
-#[cfg(any(target_os = "linux"))]
+#[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
 mod extra {
     use super::*;
 

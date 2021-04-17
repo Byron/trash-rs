@@ -313,7 +313,7 @@ impl Hash for TrashItem {
     }
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
 pub mod extra {
     use std::{
         collections::HashSet,
