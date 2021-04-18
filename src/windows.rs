@@ -44,6 +44,9 @@ const FOF_NO_UI: u32 = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOC
 const FOFX_EARLYFAILURE: u32 = 0x00100000;
 ///////////////////////////////////////////////////////////////////////////
 
+#[derive(Clone, Default, Debug)]
+pub struct PlatformTrashContext;
+
 macro_rules! check_hresult {
     {$f_name:ident($($args:tt)*)} => ({
         let hr = $f_name($($args)*);

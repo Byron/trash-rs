@@ -19,6 +19,9 @@ use scopeguard::defer;
 
 use crate::{Error, TrashItem};
 
+#[derive(Clone, Default, Debug)]
+pub struct PlatformTrashContext;
+
 pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
     let root = Path::new("/");
     let home_trash = home_trash()?;

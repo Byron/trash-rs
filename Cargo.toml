@@ -21,9 +21,14 @@ coinit_speed_over_memory = []
 [dev-dependencies]
 chrono = "0.4.9"
 rand = "0.7.2"
-lazy_static = "1.4.0"
+once_cell = "1.7.2"
+env_logger = "0.8"
 
 [dependencies]
+log = "0.4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2.7"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 chrono = "0.4.9"
@@ -37,11 +42,3 @@ windows = "0.8.0"
 
 [target.'cfg(windows)'.build-dependencies]
 windows = "0.8.0"
-
-# [target.'cfg(windows)'.dependencies.winapi]
-# git = "https://github.com/ArturKovacs/winapi-rs.git"
-# rev = "fe297b9830c804b274e2206d3aebfe9dc33e39cb"
-# features = [
-#     "combaseapi", "objbase", "objidl", "shlobj", "shellapi", "winerror", "shlobj", "shlwapi", "shobjidl_core",
-#     "shobjidl", "oleauto", "oaidl", "wtypes", "errhandlingapi", "timezoneapi", "winuser"
-# ]

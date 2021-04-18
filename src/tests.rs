@@ -4,44 +4,57 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use chrono;
-use lazy_static::lazy_static;
+use log::trace;
+use once_cell::sync::Lazy;
 
-#[allow(deprecated)]
 use crate::{delete, delete_all};
 
 // WARNING Expecting that `cargo test` won't be invoked on the same computer more than once within
 // a single millisecond
-lazy_static! {
-    static ref INSTANCE_ID: i64 = chrono::Local::now().timestamp_millis();
-    static ref ID_OFFSET: AtomicI64 = AtomicI64::new(0);
-}
+static INSTANCE_ID: Lazy<i64> = Lazy::new(|| chrono::Local::now().timestamp_millis());
+static ID_OFFSET: AtomicI64 = AtomicI64::new(0);
 pub fn get_unique_name() -> String {
     let id = ID_OFFSET.fetch_add(1, Ordering::SeqCst);
     format!("trash-test-{}-{}", *INSTANCE_ID, id)
 }
 
+fn init_logging() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
+
 #[test]
 fn test_delete_file() {
-    let path = "test_file_to_delete";
-    File::create(path).unwrap();
+    init_logging();
+    trace!("Started test_delete_file");
 
-    delete(path).unwrap();
-    assert!(File::open(path).is_err());
+    let path = get_unique_name();
+    File::create(&path).unwrap();
+
+    delete(&path).unwrap();
+    assert!(File::open(&path).is_err());
+    trace!("Finished test_delete_file");
 }
 
 #[test]
 fn test_delete_folder() {
-    let path = PathBuf::from("test_folder_to_delete");
+    init_logging();
+    trace!("Started test_delete_folder");
+
+    let path = PathBuf::from(get_unique_name());
     create_dir(&path).unwrap();
     File::create(path.join("file_in_folder")).unwrap();
 
     assert!(path.exists());
     delete(&path).unwrap();
     assert!(path.exists() == false);
+
+    trace!("Finished test_delete_folder");
 }
 
 #[test]
 fn test_delete_all() {
+    init_logging();
+    trace!("Started test_delete_all");
     let count: usize = 3;
 
     let paths: Vec<_> = (0..count).map(|i| format!("test_file_to_delete_{}", i)).collect();
@@ -53,34 +66,44 @@ fn test_delete_all() {
     for path in paths.iter() {
         assert!(File::open(path).is_err());
     }
+    trace!("Finished test_delete_all");
 }
 
 #[cfg(unix)]
 mod unix {
-    #[allow(deprecated)]
-    use crate::delete;
-    use std::fs::{create_dir, remove_dir_all, remove_file, File};
-    use std::os::unix::fs::symlink;
+    use log::trace;
+    use std::{
+        fs::{create_dir, remove_dir_all, remove_file, File},
+        os::unix::fs::symlink,
+        path::Path,
+    };
 
-    use std::path::Path;
+    use super::{get_unique_name, init_logging};
+    use crate::delete;
+    // use crate::init_logging;
 
     #[test]
     fn test_delete_symlink() {
-        let target_path = "test_link_target_for_delete";
-        File::create(target_path).unwrap();
+        init_logging();
+        trace!("Started test_delete_symlink");
+        let target_path = get_unique_name();
+        File::create(&target_path).unwrap();
 
         let link_path = "test_link_to_delete";
-        symlink(target_path, link_path).unwrap();
+        symlink(&target_path, link_path).unwrap();
 
         delete(link_path).unwrap();
         assert!(File::open(link_path).is_err());
-        assert!(File::open(target_path).is_ok());
+        assert!(File::open(&target_path).is_ok());
         // Cleanup
-        remove_file(target_path).unwrap();
+        remove_file(&target_path).unwrap();
+        trace!("Finished test_delete_symlink");
     }
 
     #[test]
     fn test_delete_symlink_in_folder() {
+        init_logging();
+        trace!("Started test_delete_symlink_in_folder");
         let target_path = "test_link_target_for_delete_from_folder";
         File::create(target_path).unwrap();
 
@@ -95,6 +118,7 @@ mod unix {
         // Cleanup
         remove_file(target_path).unwrap();
         remove_dir_all(folder).unwrap();
+        trace!("Finished test_delete_symlink_in_folder");
     }
 }
 
@@ -106,6 +130,7 @@ mod extra {
 
     #[test]
     fn list() {
+        init_logging();
         let file_name_prefix = get_unique_name();
         let batches: usize = 2;
         let files_per_batch: usize = 3;
@@ -146,16 +171,19 @@ mod extra {
 
     #[test]
     fn purge_empty() {
+        init_logging();
         trash::extra::purge_all(vec![]).unwrap();
     }
 
     #[test]
     fn restore_empty() {
+        init_logging();
         trash::extra::restore_all(vec![]).unwrap();
     }
 
     #[test]
     fn purge() {
+        init_logging();
         let file_name_prefix = get_unique_name();
         let batches: usize = 2;
         let files_per_batch: usize = 3;
@@ -186,6 +214,7 @@ mod extra {
 
     #[test]
     fn restore() {
+        init_logging();
         let file_name_prefix = get_unique_name();
         let file_count: usize = 3;
         let names: Vec<_> =
@@ -223,6 +252,7 @@ mod extra {
 
     #[test]
     fn restore_collision() {
+        init_logging();
         let file_name_prefix = get_unique_name();
         let file_count: usize = 3;
         let collision_remaining = file_count - 1;
@@ -278,6 +308,7 @@ mod extra {
 
     #[test]
     fn restore_twins() {
+        init_logging();
         let file_name_prefix = get_unique_name();
         let file_count: usize = 4;
         let names: Vec<_> =

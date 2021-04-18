@@ -38,8 +38,87 @@ mod platform;
 mod platform;
 
 #[cfg(target_os = "macos")]
-#[path = "macos.rs"]
-mod platform;
+pub mod macos;
+use log::trace;
+#[cfg(target_os = "macos")]
+use macos as platform;
+
+// pub use platform as my_latform;
+pub const DEFAULT_TRASH_CTX: TrashContext = TrashContext::new();
+
+/// A collection of preferences for trash operations.
+#[derive(Clone, Default, Debug)]
+pub struct TrashContext {
+    platform_specific: platform::PlatformTrashContext,
+}
+impl TrashContext {
+    pub const fn new() -> Self {
+        Self { platform_specific: platform::PlatformTrashContext::new() }
+    }
+
+    /// Removes a single file or directory.
+    ///
+    /// When a symbolic link is provided to this function, the sybolic link will be removed and the link
+    /// target will be kept intact.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::fs::File;
+    /// use trash::delete;
+    /// File::create("delete_me").unwrap();
+    /// trash::delete("delete_me").unwrap();
+    /// assert!(File::open("delete_me").is_err());
+    /// ```
+    pub fn delete<T: AsRef<Path>>(&self, path: T) -> Result<(), Error> {
+        self.delete_all(&[path])
+    }
+
+    /// Removes all files/directories specified by the collection of paths provided as an argument.
+    ///
+    /// When a symbolic link is provided to this function, the sybolic link will be removed and the link
+    /// target will be kept intact.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::fs::File;
+    /// use trash::delete_all;
+    /// File::create("delete_me_1").unwrap();
+    /// File::create("delete_me_2").unwrap();
+    /// delete_all(&["delete_me_1", "delete_me_2"]).unwrap();
+    /// assert!(File::open("delete_me_1").is_err());
+    /// assert!(File::open("delete_me_2").is_err());
+    /// ```
+    pub fn delete_all<I, T>(&self, paths: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = T>,
+        T: AsRef<Path>,
+    {
+        trace!("Starting canonicalize_paths");
+        let full_paths = canonicalize_paths(paths)?;
+        trace!("Finished canonicalize_paths");
+        self.delete_all_canonicalized(full_paths)
+    }
+}
+
+/// Convenience method for `DEFAULT_TRASH_CTX.delete()`.
+///
+/// See: [`TrashContext::delete`](TrashContext::delete)
+pub fn delete<T: AsRef<Path>>(path: T) -> Result<(), Error> {
+    DEFAULT_TRASH_CTX.delete(path)
+}
+
+/// Convenience method for `DEFAULT_TRASH_CTX.delete_all()`.
+///
+/// See: [`TrashContext::delete_all`](TrashContext::delete_all)
+pub fn delete_all<I, T>(paths: I) -> Result<(), Error>
+where
+    I: IntoIterator<Item = T>,
+    T: AsRef<Path>,
+{
+    DEFAULT_TRASH_CTX.delete_all(paths)
+}
 
 ///
 /// A type that is contained within [`Error`]. It provides information about why the error was
@@ -164,49 +243,6 @@ where
         .collect::<Result<Vec<_>, _>>()
 }
 
-/// Removes a single file or directory.
-///
-/// When a symbolic link is provided to this function, the sybolic link will be removed and the link
-/// target will be kept intact.
-///
-/// # Example
-///
-/// ```
-/// use std::fs::File;
-/// use trash::delete;
-/// File::create("delete_me").unwrap();
-/// trash::delete("delete_me").unwrap();
-/// assert!(File::open("delete_me").is_err());
-/// ```
-pub fn delete<T: AsRef<Path>>(path: T) -> Result<(), Error> {
-    delete_all(&[path])
-}
-
-/// Removes all files/directories specified by the collection of paths provided as an argument.
-///
-/// When a symbolic link is provided to this function, the sybolic link will be removed and the link
-/// target will be kept intact.
-///
-/// # Example
-///
-/// ```
-/// use std::fs::File;
-/// use trash::delete_all;
-/// File::create("delete_me_1").unwrap();
-/// File::create("delete_me_2").unwrap();
-/// delete_all(&["delete_me_1", "delete_me_2"]).unwrap();
-/// assert!(File::open("delete_me_1").is_err());
-/// assert!(File::open("delete_me_2").is_err());
-/// ```
-pub fn delete_all<I, T>(paths: I) -> Result<(), Error>
-where
-    I: IntoIterator<Item = T>,
-    T: AsRef<Path>,
-{
-    let full_paths = canonicalize_paths(paths)?;
-    platform::delete_all_canonicalized(full_paths)
-}
-
 /// This struct holds information about a single item within the trash.
 ///
 /// Some functions associated with this struct are defined in the `TrahsItemPlatformDep` trait.
@@ -263,12 +299,26 @@ impl Hash for TrashItem {
 
 #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
 pub mod extra {
+    // TODO: Rename this to os_limited
+    // TODO: rename the linux module to `freedesktop`
+
     use std::{
         collections::HashSet,
         hash::{Hash, Hasher},
     };
 
     use super::{platform, Error, TrashItem};
+
+    pub trait TrashContextExtOsLimited {
+        fn list() -> Result<Vec<TrashItem>, Error>;
+        fn purge_all<I>(items: I) -> Result<(), Error>
+        where
+            I: IntoIterator<Item = TrashItem>;
+
+        fn restore_all<I>(items: I) -> Result<(), Error>
+        where
+            I: IntoIterator<Item = TrashItem>;
+    }
 
     /// Returns all [`TrashItem`]s that are currently in the trash.
     ///
