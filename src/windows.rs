@@ -10,16 +10,17 @@ use std::{
 };
 
 use scopeguard::defer;
+use windows::{Guid, Interface, HRESULT};
+
+use crate::{into_unknown, Error, TrashItem};
 
 mod bindings {
     ::windows::include_bindings!();
 }
-
 use bindings::Windows::Win32::{
     Automation::*, Com::*, Shell::*, SystemServices::*, WindowsAndMessaging::*,
     WindowsProgramming::*, WindowsPropertiesSystem::*,
 };
-use windows::{Guid, Interface, HRESULT};
 
 ///////////////////////////////////////////////////////////////////////////
 // These don't have bindings in windows-rs for some reason
@@ -42,8 +43,6 @@ const FOF_WANTNUKEWARNING: u32 = 0x4000;
 const FOF_NO_UI: u32 = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOCONFIRMMKDIR;
 const FOFX_EARLYFAILURE: u32 = 0x00100000;
 ///////////////////////////////////////////////////////////////////////////
-
-use crate::{Error, TrashItem};
 
 macro_rules! check_hresult {
     {$f_name:ident($($args:tt)*)} => ({
@@ -513,8 +512,4 @@ thread_local! {
 }
 fn ensure_com_initialized() {
     CO_INITIALIZER.with(|_| {});
-}
-
-fn into_unknown<E: std::fmt::Display>(err: E) -> Error {
-    Error::Unknown { description: format!("{}", err) }
 }

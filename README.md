@@ -3,11 +3,6 @@
 [![Docs.rs](https://docs.rs/trash/badge.svg)](https://docs.rs/trash)
 
 
-<<<<<<< HEAD:Readme.md
-Trash is a Rust library that provides functionality to move files and folders to the operating system's Recycle Bin or Trash or Rubbish Bin or what have you.
-=======
->>>>>>> master:README.md
-
 ## About
 
 The `trash` is a Rust library for moving files and folders to the operating system's Recycle Bin or Trash or Rubbish Bin or what have you :D

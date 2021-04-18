@@ -123,14 +123,15 @@ pub enum Error {
         items: Vec<TrashItem>,
     },
 }
-
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Error during a `trash` operation: {:?}", self)
     }
 }
-
 impl error::Error for Error {}
+pub fn into_unknown<E: std::fmt::Display>(err: E) -> Error {
+    Error::Unknown { description: format!("{}", err) }
+}
 
 pub(crate) fn canonicalize_paths<I, T>(paths: I) -> Result<Vec<PathBuf>, Error>
 where
