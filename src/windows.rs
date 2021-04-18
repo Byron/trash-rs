@@ -12,7 +12,7 @@ use std::{
 use scopeguard::defer;
 use windows::{Guid, Interface, HRESULT};
 
-use crate::{into_unknown, Error, TrashItem};
+use crate::{into_unknown, Error, TrashContext, TrashItem};
 
 mod bindings {
     ::windows::include_bindings!();
@@ -44,9 +44,6 @@ const FOF_NO_UI: u32 = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOC
 const FOFX_EARLYFAILURE: u32 = 0x00100000;
 ///////////////////////////////////////////////////////////////////////////
 
-#[derive(Clone, Default, Debug)]
-pub struct PlatformTrashContext;
-
 macro_rules! check_hresult {
     {$f_name:ident($($args:tt)*)} => ({
         let hr = $f_name($($args)*);
@@ -60,7 +57,6 @@ macro_rules! check_hresult {
         let _ = check_and_get_hresult!{$obj.$f_name($($args)*)};
     });
 }
-
 macro_rules! check_and_get_hresult {
     {$obj:ident.$f_name:ident($($args:tt)*)} => ({
         let hr = ($obj).$f_name($($args)*);
@@ -73,51 +69,60 @@ macro_rules! check_and_get_hresult {
     });
 }
 
-/// See https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
-pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
-    ensure_com_initialized();
-    unsafe {
-        // let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as c_int)?;
-        // let mut pbc = MaybeUninit::<*mut IBindCtx>::uninit();
-        // return_err_on_fail! { CreateBindCtx(0, pbc.as_mut_ptr()) };
-        // let pbc = pbc.assume_init();
-        // defer! {{ (*pbc).Release(); }}
-        // (*pbc).
-        let mut pfo = MaybeUninit::<IFileOperation>::uninit();
-        check_hresult! {
-            CoCreateInstance(
-                &FileOperation as *const _,
-                None,
-                CLSCTX::CLSCTX_ALL,
-                &IFileOperation::IID as *const _,
-                pfo.as_mut_ptr() as *mut *mut c_void,
-            )
-        };
-        let pfo = pfo.assume_init();
-        check_hresult! { pfo.SetOperationFlags(FOF_NO_UI | FOF_ALLOWUNDO | FOF_WANTNUKEWARNING) };
-        for full_path in full_paths.iter() {
-            let path_prefix = ['\\' as u16, '\\' as u16, '?' as u16, '\\' as u16];
-            let mut wide_path_container: Vec<_> =
-                full_path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
-            let wide_path_slice = if wide_path_container.starts_with(&path_prefix) {
-                &mut wide_path_container[path_prefix.len()..]
-            } else {
-                &mut wide_path_container[0..]
-            };
-            let mut shi = MaybeUninit::<IShellItem>::uninit();
+#[derive(Clone, Default, Debug)]
+pub struct PlatformTrashContext;
+impl PlatformTrashContext {
+    pub const fn new() -> Self {
+        PlatformTrashContext
+    }
+}
+impl TrashContext {
+    /// See https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
+    pub fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+        ensure_com_initialized();
+        unsafe {
+            // let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as c_int)?;
+            // let mut pbc = MaybeUninit::<*mut IBindCtx>::uninit();
+            // return_err_on_fail! { CreateBindCtx(0, pbc.as_mut_ptr()) };
+            // let pbc = pbc.assume_init();
+            // defer! {{ (*pbc).Release(); }}
+            // (*pbc).
+            let mut pfo = MaybeUninit::<IFileOperation>::uninit();
             check_hresult! {
-                SHCreateItemFromParsingName(
-                    PWSTR(wide_path_slice.as_mut_ptr()),
+                CoCreateInstance(
+                    &FileOperation as *const _,
                     None,
-                    &IShellItem::IID as *const _,
-                    shi.as_mut_ptr() as *mut *mut c_void,
+                    CLSCTX::CLSCTX_ALL,
+                    &IFileOperation::IID as *const _,
+                    pfo.as_mut_ptr() as *mut *mut c_void,
                 )
             };
-            let shi = shi.assume_init();
-            check_hresult! { pfo.DeleteItem(shi, None) };
+            let pfo = pfo.assume_init();
+            check_hresult! { pfo.SetOperationFlags(FOF_NO_UI | FOF_ALLOWUNDO | FOF_WANTNUKEWARNING) };
+            for full_path in full_paths.iter() {
+                let path_prefix = ['\\' as u16, '\\' as u16, '?' as u16, '\\' as u16];
+                let mut wide_path_container: Vec<_> =
+                    full_path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+                let wide_path_slice = if wide_path_container.starts_with(&path_prefix) {
+                    &mut wide_path_container[path_prefix.len()..]
+                } else {
+                    &mut wide_path_container[0..]
+                };
+                let mut shi = MaybeUninit::<IShellItem>::uninit();
+                check_hresult! {
+                    SHCreateItemFromParsingName(
+                        PWSTR(wide_path_slice.as_mut_ptr()),
+                        None,
+                        &IShellItem::IID as *const _,
+                        shi.as_mut_ptr() as *mut *mut c_void,
+                    )
+                };
+                let shi = shi.assume_init();
+                check_hresult! { pfo.DeleteItem(shi, None) };
+            }
+            check_hresult! { pfo.PerformOperations() };
+            Ok(())
         }
-        check_hresult! { pfo.PerformOperations() };
-        Ok(())
     }
 }
 

@@ -26,6 +26,8 @@ use std::path::{Path, PathBuf};
 use std::fmt;
 use std::{env::current_dir, error};
 
+use log::trace;
+
 #[cfg(test)]
 pub(crate) mod tests;
 
@@ -34,12 +36,11 @@ pub(crate) mod tests;
 mod platform;
 
 #[cfg(all(unix, not(target_os = "macos")))]
-#[path = "linux.rs"]
+#[path = "freedesktop.rs"]
 mod platform;
 
 #[cfg(target_os = "macos")]
 pub mod macos;
-use log::trace;
 #[cfg(target_os = "macos")]
 use macos as platform;
 
@@ -298,9 +299,9 @@ impl Hash for TrashItem {
 }
 
 #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
-pub mod extra {
-    // TODO: Rename this to os_limited
-    // TODO: rename the linux module to `freedesktop`
+pub mod os_limited {
+    //! This module provides functionality which is only supported on Windows and
+    //! Linux or other Freedesktop Trash compliant environment.
 
     use std::{
         collections::HashSet,
