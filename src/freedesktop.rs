@@ -17,51 +17,58 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use chrono;
+use chrono::{NaiveDateTime, TimeZone};
 use libc;
+use log::error;
 use scopeguard::defer;
 
-use crate::{Error, TrashItem};
+use crate::{Error, TrashContext, TrashItem};
 
 #[derive(Clone, Default, Debug)]
 pub struct PlatformTrashContext;
-
-pub fn delete_all_canonicalized(full_paths: Vec<PathBuf>) -> Result<(), Error> {
-    let root = Path::new("/");
-    let home_trash = home_trash()?;
-    let mount_points = get_mount_points()?;
-    let uid = unsafe { libc::getuid() };
-    for path in full_paths {
-        let mut topdir = None;
-        for mount_point in mount_points.iter() {
-            if mount_point.mnt_dir == root {
-                continue;
-            }
-            if path.starts_with(&mount_point.mnt_dir) {
-                topdir = Some(&mount_point.mnt_dir);
-                break;
-            }
-        }
-        let topdir = if let Some(t) = topdir { t } else { root };
-        if topdir == root {
-            // The home trash may not exist yet.
-            // Let's just create it in that case.
-            if home_trash.exists() == false {
-                let info_folder = home_trash.join("info");
-                let files_folder = home_trash.join("files");
-                std::fs::create_dir_all(&info_folder)
-                    .map_err(|_| Error::Filesystem { path: info_folder })?;
-                std::fs::create_dir_all(&files_folder)
-                    .map_err(|_| Error::Filesystem { path: files_folder })?;
-            }
-            move_to_trash(path, &home_trash, topdir)?;
-        } else {
-            execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
-                move_to_trash(&path, trash_path, topdir)
-            })?;
-        }
+impl PlatformTrashContext {
+    pub const fn new() -> Self {
+        PlatformTrashContext
     }
-    Ok(())
+}
+impl TrashContext {
+    pub fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+        let root = Path::new("/");
+        let home_trash = home_trash()?;
+        let mount_points = get_mount_points()?;
+        let uid = unsafe { libc::getuid() };
+        for path in full_paths {
+            let mut topdir = None;
+            for mount_point in mount_points.iter() {
+                if mount_point.mnt_dir == root {
+                    continue;
+                }
+                if path.starts_with(&mount_point.mnt_dir) {
+                    topdir = Some(&mount_point.mnt_dir);
+                    break;
+                }
+            }
+            let topdir = if let Some(t) = topdir { t } else { root };
+            if topdir == root {
+                // The home trash may not exist yet.
+                // Let's just create it in that case.
+                if home_trash.exists() == false {
+                    let info_folder = home_trash.join("info");
+                    let files_folder = home_trash.join("files");
+                    std::fs::create_dir_all(&info_folder)
+                        .map_err(|_| Error::Filesystem { path: info_folder })?;
+                    std::fs::create_dir_all(&files_folder)
+                        .map_err(|_| Error::Filesystem { path: files_folder })?;
+                }
+                move_to_trash(path, &home_trash, topdir)?;
+            } else {
+                execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
+                    move_to_trash(&path, trash_path, topdir)
+                })?;
+            }
+        }
+        Ok(())
+    }
 }
 
 pub fn list() -> Result<Vec<TrashItem>, Error> {
@@ -100,7 +107,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         let info_folder = folder.join("info");
         let read_dir = std::fs::read_dir(&info_folder)
             .map_err(|_| Error::Filesystem { path: info_folder.clone() })?;
-        for entry in read_dir {
+        'trash_item: for entry in read_dir {
             let info_entry;
             if let Ok(entry) = entry {
                 info_entry = entry;
@@ -160,20 +167,22 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     let parent = full_path_utf8.parent().unwrap();
                     original_parent = Some(parent.into());
                 } else if key == "DeletionDate" {
-                    // So there seems to be this funny thing that the freedesktop trash
-                    // specification v1.0 has the following statement "The date and time are to be
-                    // in the YYYY-MM-DDThh:mm:ss format (see RFC 3339)." Now this is peculiar
-                    // because the described format does not conform RFC 3339. But oh well, I'll
-                    // just append a 'Z' indicating that the time has no UTC offset and then it will
-                    // be conforming.
-
-                    let mut rfc3339_format = value.to_owned();
-                    rfc3339_format.push('Z');
-                    let date_time = chrono::DateTime::<chrono::FixedOffset>::parse_from_rfc3339(
-                        rfc3339_format.as_str(),
-                    )
-                    .unwrap();
-                    time_deleted = Some(date_time.timestamp());
+                    let parsed_time = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S");
+                    let naive_local = match parsed_time {
+                        Ok(t) => t,
+                        Err(e) => {
+                            error!("Failed to parse the deletion date of the trash item {:?}. The deletion date was '{}'. Parse error was: {:?}", name, value, e);
+                            continue 'trash_item;
+                        }
+                    };
+                    let time = chrono::Local.from_local_datetime(&naive_local).earliest();
+                    match time {
+                        Some(time) => time_deleted = Some(time.timestamp()),
+                        None => {
+                            error!("Failed to convert the local time to a UTC time. Local time was {:?}", naive_local);
+                            continue 'trash_item;
+                        }
+                    }
                 }
             }
 
@@ -423,7 +432,7 @@ fn move_to_trash(
     Ok(())
 }
 
-fn execte_src_to_dst_operation<S1, D1>(
+fn execute_src_to_dst_operation<S1, D1>(
     src: S1,
     dst: D1,
     dir: &'static dyn Fn(&Path) -> Result<(), std::io::Error>,
@@ -446,7 +455,7 @@ where
             let entry = entry?;
             let entry_src = entry.path();
             let entry_dst = dst.join(entry.file_name());
-            execte_src_to_dst_operation(entry_src, entry_dst, dir, file)?;
+            execute_src_to_dst_operation(entry_src, entry_dst, dir, file)?;
         }
     } else {
         // Symlink or file
@@ -466,7 +475,7 @@ fn move_items_no_replace(
     try_creating_placeholders(src, dst)?;
 
     // All placeholders are in place. LET'S OVERWRITE
-    execte_src_to_dst_operation(src, dst, &|_| Ok(()), &|src, dst| std::fs::rename(src, dst))?;
+    execute_src_to_dst_operation(src, dst, &|_| Ok(()), &|src, dst| std::fs::rename(src, dst))?;
 
     // Once everything is moved, lets recursively remove the directory
     if src.is_dir() {
@@ -608,7 +617,7 @@ mod tests {
 
     use crate::{
         canonicalize_paths,
-        extra::{list, purge_all},
+        os_limited::{list, purge_all},
         tests::get_unique_name,
         Error,
     };
