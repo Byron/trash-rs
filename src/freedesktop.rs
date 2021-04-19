@@ -18,7 +18,6 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use chrono::{NaiveDateTime, TimeZone};
-use libc;
 use log::error;
 use scopeguard::defer;
 
