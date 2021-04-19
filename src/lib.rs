@@ -1,22 +1,17 @@
 //! This crate provides functions that allow moving files to the operating system's Recycle Bin or
 //! Trash, or the equivalent.
 //!
-//! Furthermore on Linux and on Windows the [`list`], [`purge_all`], and [`restore_all`] functions
-//! can be used to list the contents of the trash, remove selected items permanently, and restore
-//! selected items from the trash, respectively. Unfortunately MacOS does not seem to provide the
-//! necessary APIs or tools to implement these. If you have an idea how these could be implemented
-//! on a Mac, please don't hesitate to get involved at https://github.com/ArturKovacs/trash.
+//! Furthermore on Linux and on Windows additional functions are available from the `os_limited`
+//! module.
 //!
-//! # Notes on the Linux implementation
+//! ### Notes on the Linux implementation
 //!
-//! This library implements version 1.0 of the [Freedesktop.org Trash](https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html)
-//! specification and aims to match the behaviour of Ubuntu 18.04 in cases of ambiguity. Most if
-//! not all Linux distributions that ship with a desktop environment follow this specification.
-//! This crate blindly assumes that the Linux distribution it runs on follows this specification.
-//!
-//! [`list`]: linux_windows/fn.list.html
-//! [`purge_all`]: linux_windows/fn.purge_all.html
-//! [`restore_all`]: linux_windows/fn.restore_all.html
+//! This library implements version 1.0 of the [Freedesktop.org
+//! Trash](https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html) specification and
+//! aims to match the behaviour of Ubuntu 18.04 in cases of ambiguity. Most -if not all- Linux
+//! distributions that ship with a desktop environment follow this specification. For example
+//! GNOME, KDE, and XFCE all use this convention. This crate blindly assumes that the Linux
+//! distribution it runs on, follows this specification.
 //!
 
 use std::ffi::OsString;
@@ -122,12 +117,8 @@ where
 }
 
 ///
-/// A type that is contained within [`Error`]. It provides information about why the error was
-/// produced. Some `ErrorKind` variants may promise that calling `source()`
-/// (from `std::error::Error`) on [`Error`] will return a reference to a certain type of
-/// `std::error::Error`.
+/// Provides information about an error.
 ///
-/// [`Error`]: struct.Error.html
 #[derive(Debug)]
 pub enum Error {
     Unknown {
@@ -145,26 +136,20 @@ pub enum Error {
     },
 
     /// Error while canonicalizing path.
-    ///
-    /// The `source()` function of the `Error` will return a reference to an `std::io::Error`.
     CanonicalizePath {
         /// Path that triggered the error.
         original: PathBuf,
     },
 
-    /// Error while converting an OsString to a String.
+    /// Error while converting an [`OsString`] to a [`String`].
     ///
-    /// This error kind will not provide a `source()` but it directly corresponds to the error
-    /// returned by https://doc.rust-lang.org/std/ffi/struct.OsString.html#method.into_string
+    /// This may also happen when converting a [`Path`] or [`PathBuf`] to an [`OsString`].
     ConvertOsString {
         /// The string that was attempted to be converted.
         original: OsString,
     },
 
     /// Signals an error that occured during some operation on a file or folder.
-    ///
-    /// In some cases the `source()` function of the `Error` will return a reference to an
-    /// `std::io::Error` but this is not guaranteed.
     ///
     /// `path`: The path to the file or folder on which this error occured.
     // TODO: Add a description field
@@ -183,6 +168,7 @@ pub enum Error {
     /// items.
     ///
     /// `path`: The path of the file that's blocking the trash item from being restored.
+    ///
     /// `remaining_items`: All items that were not restored in the order they were provided,
     /// starting with the item that triggered the error.
     // TODO: Rework this error such that all files are restored which can be restored,
@@ -197,6 +183,7 @@ pub enum Error {
     /// among the items, then none of the items are restored.
     ///
     /// `path`: The `original_path` of the twins.
+    ///
     /// `items`: The complete list of items that were handed over to the `restore_all` function.
     RestoreTwins {
         path: PathBuf,
@@ -332,8 +319,6 @@ pub mod os_limited {
     /// let trash_items = list().unwrap();
     /// println!("{:#?}", trash_items);
     /// ```
-    ///
-    /// [`TrashItem`]: ../struct.TrashItem.html
     pub fn list() -> Result<Vec<TrashItem>, Error> {
         platform::list()
     }
@@ -356,8 +341,6 @@ pub mod os_limited {
     /// assert_eq!(selected.len(), 1);
     /// purge_all(selected).unwrap();
     /// ```
-    ///
-    /// [`TrashItem`]: ../struct.TrashItem.html
     pub fn purge_all<I>(items: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = TrashItem>,
@@ -391,8 +374,8 @@ pub mod os_limited {
     /// std::fs::remove_file(filename).unwrap();
     /// ```
     ///
-    /// [`RestoreCollision`]: ../enum.ErrorKind.html#variant.RestoreCollision
-    /// [`RestoreTwins`]: ../enum.ErrorKind.html#variant.RestoreTwins
+    /// [`RestoreCollision`]: Error::RestoreCollision
+    /// [`RestoreTwins`]: Error::RestoreTwins
     pub fn restore_all<I>(items: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = TrashItem>,

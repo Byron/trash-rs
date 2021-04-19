@@ -24,23 +24,31 @@ const NSUTF8StringEncoding: usize = 4;
 
 #[derive(Copy, Clone, Debug)]
 pub enum DeleteMethod {
-    /// Use `trashItemAtURL` from the `NSFileManager` object to delete the files.
+    /// Use an `osascript`, asking the Finder application to delete the files.
     ///
-    /// This seems to be somewhat faster and it does not produce the sound effect for when moving
-    /// items to the Trash with Finder.
+    /// - Might ask the user to give additional permissions to the app
+    /// - Produces the sound that Finder usually makes when deleting a file
+    /// - Shows the "Put Back" option in the context menu, when using the Finder application
     ///
     /// This is the default.
-    NSFileManager,
-
-    /// Use an `osascript` asking the Finder application to delete the files.
-    ///
-    /// This will produce the sound effect that Finder usualy makes when moving a file to the
-    /// Trash.
     Finder,
+
+    /// Use `trashItemAtURL` from the `NSFileManager` object to delete the files.
+    ///
+    /// - Somewhat faster than the `Finder` method
+    /// - Does *not* require additional permissions
+    /// - Does *not* produce the sound that Finder usually makes when deleting a file
+    /// - Does *not* show the "Put Back" option on some systems (the file may be restored by for
+    ///   example dragging out from the Trash folder). This is a macOS bug. Read more about it
+    ///   at:
+    ///   - <https://github.com/sindresorhus/macos-trash/issues/4>
+    ///   - <https://github.com/ArturKovacs/trash-rs/issues/14>
+    NSFileManager,
 }
 impl DeleteMethod {
+    /// Returns `DeleteMethod::Finder`
     pub const fn new() -> Self {
-        DeleteMethod::NSFileManager
+        DeleteMethod::Finder
     }
 }
 impl Default for DeleteMethod {
