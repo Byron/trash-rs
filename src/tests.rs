@@ -1,4 +1,3 @@
-use std::collections::{hash_map::Entry, HashMap};
 use std::fs::{create_dir, File};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -124,6 +123,8 @@ mod unix {
 
 #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
 mod os_limited {
+    use std::collections::{hash_map::Entry, HashMap};
+
     use super::*;
 
     use crate as trash;
