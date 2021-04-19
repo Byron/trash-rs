@@ -233,34 +233,37 @@ where
 
 /// This struct holds information about a single item within the trash.
 ///
-/// Some functions associated with this struct are defined in the `TrahsItemPlatformDep` trait.
-/// That trait is implemented for `TrashItem` by each platform specific source file individually.
+/// Some functions associated with this struct are defined in the
+/// `TrahsItemPlatformDep` trait. That trait is implemented for `TrashItem` by
+/// each platform specific source file individually.
 ///
-/// A trahs item can be a file or folder or any other object that the target operating system
-/// allows to put into the trash.
+/// A trahs item can be a file or folder or any other object that the target
+/// operating system allows to put into the trash.
 #[derive(Debug)]
 pub struct TrashItem {
     /// A system specific identifier of the item in the trash.
     ///
-    /// On Windows it is the string returned by `IShellFolder::GetDisplayNameOf` with the
-    /// `SHGDN_FORPARSING` flag.
+    /// On Windows it is the string returned by `IShellFolder::GetDisplayNameOf`
+    /// with the `SHGDN_FORPARSING` flag.
     ///
-    /// On Linux it is an absolute path to the `.trashinfo` file associated with the item.
+    /// On Linux it is an absolute path to the `.trashinfo` file associated with
+    /// the item.
     pub id: OsString,
 
-    /// The name of the item. For example if the folder '/home/user/New Folder' was deleted,
-    /// its `name` is 'New Folder'
+    /// The name of the item. For example if the folder '/home/user/New Folder'
+    /// was deleted, its `name` is 'New Folder'
     pub name: String,
 
-    /// The path to the parent folder of this item before it was put inside the trash.
-    /// For example if the folder '/home/user/New Folder' is in the trash, its `original_parent`
-    /// is '/home/user'.
+    /// The path to the parent folder of this item before it was put inside the
+    /// trash. For example if the folder '/home/user/New Folder' is in the
+    /// trash, its `original_parent` is '/home/user'.
     ///
-    /// To get the full path to the file in its original location use the `original_path`
-    /// function.
+    /// To get the full path to the file in its original location use the
+    /// `original_path` function.
     pub original_parent: PathBuf,
 
-    /// The date and time in UNIX Epoch time when the item was put into the trash.
+    /// The number of non-leap seconds elapsed between the UNIX Epoch and the
+    /// moment the file was deleted.
     pub time_deleted: i64,
 }
 
@@ -268,7 +271,8 @@ pub struct TrashItem {
 ///
 /// See `TrahsItemPlatformDep` for platform dependent functions.
 impl TrashItem {
-    /// Joins the `original_parent` and `name` fields to obtain the full path to the original file.
+    /// Joins the `original_parent` and `name` fields to obtain the full path to
+    /// the original file.
     pub fn original_path(&self) -> PathBuf {
         self.original_parent.join(&self.name)
     }
@@ -315,7 +319,7 @@ pub mod os_limited {
     /// # Example
     ///
     /// ```
-    /// use trash::extra::list;
+    /// use trash::os_limited::list;
     /// let trash_items = list().unwrap();
     /// println!("{:#?}", trash_items);
     /// ```
@@ -331,7 +335,7 @@ pub mod os_limited {
     ///
     /// ```
     /// use std::fs::File;
-    /// use trash::{delete, extra::{list, purge_all}};
+    /// use trash::{delete, os_limited::{list, purge_all}};
     /// let filename = "trash-purge_all-example";
     /// File::create(filename).unwrap();
     /// delete(filename).unwrap();
@@ -367,7 +371,7 @@ pub mod os_limited {
     ///
     /// ```
     /// use std::fs::File;
-    /// use trash::extra::{list, restore_all};
+    /// use trash::os_limited::{list, restore_all};
     /// let filename = "trash-restore_all-example";
     /// File::create(filename).unwrap();
     /// restore_all(list().unwrap().into_iter().filter(|x| x.name == filename)).unwrap();

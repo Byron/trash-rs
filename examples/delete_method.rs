@@ -1,9 +1,3 @@
-use std::fs::File;
-use trash::TrashContext;
-
-#[cfg(target_os = "macos")]
-use trash::macos::{DeleteMethod, TrashContextExtMacos};
-
 #[cfg(not(target_os = "macos"))]
 fn main() {
     println!("This example is only available on macOS");
@@ -11,6 +5,12 @@ fn main() {
 
 #[cfg(target_os = "macos")]
 fn main() {
+    use std::fs::File;
+    use trash::{
+        macos::{DeleteMethod, TrashContextExtMacos},
+        TrashContext,
+    };
+
     env_logger::init();
 
     let mut trash_ctx = TrashContext::default();

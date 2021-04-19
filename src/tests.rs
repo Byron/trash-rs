@@ -130,7 +130,12 @@ mod os_limited {
 
     #[test]
     fn list() {
+        const MAX_SECONDS_DIFFERENCE: i64 = 10;
         init_logging();
+
+        let deletion_time = chrono::Utc::now();
+        let actual_unix_deletion_time = deletion_time.naive_utc().timestamp();
+        assert_eq!(actual_unix_deletion_time, deletion_time.naive_local().timestamp());
         let file_name_prefix = get_unique_name();
         let batches: usize = 2;
         let files_per_batch: usize = 3;
@@ -159,7 +164,19 @@ mod os_limited {
             });
         for name in names {
             match items.get(&name) {
-                Some(items) => assert_eq!(items.len(), batches),
+                Some(items) => {
+                    assert_eq!(items.len(), batches);
+                    for item in items {
+                        let diff = (item.time_deleted - actual_unix_deletion_time).abs();
+                        if diff > MAX_SECONDS_DIFFERENCE {
+                            panic!(
+                                "The deleted item does not have the timestamp that represents its deletion time. Expected: {}. Got: {}",
+                                actual_unix_deletion_time,
+                                item.time_deleted
+                            );
+                        }
+                    }
+                }
                 None => panic!("ERROR Could not find '{}' in {:#?}", name, items),
             }
         }
