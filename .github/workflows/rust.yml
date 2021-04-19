@@ -14,7 +14,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         rust:
           - stable
-          - nightly
+          # - nightly
 
     steps:
     - uses: actions/checkout@v2
