@@ -8,7 +8,7 @@
 //!
 //! This library implements version 1.0 of the [Freedesktop.org
 //! Trash](https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html) specification and
-//! aims to match the behaviour of Ubuntu 18.04 in cases of ambiguity. Most -if not all- Linux
+//! aims to match the behaviour of Ubuntu 18.04 GNOME in cases of ambiguity. Most -if not all- Linux
 //! distributions that ship with a desktop environment follow this specification. For example
 //! GNOME, KDE, and XFCE all use this convention. This crate blindly assumes that the Linux
 //! distribution it runs on, follows this specification.

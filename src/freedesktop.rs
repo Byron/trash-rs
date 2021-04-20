@@ -2,20 +2,18 @@
 //! version 1.0 found at https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html
 //!
 //! Most -if not all- Linux based desktop operating systems implement the Trash according to this specification.
-//! In other words: I looked, but I could not any Linux based desktop OS that used anything else than the
+//! In other words: I looked, but I could not find any Linux based desktop OS that used anything else than the
 //! Freedesktop Trash specification.
 //!
-//! If the target system uses a different method for handling trashed items and you would be
-//! intrested in using this crate on said system, please open an issue/PR on the github page of `trash`.
-//! https://github.com/ArturKovacs/trash-rs
-//!
 
-use std::collections::HashSet;
-use std::ffi::{CStr, CString};
-use std::fs::{File, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    ffi::{CStr, CString},
+    fs::{File, OpenOptions},
+    io::{BufRead, BufReader, Write},
+    os::unix::fs::PermissionsExt,
+    path::{Path, PathBuf},
+};
 
 use chrono::{NaiveDateTime, TimeZone};
 use log::{debug, error, warn};
