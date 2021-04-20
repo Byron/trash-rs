@@ -17,7 +17,7 @@ pub fn get_unique_name() -> String {
     format!("trash-test-{}-{}", *INSTANCE_ID, id)
 }
 
-fn init_logging() {
+pub fn init_logging() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
