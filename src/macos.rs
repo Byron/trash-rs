@@ -175,9 +175,7 @@ fn to_string<T: Into<OsString>>(str_in: T) -> Result<String, Error> {
     let s = os_string.to_str();
     match s {
         Some(s) => Ok(s.to_owned()),
-        None => {
-            Err(Error::ConvertOsString { original: os_string })
-        }
+        None => Err(Error::ConvertOsString { original: os_string }),
     }
 }
 
