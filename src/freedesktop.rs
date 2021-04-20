@@ -29,7 +29,7 @@ impl PlatformTrashContext {
     }
 }
 impl TrashContext {
-    pub fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         let root = Path::new("/");
         let home_trash = home_trash()?;
         let mount_points = get_mount_points()?;

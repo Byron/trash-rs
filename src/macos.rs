@@ -78,7 +78,7 @@ impl TrashContextExtMacos for TrashContext {
     }
 }
 impl TrashContext {
-    pub fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         let full_paths = full_paths.into_iter().map(to_string).collect::<Result<Vec<_>, _>>()?;
         match self.platform_specific.delete_method {
             DeleteMethod::Finder => delete_using_finder(full_paths),
