@@ -176,7 +176,6 @@ fn to_string<T: Into<OsString>>(str_in: T) -> Result<String, Error> {
     match s {
         Some(s) => Ok(s.to_owned()),
         None => {
-            std::mem::drop(s);
             Err(Error::ConvertOsString { original: os_string })
         }
     }
