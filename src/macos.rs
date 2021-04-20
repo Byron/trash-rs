@@ -43,7 +43,7 @@ pub enum DeleteMethod {
     ///   at:
     ///   - <https://github.com/sindresorhus/macos-trash/issues/4>
     ///   - <https://github.com/ArturKovacs/trash-rs/issues/14>
-    NSFileManager,
+    NsFileManager,
 }
 impl DeleteMethod {
     /// Returns `DeleteMethod::Finder`
@@ -82,7 +82,7 @@ impl TrashContext {
         let full_paths = full_paths.into_iter().map(to_string).collect::<Result<Vec<_>, _>>()?;
         match self.platform_specific.delete_method {
             DeleteMethod::Finder => delete_using_finder(full_paths),
-            DeleteMethod::NSFileManager => delete_using_file_mgr(full_paths),
+            DeleteMethod::NsFileManager => delete_using_file_mgr(full_paths),
         }
     }
 }
