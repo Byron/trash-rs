@@ -1,6 +1,8 @@
+
+
 [package]
 name = "trash"
-version = "1.3.0"
+version = "2.0.0"
 authors = ["Artur Kovacs <kovacs.artur.barnabas@gmail.com>"]
 license = "MIT"
 readme = "README.md"
@@ -9,7 +11,34 @@ keywords = ["remove", "trash", "rubbish", "recycle", "bin"]
 repository = "https://github.com/ArturKovacs/trash"
 edition = "2018"
 
+[features]
+default = ["coinit_apartmentthreaded"]
+coinit_apartmentthreaded = []
+coinit_multithreaded = []
+coinit_disable_ole1dde = []
+coinit_speed_over_memory = []
+
+[dev-dependencies]
+chrono = "0.4.9"
+rand = "0.8.3"
+once_cell = "1.7.2"
+env_logger = "0.8"
+
 [dependencies]
+log = "0.4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2.7"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+chrono = "0.4.9"
+libc = "0.2.65"
+scopeguard = "1.0.0"
+url = "2.1.0"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "^0.3.0", features = ["shellapi", "winerror"] }
+scopeguard = "1.0.0"
+windows = "0.8.0"
+
+[target.'cfg(windows)'.build-dependencies]
+windows = "0.8.0"
