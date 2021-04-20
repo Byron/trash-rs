@@ -221,3 +221,25 @@ unsafe fn ns_string_to_rust(string: id) -> Result<String, Error> {
     let rust_str = std::str::from_utf8(str_slice).map_err(into_unknown)?;
     Ok(rust_str.to_owned())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        macos::{DeleteMethod, TrashContextExtMacos},
+        tests::{get_unique_name, init_logging},
+        TrashContext,
+    };
+    use std::fs::File;
+
+    #[test]
+    fn test_delete_with_ns_file_manager() {
+        init_logging();
+        let mut trash_ctx = TrashContext::default();
+        trash_ctx.set_delete_method(DeleteMethod::NsFileManager);
+
+        let path = get_unique_name();
+        File::create(&path).unwrap();
+        trash_ctx.delete(&path).unwrap();
+        assert!(File::open(&path).is_err());
+    }
+}
