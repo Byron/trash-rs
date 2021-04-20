@@ -18,7 +18,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use chrono::{NaiveDateTime, TimeZone};
-use log::error;
+use log::{error, warn};
 use scopeguard::defer;
 
 use crate::{Error, TrashContext, TrashItem};
@@ -51,13 +51,13 @@ impl TrashContext {
             if topdir == root {
                 // The home trash may not exist yet.
                 // Let's just create it in that case.
-                if home_trash.exists() == false {
+                if !home_trash.exists() {
                     let info_folder = home_trash.join("info");
                     let files_folder = home_trash.join("files");
                     std::fs::create_dir_all(&info_folder)
-                        .map_err(|_| Error::Filesystem { path: info_folder })?;
+                        .map_err(|e| fsys_err_to_unknown(&info_folder, e))?;
                     std::fs::create_dir_all(&files_folder)
-                        .map_err(|_| Error::Filesystem { path: files_folder })?;
+                        .map_err(|e| fsys_err_to_unknown(&files_folder, e))?;
                 }
                 move_to_trash(path, &home_trash, topdir)?;
             } else {
@@ -94,9 +94,12 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             Ok(())
         })?;
     }
-    if trash_folders.len() == 0 {
-        // TODO make this a warning
-        return Err(home_error.unwrap());
+    if trash_folders.is_empty() {
+        warn!(
+            "No trash folder was found. The error when looking for the 'home trash' was: {:?}",
+            home_error
+        );
+        return Ok(vec![]);
     }
     // List all items from the set of trash folders
     let mut result = Vec::new();
@@ -104,8 +107,8 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         // Read the info files for every file
         let trash_folder_parent = folder.parent().unwrap();
         let info_folder = folder.join("info");
-        let read_dir = std::fs::read_dir(&info_folder)
-            .map_err(|_| Error::Filesystem { path: info_folder.clone() })?;
+        let read_dir =
+            std::fs::read_dir(&info_folder).map_err(|e| fsys_err_to_unknown(&info_folder, e))?;
         'trash_item: for entry in read_dir {
             let info_entry;
             if let Ok(entry) = entry {
@@ -218,13 +221,12 @@ where
         let file = trash_folder.join("files").join(&name_in_trash);
         assert!(file.exists());
         if file.is_dir() {
-            std::fs::remove_dir_all(&file).map_err(|_| Error::Filesystem { path: file.into() })?;
+            std::fs::remove_dir_all(&file).map_err(|e| fsys_err_to_unknown(&file, e))?;
         // TODO Update directory size cache if there's one.
         } else {
-            std::fs::remove_file(&file).map_err(|_| Error::Filesystem { path: file.into() })?;
+            std::fs::remove_file(&file).map_err(|e| fsys_err_to_unknown(&file, e))?;
         }
-        std::fs::remove_file(info_file)
-            .map_err(|_| Error::Filesystem { path: info_file.into() })?;
+        std::fs::remove_file(info_file).map_err(|e| fsys_err_to_unknown(&info_file, e))?;
     }
 
     Ok(())
@@ -256,7 +258,7 @@ where
         let original_path = item.original_path();
         // Make sure the parent exists so that `create_dir` doesn't faile due to that.
         std::fs::create_dir_all(&item.original_parent)
-            .map_err(|_| Error::Filesystem { path: item.original_parent.clone() })?;
+            .map_err(|e| fsys_err_to_unknown(&item.original_parent, e))?;
         let mut collision = false;
         if file.is_dir() {
             // NOTE create_dir_all succeeds when the path already exist but create_dir
@@ -265,7 +267,7 @@ where
                 if e.kind() == std::io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
-                    return Err(Error::Filesystem { path: original_path.clone() });
+                    return Err(fsys_err_to_unknown(&original_path, e));
                 }
             }
         } else {
@@ -274,7 +276,7 @@ where
                 if e.kind() == std::io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
-                    return Err(Error::Filesystem { path: original_path.clone() });
+                    return Err(fsys_err_to_unknown(&original_path, e));
                 }
             }
         }
@@ -285,9 +287,8 @@ where
                 remaining_items: remaining,
             });
         }
-        std::fs::rename(&file, &original_path).map_err(|_| Error::Filesystem { path: file })?;
-        std::fs::remove_file(info_file)
-            .map_err(|_| Error::Filesystem { path: info_file.into() })?;
+        std::fs::rename(&file, &original_path).map_err(|e| fsys_err_to_unknown(&file, e))?;
+        std::fs::remove_file(info_file).map_err(|e| fsys_err_to_unknown(&info_file, e))?;
     }
     Ok(())
 }
@@ -328,8 +329,7 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     let should_execute;
     if !trash_path.exists() || !trash_path.is_dir() {
         if create_folder {
-            std::fs::create_dir(&trash_path)
-                .map_err(|_| Error::Filesystem { path: trash_path.clone() })?;
+            std::fs::create_dir(&trash_path).map_err(|e| fsys_err_to_unknown(&trash_path, e))?;
             should_execute = true;
         } else {
             should_execute = false;
@@ -386,7 +386,7 @@ fn move_to_trash(
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
-                    return Err(Error::Filesystem { path: info_file_path.into() });
+                    return Err(fsys_err_to_unknown(info_file_path, error));
                 }
             }
             Ok(mut file) => {
@@ -407,7 +407,7 @@ fn move_to_trash(
                             writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
                         })
                     })
-                    .map_err(|_| Error::Filesystem { path: info_file_path.clone() })?;
+                    .map_err(|e| fsys_err_to_unknown(&info_file_path, e))?;
             }
         }
         let path = files_folder.join(&in_trash_name);
@@ -418,7 +418,7 @@ fn move_to_trash(
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
-                    return Err(Error::Filesystem { path: path.into() });
+                    return Err(fsys_err_to_unknown(path, error));
                 }
             }
             Ok(_) => {
@@ -523,10 +523,7 @@ fn folder_validity(path: impl AsRef<Path>) -> Result<TrashValidity, Error> {
     /// Taken from: http://man7.org/linux/man-pages/man7/inode.7.html
     const S_ISVTX: u32 = 0x1000;
 
-    let metadata = path
-        .as_ref()
-        .symlink_metadata()
-        .map_err(|_| Error::Filesystem { path: path.as_ref().into() })?;
+    let metadata = path.as_ref().symlink_metadata().map_err(|e| fsys_err_to_unknown(path, e))?;
     if metadata.file_type().is_symlink() {
         return Ok(TrashValidity::InvalidSymlink);
     }
@@ -544,16 +541,18 @@ fn home_trash() -> Result<PathBuf, Error> {
     if let Some(data_home) = std::env::var_os("XDG_DATA_HOME") {
         if data_home.len() > 0 {
             let data_home_path = AsRef::<Path>::as_ref(data_home.as_os_str());
-            return Ok(data_home_path.join("Trash").into());
+            return Ok(data_home_path.join("Trash"));
         }
     }
     if let Some(home) = std::env::var_os("HOME") {
         if home.len() > 0 {
             let home_path = AsRef::<Path>::as_ref(home.as_os_str());
-            return Ok(home_path.join(".local/share/Trash").into());
+            return Ok(home_path.join(".local/share/Trash"));
         }
     }
-    panic!("Neither the XDG_DATA_HOME nor the HOME environment variable was found");
+    Err(Error::Unknown {
+        description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into(),
+    })
 }
 
 struct MountPoint {
@@ -573,7 +572,9 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         file = unsafe { libc::fopen(mtab_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
     }
     if file == std::ptr::null_mut() {
-        panic!("Neither '/proc/mounts' nor '/etc/mtab' could be opened.");
+        return Err(Error::Unknown {
+            description: "Neither '/proc/mounts' nor '/etc/mtab' could be opened.".into(),
+        });
     }
     defer! { unsafe { libc::fclose(file); } }
     let mut result = Vec::new();
@@ -595,10 +596,12 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         };
         result.push(mount_point);
     }
-    if result.len() == 0 {
-        panic!(
-            "A mount points file could be opened but the first call to `getmntent` returned NULL."
-        );
+    if result.is_empty() {
+        return Err(Error::Unknown {
+            description:
+                "A mount points file could be opened, but the call to `getmntent` returned NULL."
+                    .into(),
+        });
     }
     Ok(result)
 }
@@ -829,4 +832,9 @@ mod tests {
 
         DesktopEnvironment::Other
     }
+}
+
+/// Converts a file system error to a crate `Error`
+fn fsys_err_to_unknown<P: AsRef<Path>>(path: P, orig: std::io::Error) -> Error {
+    Error::Unknown { description: format!("Path: '{:?}'. Message: {}", path.as_ref(), orig) }
 }

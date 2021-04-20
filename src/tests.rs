@@ -121,7 +121,10 @@ mod unix {
     }
 }
 
-#[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+#[cfg(any(
+    target_os = "windows",
+    all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))
+))]
 mod os_limited {
     use std::collections::{hash_map::Entry, HashMap};
 

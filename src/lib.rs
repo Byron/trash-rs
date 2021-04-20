@@ -30,7 +30,7 @@ pub(crate) mod tests;
 #[path = "windows.rs"]
 mod platform;
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
 #[path = "freedesktop.rs"]
 mod platform;
 
@@ -147,14 +147,6 @@ pub enum Error {
     ConvertOsString {
         /// The string that was attempted to be converted.
         original: OsString,
-    },
-
-    /// Signals an error that occured during some operation on a file or folder.
-    ///
-    /// `path`: The path to the file or folder on which this error occured.
-    // TODO: Add a description field
-    Filesystem {
-        path: PathBuf,
     },
 
     /// This kind of error happens when a trash item's original parent already contains an item with
@@ -289,7 +281,10 @@ impl Hash for TrashItem {
     }
 }
 
-#[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+#[cfg(any(
+    target_os = "windows",
+    all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))
+))]
 pub mod os_limited {
     //! This module provides functionality which is only supported on Windows and
     //! Linux or other Freedesktop Trash compliant environment.
