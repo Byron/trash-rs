@@ -163,8 +163,6 @@ pub enum Error {
     ///
     /// `remaining_items`: All items that were not restored in the order they were provided,
     /// starting with the item that triggered the error.
-    // TODO: Rework this error such that all files are restored which can be restored,
-    // and only the ones that collide, are returned.
     RestoreCollision {
         path: PathBuf,
         remaining_items: Vec<TrashItem>,

@@ -18,7 +18,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use chrono::{NaiveDateTime, TimeZone};
-use log::{error, warn};
+use log::{debug, error, warn};
 use scopeguard::defer;
 
 use crate::{Error, TrashContext, TrashItem};
@@ -111,34 +111,38 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             std::fs::read_dir(&info_folder).map_err(|e| fsys_err_to_unknown(&info_folder, e))?;
         'trash_item: for entry in read_dir {
             let info_entry;
-            if let Ok(entry) = entry {
-                info_entry = entry;
-            } else {
-                // Another thread or process may have removed that entry by now
-                continue;
+            match entry {
+                Ok(entry) => info_entry = entry,
+                Err(e) => {
+                    // Another thread or process may have removed that entry by now
+                    debug!("Tried resolving the trash info `DirEntry` but it failed with: '{}'", e);
+                    continue;
+                }
             }
             // Entrt should really be an info file but better safe than sorry
             let file_type;
-            if let Ok(f_type) = info_entry.file_type() {
-                file_type = f_type;
-            } else {
-                // Another thread or process may have removed that entry by now
-                continue;
-            }
-            if !file_type.is_file() {
-                // TODO if we found a folder just hanging out around the infofiles
-                // we might want to report it in a warning
-                continue;
+            match info_entry.file_type() {
+                Ok(f_type) => file_type = f_type,
+                Err(e) => {
+                    // Another thread or process may have removed that entry by now
+                    debug!("Tried getting the file type of the trash info `DirEntry` but failed with: {}", e);
+                    continue;
+                }
             }
             let info_path = info_entry.path();
-            let info_file;
-            if let Ok(file) = File::open(&info_path) {
-                info_file = file;
-            } else {
-                // Another thread or process may have removed that entry by now
+            if !file_type.is_file() {
+                warn!("Found an item that's not a file, among the trash info files. This is unexpected. The path to the item is: '{:?}'", info_path);
                 continue;
             }
-
+            let info_file;
+            match File::open(&info_path) {
+                Ok(file) => info_file = file,
+                Err(e) => {
+                    // Another thread or process may have removed that entry by now
+                    debug!("Tried opening the trash info '{:?}' but failed with: {}", info_path, e);
+                    continue;
+                }
+            }
             let id = info_path.clone().into();
             let mut name = None;
             let mut original_parent: Option<PathBuf> = None;
@@ -187,16 +191,18 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     }
                 }
             }
-
-            // It may be a good idea to assert that these must be Some when the loop successfully
-            // read till the end of the file. Because otherwise the environment may not follow the
-            // specification or there's a bug in this crate.
             if let Some(name) = name {
                 if let Some(original_parent) = original_parent {
                     if let Some(time_deleted) = time_deleted {
                         result.push(TrashItem { id, name, original_parent, time_deleted });
+                    } else {
+                        warn!("Could not determine the deletion time of the trash item. (The `DeletionDate` field is probably missing from the info file.) The info file path is: '{:?}'", info_path);
                     }
+                } else {
+                    warn!("Could not determine the original parent folder of the trash item. (The `Path` field is probably missing from the info file.) The info file path is: '{:?}'", info_path);
                 }
+            } else {
+                warn!("Could not determine the name of the trash item. (The `Path` field is probably missing from the info file.) The info file path is: '{:?}'", info_path);
             }
         }
     }
@@ -313,8 +319,8 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     // See if there's a ".Trash" directory at the mounted location
     let trash_path = topdir.join(".Trash");
     if trash_path.exists() && trash_path.is_dir() {
-        // TODO Report invalidity to the user.
-        if folder_validity(&trash_path)? == TrashValidity::Valid {
+        let validity = folder_validity(&trash_path)?;
+        if validity == TrashValidity::Valid {
             let users_trash_path = trash_path.join(uid.to_string());
             if users_trash_path.exists() && users_trash_path.is_dir() {
                 op(users_trash_path)?;
@@ -322,6 +328,11 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
                     return Ok(());
                 }
             }
+        } else {
+            warn!(
+                "A Trash folder was found at '{:?}', but it's invalid because it's {:?}",
+                trash_path, validity
+            );
         }
     }
     // See if there's a ".Trash-$UID" directory at the mounted location
