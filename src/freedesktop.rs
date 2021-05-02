@@ -9,7 +9,7 @@
 use std::{
     collections::HashSet,
     ffi::{CStr, CString},
-    fs::{File, OpenOptions},
+    fs::{create_dir_all, File, OpenOptions},
     io::{BufRead, BufReader, Write},
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
@@ -35,6 +35,7 @@ impl TrashContext {
         let mount_points = get_mount_points()?;
         let uid = unsafe { libc::getuid() };
         for path in full_paths {
+            debug!("Deleting {:?}", path);
             let mut topdir = None;
             for mount_point in mount_points.iter() {
                 if mount_point.mnt_dir == root {
@@ -46,17 +47,10 @@ impl TrashContext {
                 }
             }
             let topdir = if let Some(t) = topdir { t } else { root };
+            debug!("The topdir of this file is {:?}", topdir);
             if topdir == root {
-                // The home trash may not exist yet.
-                // Let's just create it in that case.
-                if !home_trash.exists() {
-                    let info_folder = home_trash.join("info");
-                    let files_folder = home_trash.join("files");
-                    std::fs::create_dir_all(&info_folder)
-                        .map_err(|e| fsys_err_to_unknown(&info_folder, e))?;
-                    std::fs::create_dir_all(&files_folder)
-                        .map_err(|e| fsys_err_to_unknown(&files_folder, e))?;
-                }
+                // Note that the following function creates the trash folder
+                // and its required subfolders in case they don't exist.
                 move_to_trash(path, &home_trash, topdir)?;
             } else {
                 execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
@@ -261,7 +255,7 @@ where
         // if it already exists.
         let original_path = item.original_path();
         // Make sure the parent exists so that `create_dir` doesn't faile due to that.
-        std::fs::create_dir_all(&item.original_parent)
+        create_dir_all(&item.original_parent)
             .map_err(|e| fsys_err_to_unknown(&item.original_parent, e))?;
         let mut collision = false;
         if file.is_dir() {
@@ -305,7 +299,6 @@ where
 /// This function executes `op` providing it with a
 /// trash-folder path that's associated with the partition mounted at `topdir`.
 ///
-/// Returns Ok(true) if any of the trash folders were found. Returns Ok(false) otherwise.
 fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     uid: u32,
     topdir: impl AsRef<Path>,
@@ -363,6 +356,11 @@ fn move_to_trash(
     let root = Path::new("/");
     let files_folder = trash_folder.join("files");
     let info_folder = trash_folder.join("info");
+
+    // Ensure the `files` and `info` folders exist
+    create_dir_all(&files_folder).map_err(|e| fsys_err_to_unknown(&files_folder, e))?;
+    create_dir_all(&info_folder).map_err(|e| fsys_err_to_unknown(&info_folder, e))?;
+
     // This kind of validity must only apply ot administrator style trash folders
     // See Trash directories, (1) at https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html
     //assert_eq!(folder_validity(trash_folder)?, TrashValidity::Valid);
@@ -395,10 +393,12 @@ fn move_to_trash(
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
+                    debug!("Failed to create the new file {:?}", info_file_path);
                     return Err(fsys_err_to_unknown(info_file_path, error));
                 }
             }
             Ok(mut file) => {
+                debug!("Successfully created {:?}", info_file_path);
                 // Write the info file before actually moving anything
                 let now = chrono::Local::now();
                 writeln!(file, "[Trash Info]")
@@ -422,8 +422,11 @@ fn move_to_trash(
         let path = files_folder.join(&in_trash_name);
         match move_items_no_replace(src, &path) {
             Err(error) => {
-                // Try to delete the info file but in case it fails, we don't care.
-                let _ = std::fs::remove_file(info_file_path);
+                debug!("Failed moving item to the trash (this is usually OK). {:?}", error);
+                // Try to delete the info file
+                if let Err(info_err) = std::fs::remove_file(info_file_path) {
+                    warn!("Created the trash info file, then failed to move the item to the trash. So far it's OK, but then failed remove the initial info file. There's either a bug in this program or another faulty program is manupulating the Trash. The error was: {:?}", info_err);
+                }
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
@@ -472,7 +475,7 @@ where
     Ok(())
 }
 
-/// An error means that a collision was found.
+/// An error may mean that a collision was found.
 fn move_items_no_replace(
     src: impl AsRef<Path>,
     dst: impl AsRef<Path>,
