@@ -1,8 +1,6 @@
-#[cfg(not(target_os = "windows"))]
-fn main() {}
+use std::ffi::OsStr;
 
-#[cfg(target_os = "windows")]
-fn main() {
+fn generate_windows_bindings() {
     windows::build!(
         Windows::Win32::SystemServices::{PWSTR, S_OK},
         Windows::Win32::WindowsProgramming::{
@@ -49,4 +47,17 @@ fn main() {
             IBindCtx
         },
     );
+}
+
+fn main() {
+    let targeting_windows = {
+        if let Some(target) = std::env::var_os("CARGO_CFG_TARGET_OS") {
+            target.as_os_str() == OsStr::new("windows")
+        } else {
+            false
+        }
+    };
+    if targeting_windows {
+        generate_windows_bindings();
+    }
 }
