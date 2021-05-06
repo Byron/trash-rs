@@ -1,7 +1,7 @@
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(windows))]
 fn main() {}
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 fn main() {
     windows::build!(
         Windows::Win32::SystemServices::{PWSTR, S_OK},

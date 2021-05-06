@@ -18,14 +18,17 @@ coinit_multithreaded = []
 coinit_disable_ole1dde = []
 coinit_speed_over_memory = []
 
+[dependencies]
+log = "0.4"
+
 [dev-dependencies]
 chrono = "0.4.9"
 rand = "0.8.3"
 once_cell = "1.7.2"
 env_logger = "0.8"
 
-[dependencies]
-log = "0.4"
+[build-dependencies]
+windows = "0.9.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.7"
@@ -40,5 +43,3 @@ url = "2.1.0"
 scopeguard = "1.0.0"
 windows = "0.8.0"
 
-[target.'cfg(windows)'.build-dependencies]
-windows = "0.8.0"

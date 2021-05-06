@@ -10,7 +10,7 @@ use std::{
 };
 
 use scopeguard::defer;
-use windows::{Guid, Interface, HRESULT};
+use windows::{self, Guid, Interface, HRESULT};
 
 use crate::{into_unknown, Error, TrashContext, TrashItem};
 
@@ -43,6 +43,31 @@ const FOF_WANTNUKEWARNING: u32 = 0x4000;
 const FOF_NO_UI: u32 = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOCONFIRMMKDIR;
 const FOFX_EARLYFAILURE: u32 = 0x00100000;
 ///////////////////////////////////////////////////////////////////////////
+
+macro_rules! check_res_and_get_ok {
+    {$f_name:ident($($args:tt)*)} => ({
+        let res = $f_name($($args)*);
+        match res {
+            Err(e) => {
+                return Err(Error::Unknown {
+                    description: format!("`{}` failed with the result: {:?}", stringify!($f_name), e)
+                });
+            }
+            Ok(value) => value
+        }
+    });
+    {$obj:ident.$f_name:ident($($args:tt)*)} => ({
+        let res = $obj.$f_name($($args)*);
+        match res {
+            Err(e) => {
+                return Err(Error::Unknown {
+                    description: format!("`{}` failed with the result: {:?}", stringify!($f_name), e)
+                });
+            }
+            Ok(value) => value
+        }
+    });
+}
 
 macro_rules! check_hresult {
     {$f_name:ident($($args:tt)*)} => ({
@@ -81,23 +106,13 @@ impl TrashContext {
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         ensure_com_initialized();
         unsafe {
-            // let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as c_int)?;
-            // let mut pbc = MaybeUninit::<*mut IBindCtx>::uninit();
-            // return_err_on_fail! { CreateBindCtx(0, pbc.as_mut_ptr()) };
-            // let pbc = pbc.assume_init();
-            // defer! {{ (*pbc).Release(); }}
-            // (*pbc).
-            let mut pfo = MaybeUninit::<IFileOperation>::uninit();
-            check_hresult! {
+            let pfo: IFileOperation = check_res_and_get_ok! {
                 CoCreateInstance(
                     &FileOperation as *const _,
                     None,
-                    CLSCTX::CLSCTX_ALL,
-                    &IFileOperation::IID as *const _,
-                    pfo.as_mut_ptr() as *mut *mut c_void,
+                    CLSCTX::CLSCTX_ALL
                 )
             };
-            let pfo = pfo.assume_init();
             check_hresult! { pfo.SetOperationFlags(FOF_NO_UI | FOF_ALLOWUNDO | FOF_WANTNUKEWARNING) };
             for full_path in full_paths.iter() {
                 let path_prefix = ['\\' as u16, '\\' as u16, '?' as u16, '\\' as u16];
@@ -108,16 +123,12 @@ impl TrashContext {
                 } else {
                     &mut wide_path_container[0..]
                 };
-                let mut shi = MaybeUninit::<IShellItem>::uninit();
-                check_hresult! {
+                let shi: IShellItem = check_res_and_get_ok! {
                     SHCreateItemFromParsingName(
                         PWSTR(wide_path_slice.as_mut_ptr()),
                         None,
-                        &IShellItem::IID as *const _,
-                        shi.as_mut_ptr() as *mut *mut c_void,
                     )
                 };
-                let shi = shi.assume_init();
                 check_hresult! { pfo.DeleteItem(shi, None) };
             }
             check_hresult! { pfo.PerformOperations() };
@@ -182,17 +193,13 @@ where
     ensure_com_initialized();
     unsafe {
         let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as i32)?;
-        let mut pfo = MaybeUninit::<IFileOperation>::uninit();
-        check_hresult! {
+        let pfo: IFileOperation = check_res_and_get_ok! {
             CoCreateInstance(
                 &FileOperation as *const _,
                 None,
                 CLSCTX::CLSCTX_ALL,
-                &IFileOperation::IID as *const _,
-                pfo.as_mut_ptr() as *mut *mut c_void,
             )
         };
-        let pfo = pfo.assume_init();
         check_hresult! { pfo.SetOperationFlags(FOF_NO_UI) };
         let mut at_least_one = false;
         for item in items {
@@ -211,17 +218,13 @@ where
             };
             let pidl = pidl.assume_init();
             defer! {{ CoTaskMemFree(pidl as *mut c_void); }}
-            let mut shi = MaybeUninit::<IShellItem>::uninit();
-            check_hresult! {
+            let shi: IShellItem = check_res_and_get_ok! {
                 SHCreateItemWithParent(
                     std::ptr::null_mut(),
                     &recycle_bin,
                     pidl,
-                    &IShellItem::IID as *const _,
-                    shi.as_mut_ptr() as *mut *mut c_void,
                 )
             };
-            let shi = shi.assume_init();
             check_hresult! { pfo.DeleteItem(shi, None) };
         }
         if at_least_one {
@@ -253,17 +256,13 @@ where
     ensure_com_initialized();
     unsafe {
         let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as i32)?;
-        let mut pfo = MaybeUninit::<IFileOperation>::uninit();
-        check_hresult! {
+        let pfo: IFileOperation = check_res_and_get_ok! {
             CoCreateInstance(
                 &FileOperation as *const _,
                 None,
                 CLSCTX::CLSCTX_ALL,
-                &IFileOperation::IID as *const _,
-                pfo.as_mut_ptr() as *mut *mut c_void,
             )
-        }
-        let pfo = pfo.assume_init();
+        };
         check_hresult! { pfo.SetOperationFlags(FOF_NO_UI | FOFX_EARLYFAILURE) };
         for item in items.iter() {
             let mut id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
@@ -280,29 +279,21 @@ where
             };
             let pidl = pidl.assume_init();
             defer! {{ CoTaskMemFree(pidl as *mut c_void); }}
-            let mut trash_item_shi = MaybeUninit::<IShellItem>::uninit();
-            check_hresult! {
+            let trash_item_shi: IShellItem = check_res_and_get_ok! {
                 SHCreateItemWithParent(
                     std::ptr::null_mut(),
                     &recycle_bin,
                     pidl,
-                    &IShellItem::IID as *const _,
-                    trash_item_shi.as_mut_ptr() as *mut *mut c_void,
                 )
             };
-            let trash_item_shi = trash_item_shi.assume_init();
             let mut parent_path_wide: Vec<_> =
                 item.original_parent.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
-            let mut orig_folder_shi = MaybeUninit::<IShellItem>::uninit();
-            check_hresult! {
+            let orig_folder_shi: IShellItem = check_res_and_get_ok! {
                 SHCreateItemFromParsingName(
                     PWSTR(parent_path_wide.as_mut_ptr()),
                     None,
-                    &IShellItem::IID as *const _,
-                    orig_folder_shi.as_mut_ptr() as *mut *mut c_void,
                 )
             };
-            let orig_folder_shi = orig_folder_shi.assume_init();
             let mut name_wstr: Vec<_> = AsRef::<OsStr>::as_ref(&item.name)
                 .encode_wide()
                 .chain(std::iter::once(0))
@@ -453,19 +444,8 @@ unsafe fn bind_to_csidl<T: Interface>(csidl: c_int) -> Result<T, Error> {
         description: "`SHGetDesktopFolder` set its output to `None`.".into(),
     })?;
     if (*pidl).mkid.cb != 0 {
-        let iid = T::IID;
-        // let bind_ctx = MaybeUninit::<Option<IBindCtx>>::uninit();
-        // return_err_on_fail! { CreateBindCtx(0, bind_ctx.as_mut_ptr()) };
-        // let bind_ctx = bind_ctx.assume_init().ok_or_else(|| Error::Unknown {
-        //     description: "CreateBindCtx returned None".into()
-        // })?;
-
-        // WARNING The following logic relies on the fact that T has an identical memory
-        // layout to a pointer, and is treated like a pointer by the `windows-rs` implementation.
-        // This logic follows how the IUnknown::cast function is implemented in windows-rs 0.8
-        let mut target = MaybeUninit::<T>::uninit();
-        check_hresult! { desktop.BindToObject(pidl, None, &iid as *const _, target.as_mut_ptr() as *mut *mut c_void) };
-        Ok(target.assume_init())
+        let target: T = check_res_and_get_ok! { desktop.BindToObject(pidl, None) };
+        Ok(target)
     } else {
         Ok(desktop.cast().map_err(into_unknown)?)
     }
