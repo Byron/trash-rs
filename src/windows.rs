@@ -444,7 +444,7 @@ unsafe fn bind_to_csidl<T: Interface>(csidl: c_int) -> Result<T, Error> {
         description: "`SHGetDesktopFolder` set its output to `None`.".into(),
     })?;
     if (*pidl).mkid.cb != 0 {
-        let target: T = check_res_and_get_ok!{ desktop.BindToObject(pidl, None) };
+        let target: T = check_res_and_get_ok! { desktop.BindToObject(pidl, None) };
         Ok(target)
     } else {
         Ok(desktop.cast().map_err(into_unknown)?)
