@@ -13,3 +13,4 @@ Dates are specified in YYYY-MM-DD format.
 
 ## Added
 - `list`, `purge_all`, and `restore_all` to Windows and Freedesktop
+

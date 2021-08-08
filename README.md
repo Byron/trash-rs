@@ -1,4 +1,3 @@
-
 [![Crates.io](https://img.shields.io/crates/v/trash?color=mediumvioletred)](https://crates.io/crates/trash)
 [![Docs.rs](https://docs.rs/trash/badge.svg)](https://docs.rs/trash)
 
@@ -41,3 +40,4 @@ fn main() {
     }
 }
 ```
+

@@ -1,5 +1,3 @@
-
-
 [package]
 name = "trash"
 version = "2.0.1"
@@ -25,7 +23,7 @@ log = "0.4"
 chrono = "0.4.9"
 rand = "0.8.3"
 once_cell = "1.7.2"
-env_logger = "0.8"
+env_logger = "0.9"
 
 [build-dependencies]
 windows = "0.9.0"
@@ -42,4 +40,3 @@ url = "2.1.0"
 [target.'cfg(windows)'.dependencies]
 scopeguard = "1.0.0"
 windows = "0.8.0"
-
