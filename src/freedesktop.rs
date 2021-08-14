@@ -470,7 +470,7 @@ where
         }
     } else {
         // Symlink or file
-        file(&src, &dst)?;
+        file(src, dst)?;
     }
     Ok(())
 }
