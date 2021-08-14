@@ -30,25 +30,17 @@ impl PlatformTrashContext {
 }
 impl TrashContext {
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
-        let root = Path::new("/");
         let home_trash = home_trash()?;
         let mount_points = get_mount_points()?;
+        let home_topdir = home_topdir(&mount_points)?;
+        debug!("The home topdir is {:?}", home_topdir);
         let uid = unsafe { libc::getuid() };
         for path in full_paths {
             debug!("Deleting {:?}", path);
-            let mut topdir = None;
-            for mount_point in mount_points.iter() {
-                if mount_point.mnt_dir == root {
-                    continue;
-                }
-                if path.starts_with(&mount_point.mnt_dir) {
-                    topdir = Some(&mount_point.mnt_dir);
-                    break;
-                }
-            }
-            let topdir = if let Some(t) = topdir { t } else { root };
+            let topdir = get_topdir_for_path(&path, &mount_points);
             debug!("The topdir of this file is {:?}", topdir);
-            if topdir == root {
+            if topdir == home_topdir {
+                debug!("The topdir was identical to the home topdir, so moving to the home trash.");
                 // Note that the following function creates the trash folder
                 // and its required subfolders in case they don't exist.
                 move_to_trash(path, &home_trash, topdir)?;
@@ -565,6 +557,43 @@ fn home_trash() -> Result<PathBuf, Error> {
     Err(Error::Unknown {
         description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into(),
     })
+}
+
+fn home_topdir(mnt_points: &[MountPoint]) -> Result<PathBuf, Error> {
+    if let Some(data_home) = std::env::var_os("XDG_DATA_HOME") {
+        if data_home.len() > 0 {
+            let data_home_path = AsRef::<Path>::as_ref(data_home.as_os_str());
+            return Ok(get_topdir_for_path(data_home_path, mnt_points).to_owned());
+        }
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        if home.len() > 0 {
+            let home_path = AsRef::<Path>::as_ref(home.as_os_str());
+            return Ok(get_topdir_for_path(home_path, mnt_points).to_owned());
+        }
+    }
+    Err(Error::Unknown {
+        description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into(),
+    })
+}
+
+fn get_topdir_for_path<'a>(path: &Path, mnt_points: &'a [MountPoint]) -> &'a Path {
+    let root: &'static Path = Path::new("/");
+    let mut topdir = None;
+    for mount_point in mnt_points.iter() {
+        if mount_point.mnt_dir == root {
+            continue;
+        }
+        if path.starts_with(&mount_point.mnt_dir) {
+            topdir = Some(&mount_point.mnt_dir);
+            break;
+        }
+    }
+    if let Some(t) = topdir {
+        t
+    } else {
+        root
+    }
 }
 
 struct MountPoint {
