@@ -608,11 +608,11 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     let mounts_path = CString::new("/proc/mounts").unwrap();
     let mut file =
         unsafe { libc::fopen(mounts_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
-    if file == std::ptr::null_mut() {
+    if file.is_null() {
         let mtab_path = CString::new("/etc/mtab").unwrap();
         file = unsafe { libc::fopen(mtab_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
     }
-    if file == std::ptr::null_mut() {
+    if file.is_null() {
         return Err(Error::Unknown {
             description: "Neither '/proc/mounts' nor '/etc/mtab' could be opened.".into(),
         });
@@ -621,7 +621,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     let mut result = Vec::new();
     loop {
         let mntent = unsafe { libc::getmntent(file) };
-        if mntent == std::ptr::null_mut() {
+        if mntent.is_null() {
             break;
         }
         let dir = unsafe { CStr::from_ptr((*mntent).mnt_dir).to_str().unwrap() };
