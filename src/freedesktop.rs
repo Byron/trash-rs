@@ -579,11 +579,11 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     let mounts_path = CString::new("/proc/mounts").unwrap();
     let mut file =
         unsafe { libc::fopen(mounts_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
-    if file == std::ptr::null_mut() {
+    if file.is_null() {
         let mtab_path = CString::new("/etc/mtab").unwrap();
         file = unsafe { libc::fopen(mtab_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
     }
-    if file == std::ptr::null_mut() {
+    if file.is_null() {
         return Err(Error::Unknown {
             description: "Neither '/proc/mounts' nor '/etc/mtab' could be opened.".into(),
         });
@@ -592,7 +592,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     let mut result = Vec::new();
     loop {
         let mntent = unsafe { libc::getmntent(file) };
-        if mntent == std::ptr::null_mut() {
+        if mntent.is_null() {
             break;
         }
         let dir = unsafe { CStr::from_ptr((*mntent).mnt_dir).to_str().unwrap() };
@@ -624,13 +624,16 @@ mod tests {
         collections::{hash_map::Entry, HashMap},
         env,
         ffi::OsString,
+        fmt,
         fs::File,
         path::{Path, PathBuf},
         process::Command,
     };
 
+    use log::warn;
+
     use crate::{
-        canonicalize_paths,
+        canonicalize_paths, delete_all,
         os_limited::{list, purge_all},
         tests::get_unique_name,
         Error,
@@ -638,6 +641,8 @@ mod tests {
 
     #[test]
     fn test_list() {
+        crate::tests::init_logging();
+
         let file_name_prefix = get_unique_name();
         let batches: usize = 2;
         let files_per_batch: usize = 3;
@@ -647,7 +652,17 @@ mod tests {
             for path in names.iter() {
                 File::create(path).unwrap();
             }
-            delete_all_using_system_program(&names).unwrap();
+            // eprintln!("Deleting {:?}", names);
+            let result = delete_all_using_system_program(&names);
+            if let Err(SystemTrashError::NoTrashProgram) = &result {
+                // For example may be the case on build systems that don't have a destop environment
+                warn!(
+                    "No system default trashing utility was found, using this crate's implementation"
+                );
+                delete_all(&names).unwrap();
+            } else {
+                result.unwrap();
+            }
         }
         let items = list().unwrap();
         let items: HashMap<_, Vec<_>> = items
@@ -679,13 +694,37 @@ mod tests {
     //////////////////////////////////////////////////////////////////////////////////////
     /// System
     //////////////////////////////////////////////////////////////////////////////////////
-    static DEFAULT_TRASH: &str = "gio";
+
+    #[derive(Debug)]
+    pub enum SystemTrashError {
+        NoTrashProgram,
+        Other(Error),
+    }
+    impl fmt::Display for SystemTrashError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "SystemTrashError during a `trash` operation: {:?}", self)
+        }
+    }
+    impl std::error::Error for SystemTrashError {}
+
+    fn is_program_in_path(program: &str) -> bool {
+        if let Some(path_vars) = std::env::var_os("PATH") {
+            for path in std::env::split_paths(&path_vars) {
+                let full_path = path.join(program);
+                if full_path.is_file() {
+                    return true;
+                }
+            }
+        }
+        false
+    }
 
     /// This is based on the electron library's implementation.
     /// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
     pub fn delete_all_canonicalized_using_system_program(
         full_paths: Vec<PathBuf>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), SystemTrashError> {
+        static DEFAULT_TRASH: &str = "gio";
         let trash = {
             // Determine desktop environment and set accordingly.
             let desktop_env = get_desktop_environment();
@@ -714,28 +753,32 @@ mod tests {
                 argv.push(full_path.into());
             }
         }
-
+        if !is_program_in_path(trash) {
+            return Err(SystemTrashError::NoTrashProgram);
+        }
         // Execute command
         let mut command = Command::new(trash);
         command.args(argv);
-        let result =
-            command.output().map_err(|e| Error::Unknown { description: format!("{}", e) })?;
+        let result = command.output().map_err(|e| {
+            SystemTrashError::Other(Error::Unknown {
+                description: format!("Tried executing: {:?} - Error was: {}", command, e),
+            })
+        })?;
         if !result.status.success() {
             let stderr = String::from_utf8_lossy(&result.stderr);
-            return Err(Error::Unknown {
+            return Err(SystemTrashError::Other(Error::Unknown {
                 description: format!("Used '{}', stderr: {}", trash, stderr),
-            });
+            }));
         }
-
         Ok(())
     }
 
-    pub fn delete_all_using_system_program<I, T>(paths: I) -> Result<(), Error>
+    pub fn delete_all_using_system_program<I, T>(paths: I) -> Result<(), SystemTrashError>
     where
         I: IntoIterator<Item = T>,
         T: AsRef<Path>,
     {
-        let full_paths = canonicalize_paths(paths)?;
+        let full_paths = canonicalize_paths(paths).map_err(|e| SystemTrashError::Other(e))?;
         delete_all_canonicalized_using_system_program(full_paths)
     }
 
