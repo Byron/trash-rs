@@ -1,6 +1,11 @@
 
 Dates are specified in YYYY-MM-DD format.
 
+# Unreleased
+
+## Changed
+- Fix failing to delete files on some freedesktop (eg Linux) systems when the home was not mounted at the root.
+
 # v2.0.1 on 2021-05-02
 
 ## Changed
