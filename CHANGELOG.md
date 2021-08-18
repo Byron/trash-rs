@@ -5,6 +5,7 @@ Dates are specified in YYYY-MM-DD format.
 
 ## Changed
 - Fix failing to delete files on some freedesktop (eg Linux) systems when the home was not mounted at the root.
+- Fix for test failing on Linux environments that don't have a desktop environment (more specifically don't have a tool like `gio`)
 
 # v2.0.1 on 2021-05-02
 
