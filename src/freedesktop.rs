@@ -61,13 +61,20 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     let home_error;
     match home_trash() {
         Ok(home_trash) => {
-            trash_folders.insert(home_trash);
-            home_error = None;
+            if !home_trash.is_dir() {
+                home_error = Some(Error::Unknown {
+                    description: "The 'home trash' either does not exist or is not a directory (or a link pointing to a dir)".into()
+                });
+            } else {
+                trash_folders.insert(home_trash);
+                home_error = None;
+            }
         }
         Err(e) => {
             home_error = Some(e);
         }
     }
+
     // Get all mountpoints and attemt to find a trash folder in each adding them to the SET of
     // trash folders when found one.
     let uid = unsafe { libc::getuid() };
@@ -91,8 +98,26 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         // Read the info files for every file
         let trash_folder_parent = folder.parent().unwrap();
         let info_folder = folder.join("info");
-        let read_dir =
-            std::fs::read_dir(&info_folder).map_err(|e| fsys_err_to_unknown(&info_folder, e))?;
+        if !info_folder.is_dir() {
+            warn!(
+                "The path {:?} did not point to a directory, skipping this trash folder.",
+                info_folder
+            );
+            continue;
+        }
+        let read_dir = match std::fs::read_dir(&info_folder) {
+            Ok(d) => d,
+            Err(e) => {
+                // After all the earlier checks, it's still possible that the directory does not exist at this point (or is not readable)
+                // because another process may have deleted it or modified its access rights in the meantime.
+                // So let's just pring a warning and continue to the rest of the folders
+                warn!(
+                    "The trash info folder {:?} could not be read. Error was {:?}",
+                    info_folder, e
+                );
+                continue;
+            }
+        };
         'trash_item: for entry in read_dir {
             let info_entry;
             match entry {
@@ -301,7 +326,7 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     let topdir = topdir.as_ref();
     // See if there's a ".Trash" directory at the mounted location
     let trash_path = topdir.join(".Trash");
-    if trash_path.exists() && trash_path.is_dir() {
+    if trash_path.is_dir() {
         let validity = folder_validity(&trash_path)?;
         if validity == TrashValidity::Valid {
             let users_trash_path = trash_path.join(uid.to_string());
