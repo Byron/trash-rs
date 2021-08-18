@@ -2,7 +2,6 @@ use std::fs::{create_dir, File};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use chrono;
 use log::trace;
 use once_cell::sync::Lazy;
 
@@ -45,7 +44,7 @@ fn test_delete_folder() {
 
     assert!(path.exists());
     delete(&path).unwrap();
-    assert!(path.exists() == false);
+    assert!(!path.exists());
 
     trace!("Finished test_delete_folder");
 }
