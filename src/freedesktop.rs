@@ -832,7 +832,7 @@ mod tests {
         I: IntoIterator<Item = T>,
         T: AsRef<Path>,
     {
-        let full_paths = canonicalize_paths(paths).map_err(|e| SystemTrashError::Other(e))?;
+        let full_paths = canonicalize_paths(paths).map_err(SystemTrashError::Other)?;
         delete_all_canonicalized_using_system_program(full_paths)
     }
 
