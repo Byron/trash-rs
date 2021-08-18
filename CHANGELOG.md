@@ -5,6 +5,7 @@ Dates are specified in YYYY-MM-DD format.
 
 ## Changed
 - Fix failing to delete files on some freedesktop (eg Linux) systems when the home was not mounted at the root.
+- The `list` function now returns an empty list if there is no trash directory (it used to return an error).
 
 # v2.0.1 on 2021-05-02
 
