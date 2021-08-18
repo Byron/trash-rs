@@ -1,5 +1,4 @@
 use std::fs::File;
-use trash;
 
 fn main() {
     // Let's create and remove a single file

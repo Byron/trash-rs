@@ -39,7 +39,6 @@ pub mod macos;
 #[cfg(target_os = "macos")]
 use macos as platform;
 
-// pub use platform as my_latform;
 pub const DEFAULT_TRASH_CTX: TrashContext = TrashContext::new();
 
 /// A collection of preferences for trash operations.
@@ -54,7 +53,7 @@ impl TrashContext {
 
     /// Removes a single file or directory.
     ///
-    /// When a symbolic link is provided to this function, the sybolic link will be removed and the link
+    /// When a symbolic link is provided to this function, the symbolic link will be removed and the link
     /// target will be kept intact.
     ///
     /// # Example
@@ -72,7 +71,7 @@ impl TrashContext {
 
     /// Removes all files/directories specified by the collection of paths provided as an argument.
     ///
-    /// When a symbolic link is provided to this function, the sybolic link will be removed and the link
+    /// When a symbolic link is provided to this function, the symbolic link will be removed and the link
     /// target will be kept intact.
     ///
     /// # Example
@@ -223,11 +222,7 @@ where
 
 /// This struct holds information about a single item within the trash.
 ///
-/// Some functions associated with this struct are defined in the
-/// `TrahsItemPlatformDep` trait. That trait is implemented for `TrashItem` by
-/// each platform specific source file individually.
-///
-/// A trahs item can be a file or folder or any other object that the target
+/// A trash item can be a file or folder or any other object that the target
 /// operating system allows to put into the trash.
 #[derive(Debug)]
 pub struct TrashItem {
@@ -257,9 +252,6 @@ pub struct TrashItem {
     pub time_deleted: i64,
 }
 
-/// Platform independent functions of `TrashItem`.
-///
-/// See `TrahsItemPlatformDep` for platform dependent functions.
 impl TrashItem {
     /// Joins the `original_parent` and `name` fields to obtain the full path to
     /// the original file.
