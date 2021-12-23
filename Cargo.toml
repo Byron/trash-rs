@@ -10,6 +10,7 @@ description = "A library for moving files and folders to the Recycle Bin"
 keywords = ["remove", "trash", "rubbish", "recycle", "bin"]
 repository = "https://github.com/ArturKovacs/trash"
 edition = "2018"
+include = ["src/**/*", "LICENSE.txt", "README.md", "CHANGELOG.md", "build.rs"]
 
 [features]
 default = ["coinit_apartmentthreaded"]
