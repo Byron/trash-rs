@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 2.0.3 (2021-12-23)
 
 ### Bug Fixes
 
@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release over the course of 125 calendar days.
+ - 5 commits contributed to the release over the course of 125 calendar days.
  - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#37](https://github.com/Byron/trash-rs/issues/37), [#40](https://github.com/Byron/trash-rs/issues/40)
 
@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#40](https://github.com/Byron/trash-rs/issues/40)**
     - let dependency specification in Cargo.toml match cfg directives in code ([`cb5b617`](https://github.com/Byron/trash-rs/commit/cb5b6176aa296853f7a6e3cfa177e1235acaa903))
  * **Uncategorized**
+    - Disable lint for platforms where it matters ([`b4add86`](https://github.com/Byron/trash-rs/commit/b4add8643cc0659b4318f3113a197794cb0032b0))
+    - update changelog with `cargo changelog` ([`932cea4`](https://github.com/Byron/trash-rs/commit/932cea48c6ceba2adf0b824c3236b330e232de12))
     - Add Rust CI status badge ([`b94fce2`](https://github.com/Byron/trash-rs/commit/b94fce2bf74dd5c1ee66735eca32d6ace5db83ea))
 </details>
 
