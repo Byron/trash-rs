@@ -1,6 +1,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/trash?color=mediumvioletred)](https://crates.io/crates/trash)
 [![Docs.rs](https://docs.rs/trash/badge.svg)](https://docs.rs/trash)
+[![CI](https://github.com/Byron/trash-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/Byron/trash-rs/actions/workflows/rust.yml)
 
 
 ## About
