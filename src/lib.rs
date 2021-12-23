@@ -44,6 +44,7 @@ pub const DEFAULT_TRASH_CTX: TrashContext = TrashContext::new();
 /// A collection of preferences for trash operations.
 #[derive(Clone, Default, Debug)]
 pub struct TrashContext {
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     platform_specific: platform::PlatformTrashContext,
 }
 impl TrashContext {
