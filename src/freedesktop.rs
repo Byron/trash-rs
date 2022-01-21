@@ -8,7 +8,6 @@
 
 use std::{
     collections::HashSet,
-    ffi::{CStr, CString},
     fs::{create_dir_all, File, OpenOptions},
     io::{BufRead, BufReader, Write},
     os::unix::fs::PermissionsExt,
@@ -17,7 +16,6 @@ use std::{
 
 use chrono::{NaiveDateTime, TimeZone};
 use log::{debug, error, warn};
-use scopeguard::defer;
 
 use crate::{Error, TrashContext, TrashItem};
 
@@ -627,7 +625,11 @@ struct MountPoint {
     _mnt_fsname: String,
 }
 
+#[cfg(target_os = "linux")]
 fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
+    use scopeguard::defer;
+    use std::ffi::{CStr, CString};
+
     //let file;
     let read_arg = CString::new("r").unwrap();
     let mounts_path = CString::new("/proc/mounts").unwrap();
@@ -670,6 +672,55 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         });
     }
     Ok(result)
+}
+
+#[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))]
+fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
+    let mut fs_infos: *mut libc::statfs = std::ptr::null_mut();
+    let count = unsafe { libc::getmntinfo(&mut fs_infos, libc::MNT_WAIT) };
+    if count < 1 {
+        return Ok(Vec::new());
+    }
+    let fs_infos: &[libc::statfs] =
+        unsafe { std::slice::from_raw_parts(fs_infos as _, count as _) };
+
+    let mut result = Vec::new();
+    for fs_info in fs_infos {
+        if fs_info.f_mntfromname[0] == 0 || fs_info.f_mntonname[0] == 0 {
+            // If we have missing information, no need to look any further...
+            continue;
+        }
+        let fs_type = c_buf_to_str(&fs_info.f_fstypename).unwrap_or_default();
+        let mount_to = match c_buf_to_str(&fs_info.f_mntonname) {
+            Some(m) => m,
+            None => {
+                debug!("Cannot get disk mount point, ignoring it.");
+                continue;
+            }
+        };
+        let mount_from = c_buf_to_str(&fs_info.f_mntfromname).unwrap_or_default();
+
+        let mount_point = MountPoint {
+            mnt_dir: mount_to.into(),
+            _mnt_fsname: mount_from.into(),
+            _mnt_type: fs_type.into(),
+        };
+        result.push(mount_point);
+    }
+    Ok(result)
+}
+
+#[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))]
+fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
+    unsafe {
+        let buf: &[u8] = std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
+        if let Some(pos) = buf.iter().position(|x| *x == 0) {
+            // Shrink buffer to omit the null bytes
+            std::str::from_utf8(&buf[..pos]).ok()
+        } else {
+            std::str::from_utf8(buf).ok()
+        }
+    }
 }
 
 #[cfg(test)]
