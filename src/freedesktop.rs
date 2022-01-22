@@ -676,11 +676,17 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
 
 #[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))]
 fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
-    // Avoid potential UB with mount points changing and another thread calling `getmntinfo()`
-    // after we have called it.
-    if !num_threads::is_single_threaded().unwrap_or(false) {
-        return Ok(Vec::new());
-    }
+    use once_cell::sync::Lazy;
+    use std::sync::Mutex;
+
+    // The getmntinfo() function writes the array of structures to an internal
+    // static object and returns a pointer to that object.  Subsequent calls to
+    // getmntinfo() will modify the same object. This means that the function is
+    // not threadsafe. To help prevent multiple threads using it concurrently
+    // via get_mount_points a Mutex is used.
+    static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+    let _lock = LOCK.lock().unwrap();
+
     fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
         let buf: &[u8] = unsafe { std::slice::from_raw_parts(buf.as_ptr() as _, buf.len()) };
         if let Some(pos) = buf.iter().position(|x| *x == 0) {
