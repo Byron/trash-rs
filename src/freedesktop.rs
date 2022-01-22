@@ -676,6 +676,17 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
 
 #[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))]
 fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
+    fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
+        let buf: &[u8] = unsafe {
+            std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
+        };
+        if let Some(pos) = buf.iter().position(|x| *x == 0) {
+            // Shrink buffer to omit the null bytes
+            std::str::from_utf8(&buf[..pos]).ok()
+        } else {
+            std::str::from_utf8(buf).ok()
+        }
+    }
     let mut fs_infos: *mut libc::statfs = std::ptr::null_mut();
     let count = unsafe { libc::getmntinfo(&mut fs_infos, libc::MNT_WAIT) };
     if count < 1 {
@@ -708,19 +719,6 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         result.push(mount_point);
     }
     Ok(result)
-}
-
-#[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))]
-fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
-    unsafe {
-        let buf: &[u8] = std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
-        if let Some(pos) = buf.iter().position(|x| *x == 0) {
-            // Shrink buffer to omit the null bytes
-            std::str::from_utf8(&buf[..pos]).ok()
-        } else {
-            std::str::from_utf8(buf).ok()
-        }
-    }
 }
 
 #[cfg(test)]
