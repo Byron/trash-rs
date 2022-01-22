@@ -35,6 +35,7 @@ windows = "0.9.0"
 objc = "0.2.7"
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))'.dependencies]
+num_threads = "0.1.2"
 chrono = "0.4.9"
 libc = "0.2.65"
 scopeguard = "1.0.0"

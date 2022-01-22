@@ -676,6 +676,11 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
 
 #[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))]
 fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
+    // Avoid potential UB with mount points changing and another thread calling `getmntinfo()`
+    // after we have called it.
+    if !num_threads::is_single_threaded() {
+        return Ok(Vec::new());
+    }
     fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
         let buf: &[u8] = unsafe {
             std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
