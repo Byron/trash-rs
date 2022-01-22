@@ -678,13 +678,11 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
 fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     // Avoid potential UB with mount points changing and another thread calling `getmntinfo()`
     // after we have called it.
-    if !num_threads::is_single_threaded() {
+    if !num_threads::is_single_threaded().unwrap_or(false) {
         return Ok(Vec::new());
     }
     fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
-        let buf: &[u8] = unsafe {
-            std::slice::from_raw_parts(buf.as_ptr() as _, buf.len());
-        };
+        let buf: &[u8] = unsafe { std::slice::from_raw_parts(buf.as_ptr() as _, buf.len()) };
         if let Some(pos) = buf.iter().position(|x| *x == 0) {
             // Shrink buffer to omit the null bytes
             std::str::from_utf8(&buf[..pos]).ok()
