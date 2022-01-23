@@ -4,6 +4,21 @@
 //! Furthermore on Linux and on Windows additional functions are available from the `os_limited`
 //! module.
 //!
+//! ### Potential UB on Linux and FreeBSD
+//!
+//! When querying information about mount points, non-threadsafe versions of `libc::getmnt(info|ent)` are
+//! used which can cause UB if another thread calls into the same function, _probably_ only if the mountpoints
+//! changed as well.
+//!
+//! To neutralize the issue, the respective function in this crate has been made thread-safe with a Mutex.
+//!
+//! **If your crate calls into the aforementioned methods directly or indirectly from other threads,
+//! rather not use this crate.**
+//!
+//! As the handling of UB is clearly a trade-off and certainly goes against the zero-chance-of-UB goal
+//! of the Rust community, please interact with us [in the tracking issue](https://github.com/Byron/trash-rs/issues/42)
+//! to help find a more permanent solution.
+//!
 //! ### Notes on the Linux implementation
 //!
 //! This library implements version 1.0 of the [Freedesktop.org

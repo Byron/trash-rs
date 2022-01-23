@@ -627,8 +627,20 @@ struct MountPoint {
 
 #[cfg(target_os = "linux")]
 fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
+    use once_cell::sync::Lazy;
     use scopeguard::defer;
     use std::ffi::{CStr, CString};
+    use std::sync::Mutex;
+
+    // The getmntinfo() function writes the array of structures to an internal
+    // static object and returns a pointer to that object.  Subsequent calls to
+    // getmntent() will modify the same object. This means that the function is
+    // not threadsafe. To help prevent multiple threads using it concurrently
+    // via get_mount_points a Mutex is used.
+    // We understand that threads can still call `libc::getmntent(…)` directly
+    // to bypass the lock and trigger UB.
+    static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+    let _lock = LOCK.lock().unwrap();
 
     //let file;
     let read_arg = CString::new("r").unwrap();
@@ -684,6 +696,8 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     // getmntinfo() will modify the same object. This means that the function is
     // not threadsafe. To help prevent multiple threads using it concurrently
     // via get_mount_points a Mutex is used.
+    // We understand that threads can still call `libc::getmntinfo(…)` directly
+    // to bypass the lock and trigger UB.
     static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
     let _lock = LOCK.lock().unwrap();
 
