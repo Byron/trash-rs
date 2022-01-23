@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 2.0.4 (2022-01-23)
 
 We detected the possibility of UB in the Linux and FreeBSD versions of `get_mount_points()` and reduced the likelihood
 of it happening in a multi-threaded environment by synchronizing access. You can read more about the state of
@@ -24,7 +24,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
 <csr-read-only-do-not-edit/>
 
- - 8 commits contributed to the release over the course of 30 calendar days.
+ - 9 commits contributed to the release over the course of 30 calendar days.
  - 30 days passed between releases.
  - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' where seen in commit messages
@@ -36,6 +36,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Prepare changelog for next release ([`b65f574`](https://github.com/Byron/trash-rs/commit/b65f574d5aeb8ea3a918e8288c8d13dd082b8f0a))
     - Add Mutex to linux version of get_mount_points(); document UB chance in lib.rs ([`c5c9c5e`](https://github.com/Byron/trash-rs/commit/c5c9c5e40d345736df7d078bf8e6991acc701e83))
     - Use Mutex to prevent concurrent access to getmntinfo ([`5c8e0ce`](https://github.com/Byron/trash-rs/commit/5c8e0ce1c700c68fc63c612cc0ea5b3191f6b0d1))
     - Merge pull request #43 from wezm/num-threads-freebsd ([`8f10c85`](https://github.com/Byron/trash-rs/commit/8f10c852bd9ec2e69353a0dd5397fab1c4ba089f))
