@@ -501,7 +501,17 @@ fn move_items_no_replace(
     try_creating_placeholders(src, dst)?;
 
     // All placeholders are in place. LET'S OVERWRITE
-    execute_src_to_dst_operation(src, dst, &|_| Ok(()), &|src, dst| std::fs::rename(src, dst))?;
+    execute_src_to_dst_operation(src, dst, &|_| Ok(()), &|src, dst| {
+        if let Some(parent) = dst.parent() {
+            if let Err(err) = std::fs::create_dir_all(parent) {
+                warn!(
+                    "Failed to create destination directory. It probably aready exists. {:?}",
+                    err
+                );
+            }
+        }
+        std::fs::rename(src, dst)
+    })?;
 
     // Once everything is moved, lets recursively remove the directory
     if src.is_dir() {
