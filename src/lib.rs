@@ -39,7 +39,7 @@ use std::{env::current_dir, error};
 use log::trace;
 
 #[cfg(test)]
-pub(crate) mod tests;
+pub mod tests;
 
 #[cfg(target_os = "windows")]
 #[path = "windows.rs"]
