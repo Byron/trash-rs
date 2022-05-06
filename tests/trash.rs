@@ -1,5 +1,5 @@
 use std::fs::{create_dir, File};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use log::trace;
 
@@ -136,4 +136,18 @@ fn create_remove_single_file() {
     File::create(&name).unwrap();
     trash::delete(&name).unwrap();
     assert!(File::open(&name).is_err());
+}
+
+#[test]
+fn recursive_file_deletion() {
+    let parent_dir = Path::new("remove-me");
+    let dir1 = parent_dir.join("dir1");
+    let dir2 = parent_dir.join("dir2");
+    std::fs::create_dir_all(&dir1).unwrap();
+    std::fs::create_dir_all(&dir2).unwrap();
+    File::create(dir1.join("same-name")).unwrap();
+    File::create(dir2.join("same-name")).unwrap();
+
+    trash::delete(&parent_dir).unwrap();
+    assert!(!parent_dir.exists());
 }
