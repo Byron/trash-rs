@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 2.1.0 (2022-05-06)
 
 ### Fixes
 
@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 103 days passed between releases.
  - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#45](https://github.com/Byron/trash-rs/issues/45)
@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#45](https://github.com/Byron/trash-rs/issues/45)**
     - reproduce issue with lack of leading directories and fix it ([`d5b6faa`](https://github.com/Byron/trash-rs/commit/d5b6faa81d59ccd6185261399bc7449432b9deb6))
  * **Uncategorized**
+    - prepare upcoming release ([`e3bbb6b`](https://github.com/Byron/trash-rs/commit/e3bbb6be1072675c331176e8d0585cc67910d17b))
     - Merge branch 'refactor-tests' ([`0e90cac`](https://github.com/Byron/trash-rs/commit/0e90cace515344c68eead8e59180487561849289))
 </details>
 
@@ -336,6 +337,8 @@ All previous 2.0.* releases which contained this function were yanked from crate
 </details>
 
 ## v1.0.0 (2019-10-11)
+
+<csr-id-576fad719cb240203dec030890d54fe416a42edd/>
 
 ### Refactor
 
