@@ -117,39 +117,36 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             }
         };
         'trash_item: for entry in read_dir {
-            let info_entry;
-            match entry {
-                Ok(entry) => info_entry = entry,
+            let info_entry = match entry {
+                Ok(entry) => entry,
                 Err(e) => {
                     // Another thread or process may have removed that entry by now
                     debug!("Tried resolving the trash info `DirEntry` but it failed with: '{}'", e);
                     continue;
                 }
-            }
-            // Entrt should really be an info file but better safe than sorry
-            let file_type;
-            match info_entry.file_type() {
-                Ok(f_type) => file_type = f_type,
+            };
+            // Entrty should really be an info file but better safe than sorry
+            let file_type = match info_entry.file_type() {
+                Ok(f_type) => f_type,
                 Err(e) => {
                     // Another thread or process may have removed that entry by now
                     debug!("Tried getting the file type of the trash info `DirEntry` but failed with: {}", e);
                     continue;
                 }
-            }
+            };
             let info_path = info_entry.path();
             if !file_type.is_file() {
                 warn!("Found an item that's not a file, among the trash info files. This is unexpected. The path to the item is: '{:?}'", info_path);
                 continue;
             }
-            let info_file;
-            match File::open(&info_path) {
-                Ok(file) => info_file = file,
+            let info_file = match File::open(&info_path) {
+                Ok(file) => file,
                 Err(e) => {
                     // Another thread or process may have removed that entry by now
                     debug!("Tried opening the trash info '{:?}' but failed with: {}", info_path, e);
                     continue;
                 }
-            }
+            };
             let id = info_path.clone().into();
             let mut name = None;
             let mut original_parent: Option<PathBuf> = None;
@@ -501,7 +498,17 @@ fn move_items_no_replace(
     try_creating_placeholders(src, dst)?;
 
     // All placeholders are in place. LET'S OVERWRITE
-    execute_src_to_dst_operation(src, dst, &|_| Ok(()), &|src, dst| std::fs::rename(src, dst))?;
+    execute_src_to_dst_operation(src, dst, &|_| Ok(()), &|src, dst| {
+        if let Some(parent) = dst.parent() {
+            if let Err(err) = std::fs::create_dir_all(parent) {
+                warn!(
+                    "Failed to create destination directory. It probably already exists. {:?}",
+                    err
+                );
+            }
+        }
+        std::fs::rename(src, dst)
+    })?;
 
     // Once everything is moved, lets recursively remove the directory
     if src.is_dir() {
@@ -746,6 +753,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
     use std::{
         collections::{hash_map::Entry, HashMap},
         env,
@@ -766,6 +774,7 @@ mod tests {
     };
 
     #[test]
+    #[serial]
     fn test_list() {
         crate::tests::init_logging();
 
