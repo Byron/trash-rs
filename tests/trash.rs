@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use log::trace;
 
+use serial_test::serial;
 use trash::{delete, delete_all};
 
 mod util {
@@ -26,6 +27,7 @@ mod util {
 pub use util::{get_unique_name, init_logging};
 
 #[test]
+#[serial]
 fn test_delete_file() {
     init_logging();
     trace!("Started test_delete_file");
@@ -39,6 +41,7 @@ fn test_delete_file() {
 }
 
 #[test]
+#[serial]
 fn test_delete_folder() {
     init_logging();
     trace!("Started test_delete_folder");
@@ -123,4 +126,14 @@ mod unix {
         remove_dir_all(folder).unwrap();
         trace!("Finished test_delete_symlink_in_folder");
     }
+}
+
+#[test]
+#[serial]
+fn create_remove_single_file() {
+    // Let's create and remove a single file
+    let name = get_unique_name();
+    File::create(&name).unwrap();
+    trash::delete(&name).unwrap();
+    assert!(File::open(&name).is_err());
 }
