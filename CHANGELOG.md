@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixes
+
+- Leading directories are now created on linux to avoid errors when trashing nested directories.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 103 days passed between releases.
+ - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#45](https://github.com/Byron/trash-rs/issues/45)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#45](https://github.com/Byron/trash-rs/issues/45)**
+    - reproduce issue with lack of leading directories and fix it ([`d5b6faa`](https://github.com/Byron/trash-rs/commit/d5b6faa81d59ccd6185261399bc7449432b9deb6))
+ * **Uncategorized**
+    - Merge branch 'refactor-tests' ([`0e90cac`](https://github.com/Byron/trash-rs/commit/0e90cace515344c68eead8e59180487561849289))
+</details>
+
 ## 2.0.4 (2022-01-23)
 
 We detected the possibility of UB in the Linux and FreeBSD versions of `get_mount_points()` and reduced the likelihood
@@ -24,10 +51,10 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
 <csr-read-only-do-not-edit/>
 
- - 9 commits contributed to the release over the course of 30 calendar days.
+ - 14 commits contributed to the release over the course of 30 calendar days.
  - 30 days passed between releases.
  - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' where seen in commit messages
+ - 1 unique issue was worked on: [#47](https://github.com/Byron/trash-rs/issues/47)
 
 ### Commit Details
 
@@ -35,10 +62,16 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
 <details><summary>view details</summary>
 
+ * **[#47](https://github.com/Byron/trash-rs/issues/47)**
+    - Try to reproduce ([`8eba501`](https://github.com/Byron/trash-rs/commit/8eba50155e006cf923d8bb77fea88cde6395512e))
  * **Uncategorized**
+    - Release trash v2.0.4 ([`c7edcb1`](https://github.com/Byron/trash-rs/commit/c7edcb175dd125bda5b15e726fc7b36eae3c89a4))
     - Prepare changelog for next release ([`b65f574`](https://github.com/Byron/trash-rs/commit/b65f574d5aeb8ea3a918e8288c8d13dd082b8f0a))
+    - Assure tests don't race ([`d9778ba`](https://github.com/Byron/trash-rs/commit/d9778ba1912c5764cbfaa9c46b2bba5c3d1899eb))
     - Add Mutex to linux version of get_mount_points(); document UB chance in lib.rs ([`c5c9c5e`](https://github.com/Byron/trash-rs/commit/c5c9c5e40d345736df7d078bf8e6991acc701e83))
+    - thanks clippy ([`220a216`](https://github.com/Byron/trash-rs/commit/220a2164e86bf7f0e1e636d24595b6ce4182de14))
     - Use Mutex to prevent concurrent access to getmntinfo ([`5c8e0ce`](https://github.com/Byron/trash-rs/commit/5c8e0ce1c700c68fc63c612cc0ea5b3191f6b0d1))
+    - Move all intergration tests into corresponding location ([`e5dc62e`](https://github.com/Byron/trash-rs/commit/e5dc62ee2b363a11e57e4aad2c1d128d2f8961e2))
     - Merge pull request #43 from wezm/num-threads-freebsd ([`8f10c85`](https://github.com/Byron/trash-rs/commit/8f10c852bd9ec2e69353a0dd5397fab1c4ba089f))
     - Fix build on FreeBSD after refactor ([`f3d31e5`](https://github.com/Byron/trash-rs/commit/f3d31e54dd93c22605e8178958a1caa503be19f4))
     - Use `num_threads()` to avoid UB in FreeBSD version of get_mount_points() ([`3c153ae`](https://github.com/Byron/trash-rs/commit/3c153ae2f1ed92d8a240a742e90fcb0e483284b8))
@@ -303,6 +336,16 @@ All previous 2.0.* releases which contained this function were yanked from crate
 </details>
 
 ## v1.0.0 (2019-10-11)
+
+### Refactor
+
+ - <csr-id-576fad719cb240203dec030890d54fe416a42edd/> port mac implementation to work with v2
+   Updates the existing Mac implementation to compile with v2 of the
+   library. Does not add any new functionality other defining required
+   methods.
+   
+   Tests fail for methods relating to `list`, `purge_all`, or
+   `restore_all`, which are unimplemented.
 
 ### New Features
 
