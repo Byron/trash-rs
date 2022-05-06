@@ -229,9 +229,11 @@ mod tests {
         tests::{get_unique_name, init_logging},
         TrashContext,
     };
+    use serial_test::serial;
     use std::fs::File;
 
     #[test]
+    #[serial]
     fn test_delete_with_ns_file_manager() {
         init_logging();
         let mut trash_ctx = TrashContext::default();

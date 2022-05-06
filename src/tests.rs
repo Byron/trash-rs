@@ -27,12 +27,14 @@ pub use utils::{get_unique_name, init_logging};
 ))]
 mod os_limited {
     use super::{get_unique_name, init_logging};
+    use serial_test::serial;
     use std::collections::{hash_map::Entry, HashMap};
     use std::fs::File;
 
     use crate as trash;
 
     #[test]
+    #[serial]
     fn list() {
         const MAX_SECONDS_DIFFERENCE: i64 = 10;
         init_logging();
@@ -103,6 +105,7 @@ mod os_limited {
     }
 
     #[test]
+    #[serial]
     fn purge() {
         init_logging();
         let file_name_prefix = get_unique_name();
@@ -134,6 +137,7 @@ mod os_limited {
     }
 
     #[test]
+    #[serial]
     fn restore() {
         init_logging();
         let file_name_prefix = get_unique_name();
@@ -151,6 +155,7 @@ mod os_limited {
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
             .collect();
+        dbg!(&targets, &names);
         assert_eq!(targets.len(), file_count);
         trash::os_limited::restore_all(targets).unwrap();
         let remaining = trash::os_limited::list()
@@ -172,6 +177,7 @@ mod os_limited {
     }
 
     #[test]
+    #[serial]
     fn restore_collision() {
         init_logging();
         let file_name_prefix = get_unique_name();
@@ -228,6 +234,7 @@ mod os_limited {
     }
 
     #[test]
+    #[serial]
     fn restore_twins() {
         init_logging();
         let file_name_prefix = get_unique_name();

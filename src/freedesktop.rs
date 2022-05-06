@@ -743,6 +743,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
     use std::{
         collections::{hash_map::Entry, HashMap},
         env,
@@ -763,6 +764,7 @@ mod tests {
     };
 
     #[test]
+    #[serial]
     fn test_list() {
         crate::tests::init_logging();
 
