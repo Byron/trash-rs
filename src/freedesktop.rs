@@ -73,7 +73,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         }
     }
 
-    // Get all mountpoints and attemt to find a trash folder in each adding them to the SET of
+    // Get all mount-points and attempt to find a trash folder in each adding them to the SET of
     // trash folders when found one.
     let uid = unsafe { libc::getuid() };
     let mount_points = get_mount_points()?;

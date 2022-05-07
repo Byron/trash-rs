@@ -302,17 +302,6 @@ pub mod os_limited {
 
     use super::{platform, Error, TrashItem};
 
-    pub trait TrashContextExtOsLimited {
-        fn list() -> Result<Vec<TrashItem>, Error>;
-        fn purge_all<I>(items: I) -> Result<(), Error>
-        where
-            I: IntoIterator<Item = TrashItem>;
-
-        fn restore_all<I>(items: I) -> Result<(), Error>
-        where
-            I: IntoIterator<Item = TrashItem>;
-    }
-
     /// Returns all [`TrashItem`]s that are currently in the trash.
     ///
     /// The items are in no particular order and must be sorted when any kind of ordering is required.
