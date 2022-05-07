@@ -166,14 +166,18 @@ mod os_limited {
         assert_eq!(remaining, 0);
 
         // They are not in the trash anymore but they should be at their original location
+        let mut missing = Vec::new();
         for path in names.iter() {
-            assert!(File::open(path).is_ok());
+            if !std::path::Path::new(&path).is_file() {
+                missing.push(path);
+            }
         }
-
         // Good ol' remove to clean up
         for path in names.iter() {
-            std::fs::remove_file(path).unwrap();
+            std::fs::remove_file(path).ok();
         }
+
+        assert_eq!(missing, Vec::<&String>::new());
     }
 
     #[test]
