@@ -172,7 +172,6 @@ mod os_limited {
                 missing.push(path);
             }
         }
-        // Good ol' remove to clean up
         for path in names.iter() {
             std::fs::remove_file(path).ok();
         }
@@ -219,10 +218,15 @@ mod os_limited {
                     assert!(File::open(path).is_ok());
                 }
                 remaining_count = remaining_items.len();
-            },
-            _ => panic!(
+            }
+            _ => {
+                for path in names.iter() {
+                    std::fs::remove_file(path).ok();
+                }
+                panic!(
                 "restore_all was expected to return `trash::ErrorKind::RestoreCollision` but did not."
-            ),
+            );
+            }
         }
         let remaining = trash::os_limited::list()
             .unwrap()
@@ -233,7 +237,7 @@ mod os_limited {
         trash::os_limited::purge_all(remaining).unwrap();
         for path in names.iter() {
             // This will obviously fail on the items that both didn't collide and weren't restored.
-            let _ = std::fs::remove_file(path);
+            std::fs::remove_file(path).ok();
         }
     }
 
