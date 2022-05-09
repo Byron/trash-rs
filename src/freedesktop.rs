@@ -94,7 +94,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     let mut result = Vec::new();
     for folder in trash_folders.iter() {
         // Read the info files for every file
-        let trash_folder_parent = folder.parent().unwrap();
+        let trash_folder_parent = trash_parent(folder);
         let info_folder = folder.join("info");
         if !info_folder.is_dir() {
             warn!(
@@ -213,6 +213,19 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     Ok(result)
 }
 
+fn trash_parent(trash_dir: &Path) -> &Path {
+    let parent = trash_dir.parent().unwrap();
+    if file_name(parent) == Some("share") && file_name(parent.parent().unwrap()) == Some(".local") {
+        parent.parent().unwrap().parent().unwrap().parent().unwrap()
+    } else {
+        parent
+    }
+}
+
+fn file_name(parent: &Path) -> Option<&str> {
+    parent.file_name().and_then(|f| f.to_str())
+}
+
 pub fn purge_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
@@ -225,10 +238,7 @@ where
         // A bunch of unwraps here. This is fine because if any of these fail that means
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
-        let trash_folder = Path::new(info_file).parent().unwrap().parent().unwrap();
-        let name_in_trash = Path::new(info_file).file_stem().unwrap();
-
-        let file = trash_folder.join("files").join(&name_in_trash);
+        let file = restorable_file_in_trash_from_info_file(info_file);
         assert!(file.exists());
         if file.is_dir() {
             std::fs::remove_dir_all(&file).map_err(|e| fsys_err_to_unknown(&file, e))?;
@@ -240,6 +250,13 @@ where
     }
 
     Ok(())
+}
+
+fn restorable_file_in_trash_from_info_file(info_file: impl AsRef<std::ffi::OsStr>) -> PathBuf {
+    let info_file = info_file.as_ref();
+    let trash_folder = Path::new(info_file).parent().unwrap().parent().unwrap();
+    let name_in_trash = Path::new(info_file).file_stem().unwrap();
+    trash_folder.join("files").join(&name_in_trash)
 }
 
 pub fn restore_all<I>(items: I) -> Result<(), Error>
@@ -258,10 +275,7 @@ where
         // A bunch of unwraps here. This is fine because if any of these fail that means
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
-        let trash_folder = Path::new(info_file).parent().unwrap().parent().unwrap();
-        let name_in_trash = Path::new(info_file).file_stem().unwrap();
-
-        let file = trash_folder.join("files").join(&name_in_trash);
+        let file = restorable_file_in_trash_from_info_file(info_file);
         assert!(file.exists());
         // TODO add option to forcefully replace any target at the restore location
         // if it already exists.

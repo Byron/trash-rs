@@ -155,7 +155,6 @@ mod os_limited {
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
             .collect();
-        dbg!(&targets, &names);
         assert_eq!(targets.len(), file_count);
         trash::os_limited::restore_all(targets).unwrap();
         let remaining = trash::os_limited::list()
