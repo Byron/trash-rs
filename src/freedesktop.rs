@@ -77,7 +77,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     // trash folders when found one.
     let uid = unsafe { libc::getuid() };
     let mount_points = get_mount_points()?;
-    for mount in mount_points.into_iter() {
+    for mount in &mount_points {
         execute_on_mounted_trash_folders(uid, &mount.mnt_dir, false, false, |trash_path| {
             trash_folders.insert(trash_path);
             Ok(())
@@ -94,7 +94,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     let mut result = Vec::new();
     for folder in trash_folders.iter() {
         // Read the info files for every file
-        let trash_folder_parent = trash_parent(folder);
+        let top_dir = get_topdir_for_path(folder, &mount_points);
         let info_folder = folder.join("info");
         if !info_folder.is_dir() {
             warn!(
@@ -170,7 +170,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 if key == "Path" {
                     let mut value_path = Path::new(value).to_owned();
                     if value_path.is_relative() {
-                        value_path = trash_folder_parent.join(value_path);
+                        value_path = top_dir.join(value_path);
                     }
                     let full_path_utf8 = PathBuf::from(parse_uri_path(&value_path));
                     name = Some(full_path_utf8.file_name().unwrap().to_str().unwrap().to_owned());
@@ -211,19 +211,6 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         }
     }
     Ok(result)
-}
-
-fn trash_parent(trash_dir: &Path) -> &Path {
-    let parent = trash_dir.parent().unwrap();
-    if file_name(parent) == Some("share") && file_name(parent.parent().unwrap()) == Some(".local") {
-        parent.parent().unwrap().parent().unwrap().parent().unwrap()
-    } else {
-        parent
-    }
-}
-
-fn file_name(parent: &Path) -> Option<&str> {
-    parent.file_name().and_then(|f| f.to_str())
 }
 
 pub fn purge_all<I>(items: I) -> Result<(), Error>
