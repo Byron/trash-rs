@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Bug Fixes
+
+ - <csr-id-dcda6df8cefa06bf08e7eca7db2c34b050c2d913/> Properly reconstruct paths when restoring files on freedesktop if those were relative.
+
+   Previously it would be unable to reconstruct original paths if the trash
+   directory was on a mount point due to a 'split brain' of sorts.
+   
+   When trashing files it would create original path information based
+   on them being relative to a mount point, but when restoring them
+   it would reconstruct them to be relative to the trash top level
+   directory.
+   
+   Now the reconstruction happens against to mount point itself which makes
+   restoration match.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 2 calendar days.
+ - 3 days passed between releases.
+ - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#47](https://github.com/Byron/trash-rs/issues/47)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#47](https://github.com/Byron/trash-rs/issues/47)**
+    - Properly reconstruct paths when restoring files on freedesktop if those were relative ([`dcda6df`](https://github.com/Byron/trash-rs/commit/dcda6df8cefa06bf08e7eca7db2c34b050c2d913))
+    - Somewhat hard-code special case for fedora ([`90f0f9b`](https://github.com/Byron/trash-rs/commit/90f0f9b035678efe51a20d4a47fd09158b8ef455))
+    - proper cleanup after potential assertion failure ([`1f3a600`](https://github.com/Byron/trash-rs/commit/1f3a6005eabd4629fe0743030a612a29fcb7d80c))
+    - remove unused trait ([`ac913d8`](https://github.com/Byron/trash-rs/commit/ac913d83ed9344d8ed8e18957b2e99136e0b29c1))
+ * **Uncategorized**
+    - more robust removal of test files in failure case on os specific tests ([`3f6502d`](https://github.com/Byron/trash-rs/commit/3f6502db02e09e36c2fbce2fea054a9a2b9229de))
+</details>
+
 ## 2.1.0 (2022-05-06)
 
 ### Fixes
@@ -15,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 103 days passed between releases.
  - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#45](https://github.com/Byron/trash-rs/issues/45)
@@ -29,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#45](https://github.com/Byron/trash-rs/issues/45)**
     - reproduce issue with lack of leading directories and fix it ([`d5b6faa`](https://github.com/Byron/trash-rs/commit/d5b6faa81d59ccd6185261399bc7449432b9deb6))
  * **Uncategorized**
+    - Release trash v2.1.0 ([`b3a4547`](https://github.com/Byron/trash-rs/commit/b3a45471ce5fcd489a096145e06ac663ed854747))
     - prepare upcoming release ([`e3bbb6b`](https://github.com/Byron/trash-rs/commit/e3bbb6be1072675c331176e8d0585cc67910d17b))
     - Merge branch 'refactor-tests' ([`0e90cac`](https://github.com/Byron/trash-rs/commit/0e90cace515344c68eead8e59180487561849289))
 </details>
