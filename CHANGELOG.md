@@ -5,12 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 2.1.1 (2022-05-10)
 
 ### Bug Fixes
 
  - <csr-id-dcda6df8cefa06bf08e7eca7db2c34b050c2d913/> Properly reconstruct paths when restoring files on freedesktop if those were relative.
-
+   
    Previously it would be unable to reconstruct original paths if the trash
    directory was on a mount point due to a 'split brain' of sorts.
    
@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 2 calendar days.
+ - 6 commits contributed to the release over the course of 2 calendar days.
  - 3 days passed between releases.
  - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#47](https://github.com/Byron/trash-rs/issues/47)
@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - proper cleanup after potential assertion failure ([`1f3a600`](https://github.com/Byron/trash-rs/commit/1f3a6005eabd4629fe0743030a612a29fcb7d80c))
     - remove unused trait ([`ac913d8`](https://github.com/Byron/trash-rs/commit/ac913d83ed9344d8ed8e18957b2e99136e0b29c1))
  * **Uncategorized**
+    - update changelog ([`98d32c8`](https://github.com/Byron/trash-rs/commit/98d32c88e85b2b40ea17d372c427ef168ad80b30))
     - more robust removal of test files in failure case on os specific tests ([`3f6502d`](https://github.com/Byron/trash-rs/commit/3f6502db02e09e36c2fbce2fea054a9a2b9229de))
 </details>
 
