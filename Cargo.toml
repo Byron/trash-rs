@@ -33,12 +33,25 @@ env_logger = "0.9"
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.7"
 
-[target.'cfg(winodws)'.dependencies]
-windows = "0.36.1"
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.36.0", features = [ "alloc",
+    "Win32_System_Memory",
+    "Win32_System_SystemServices",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_UI_Shell",
+    "Win32_System_WindowsProgramming",
+    "Win32_System_Com",
+    "Win32_UI",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_Foundation",
+    "Win32_System_Ole",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_System_Time"
+] }
 scopeguard = "1.0.0"
 
-[target.'cfg(windows)'.build-dependencies]
-windows = "0.36.1"
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))'.dependencies]
 chrono = "0.4.9"

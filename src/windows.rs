@@ -10,23 +10,21 @@ use std::{
 };
 
 use scopeguard::defer;
-use windows::{self, Guid, Interface, HRESULT};
+use windows::core::{Interface, GUID, HRESULT, PWSTR};
 
 use crate::{into_unknown, Error, TrashContext, TrashItem};
 
-mod bindings {
-    ::windows::include_bindings!();
-}
-use bindings::Windows::Win32::{
-    Automation::*, Com::*, Shell::*, SystemServices::*, WindowsAndMessaging::*,
-    WindowsProgramming::*, WindowsPropertiesSystem::*,
+use windows::Win32::{
+    Foundation::*, System::Com::*, System::Ole::*, System::SystemServices::*, System::Time::*,
+    System::WindowsProgramming::*, UI::Shell::Common::*, UI::Shell::PropertiesSystem::*,
+    UI::Shell::*, UI::WindowsAndMessaging::*,
 };
 
 ///////////////////////////////////////////////////////////////////////////
 // These don't have bindings in windows-rs for some reason
 ///////////////////////////////////////////////////////////////////////////
-const PSGUID_DISPLACED: Guid =
-    Guid::from_values(0x9b174b33, 0x40ff, 0x11d2, [0xa2, 0x7e, 0x00, 0xc0, 0x4f, 0xc3, 0x8, 0x71]);
+const PSGUID_DISPLACED: GUID =
+    GUID::from_values(0x9b174b33, 0x40ff, 0x11d2, [0xa2, 0x7e, 0x00, 0xc0, 0x4f, 0xc3, 0x8, 0x71]);
 const PID_DISPLACED_FROM: u32 = 2;
 const PID_DISPLACED_DATE: u32 = 3;
 const SCID_ORIGINAL_LOCATION: PROPERTYKEY =
@@ -67,6 +65,12 @@ macro_rules! check_res_and_get_ok {
             Ok(value) => value
         }
     });
+}
+
+impl From<windows::core::Error> for Error {
+    fn from(err: windows::core::Error) -> Error {
+        Error::Unknown { description: format!("windows error: {}", err.to_string()) }
+    }
 }
 
 macro_rules! check_hresult {
@@ -110,7 +114,7 @@ impl TrashContext {
                 CoCreateInstance(
                     &FileOperation as *const _,
                     None,
-                    CLSCTX::CLSCTX_ALL
+                    CLSCTX_ALL
                 )
             };
             check_hresult! { pfo.SetOperationFlags(FOF_NO_UI | FOF_ALLOWUNDO | FOF_WANTNUKEWARNING) };
@@ -142,10 +146,10 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     unsafe {
         let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as c_int)?;
         let mut peidl = MaybeUninit::<Option<IEnumIDList>>::uninit();
-        let flags = _SHCONTF::SHCONTF_FOLDERS.0 | _SHCONTF::SHCONTF_NONFOLDERS.0;
+        let flags = SHCONTF_FOLDERS.0 | SHCONTF_NONFOLDERS.0;
         let hr = check_and_get_hresult! {
             recycle_bin.EnumObjects(
-                HWND::NULL,
+                Default::default(),
                 flags as u32,
                 peidl.as_mut_ptr(),
             )
@@ -169,8 +173,8 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         while peidl.Next(1, item_uninit.as_mut_ptr(), std::ptr::null_mut()) == S_OK {
             let item = item_uninit.assume_init();
             defer! {{ CoTaskMemFree(item as *mut c_void); }}
-            let id = get_display_name((&recycle_bin).into(), item, _SHGDNF::SHGDN_FORPARSING)?;
-            let name = get_display_name((&recycle_bin).into(), item, _SHGDNF::SHGDN_INFOLDER)?;
+            let id = get_display_name((&recycle_bin).into(), item, SHGDN_FORPARSING)?;
+            let name = get_display_name((&recycle_bin).into(), item, SHGDN_INFOLDER)?;
 
             let orig_loc = get_detail(&recycle_bin, item, &SCID_ORIGINAL_LOCATION as *const _)?;
             let date_deleted = get_date_unix(&recycle_bin, item, &SCID_DATE_DELETED as *const _)?;
@@ -197,7 +201,7 @@ where
             CoCreateInstance(
                 &FileOperation as *const _,
                 None,
-                CLSCTX::CLSCTX_ALL,
+                CLSCTX_ALL,
             )
         };
         check_hresult! { pfo.SetOperationFlags(FOF_NO_UI) };
@@ -208,7 +212,7 @@ where
             let mut pidl = MaybeUninit::<*mut ITEMIDLIST>::uninit();
             check_hresult! {
                 recycle_bin.ParseDisplayName(
-                    HWND::NULL,
+                    Default::default(),
                     None,
                     PWSTR(id_wstr.as_mut_ptr()),
                     std::ptr::null_mut(),
@@ -260,7 +264,7 @@ where
             CoCreateInstance(
                 &FileOperation as *const _,
                 None,
-                CLSCTX::CLSCTX_ALL,
+                CLSCTX_ALL,
             )
         };
         check_hresult! { pfo.SetOperationFlags(FOF_NO_UI | FOFX_EARLYFAILURE) };
@@ -269,7 +273,7 @@ where
             let mut pidl = MaybeUninit::<*mut ITEMIDLIST>::uninit();
             check_hresult! {
                 recycle_bin.ParseDisplayName(
-                    HWND::NULL,
+                    Default::default(),
                     None,
                     PWSTR(id_wstr.as_mut_ptr()),
                     std::ptr::null_mut(),
@@ -313,8 +317,7 @@ unsafe fn get_display_name(
     flags: _SHGDNF,
 ) -> Result<OsString, Error> {
     let mut sr = MaybeUninit::<STRRET>::uninit();
-    check_hresult! { psf.GetDisplayNameOf(pidl, flags.0 as u32, sr.as_mut_ptr()) };
-    let mut sr = sr.assume_init();
+    let sr = psf.GetDisplayNameOf(pidl, flags.0 as u32)?;
     let mut name = MaybeUninit::<PWSTR>::uninit();
     check_hresult! { StrRetToStrW(&mut sr as *mut _, pidl, name.as_mut_ptr()) };
     let name = name.assume_init();
@@ -337,15 +340,13 @@ unsafe fn get_detail(
     pidl: *mut ITEMIDLIST,
     pscid: *const PROPERTYKEY,
 ) -> Result<OsString, Error> {
-    let mut vt = MaybeUninit::<VARIANT>::uninit();
-    check_hresult! { psf.GetDetailsEx(pidl, pscid, vt.as_mut_ptr()) };
-    let vt = vt.assume_init();
+    let vt = psf.GetDetailsEx(pidl, pscid)?;
     let mut vt = scopeguard::guard(vt, |mut vt| {
         // Ignoring the return value
         let _ = VariantClear(&mut vt as *mut _);
     });
     check_hresult! {
-        VariantChangeType(vt.deref_mut() as *mut _, vt.deref_mut() as *mut _, 0, VARENUM::VT_BSTR.0 as u16)
+        VariantChangeType(vt.deref_mut() as *mut _, vt.deref_mut() as *mut _, 0, VT_BSTR.0 as u16)
     };
     let pstr = vt.Anonymous.Anonymous.Anonymous.bstrVal;
     Ok(wstr_to_os_string(PWSTR(pstr)))
@@ -364,7 +365,7 @@ unsafe fn get_date_unix(
         let _ = VariantClear(&mut vt as *mut _);
     });
     check_hresult! {
-        VariantChangeType(vt.deref_mut() as *mut _, vt.deref_mut() as *mut _, 0, VARENUM::VT_DATE.0 as u16)
+        VariantChangeType(vt.deref_mut() as *mut _, vt.deref_mut() as *mut _, 0, VT_DATE.0 as u16)
     };
     let date = vt.Anonymous.Anonymous.Anonymous.date;
     let unix_time = variant_time_to_unix_time(date)?;
@@ -396,10 +397,7 @@ unsafe fn variant_time_to_unix_time(from: f64) -> Result<i64, Error> {
     let mut ft = MaybeUninit::<FILETIME>::uninit();
     if SystemTimeToFileTime(&st, ft.as_mut_ptr()) == false {
         return Err(Error::Unknown {
-            description: format!(
-                "`SystemTimeToFileTime` failed with: {:?}",
-                HRESULT::from_thread()
-            ),
+            description: format!("`SystemTimeToFileTime` failed with: {:?}", HRESULT::default()),
         });
     }
     let ft = ft.assume_init();
@@ -430,11 +428,7 @@ fn windows_ticks_to_unix_seconds(windows_ticks: u64) -> i64 {
 }
 
 unsafe fn bind_to_csidl<T: Interface>(csidl: c_int) -> Result<T, Error> {
-    let mut pidl = MaybeUninit::<*mut ITEMIDLIST>::uninit();
-    check_hresult! {
-        SHGetSpecialFolderLocation(HWND::NULL, csidl, pidl.as_mut_ptr())
-    };
-    let pidl = pidl.assume_init();
+    let pidl = SHGetSpecialFolderLocation(Default::default(), csidl)?;
     defer! {{ CoTaskMemFree(pidl as _); }};
 
     let mut desktop = MaybeUninit::<Option<IShellFolder>>::uninit();
@@ -465,19 +459,19 @@ impl CoInitializer {
         let mut init_mode;
         #[cfg(feature = "coinit_multithreaded")]
         {
-            init_mode = COINIT::COINIT_MULTITHREADED;
+            init_mode = COINIT_MULTITHREADED;
         }
         #[cfg(feature = "coinit_apartmentthreaded")]
         {
-            init_mode = COINIT::COINIT_APARTMENTTHREADED;
+            init_mode = COINIT_APARTMENTTHREADED;
         }
 
         // These flags can be combined with either of coinit_multithreaded or coinit_apartmentthreaded.
         if cfg!(feature = "coinit_disable_ole1dde") {
-            init_mode |= COINIT::COINIT_DISABLE_OLE1DDE;
+            init_mode |= COINIT_DISABLE_OLE1DDE;
         }
         if cfg!(feature = "coinit_speed_over_memory") {
-            init_mode |= COINIT::COINIT_SPEED_OVER_MEMORY;
+            init_mode |= COINIT_SPEED_OVER_MEMORY;
         }
         let hr = unsafe { CoInitializeEx(std::ptr::null_mut(), init_mode) };
         if hr.is_err() {
