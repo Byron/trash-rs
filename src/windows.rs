@@ -10,7 +10,7 @@ use std::{
 };
 
 use scopeguard::defer;
-use windows::core::{Interface, GUID, HRESULT, PWSTR};
+use windows::core::{Interface, GUID, HRESULT, PCWSTR, PWSTR};
 
 use crate::{into_unknown, Error, TrashContext, TrashItem};
 
@@ -129,7 +129,7 @@ impl TrashContext {
                 };
                 let shi: IShellItem = check_res_and_get_ok! {
                     SHCreateItemFromParsingName(
-                        PWSTR(wide_path_slice.as_mut_ptr()),
+                        PCWSTR(wide_path_slice.as_ptr()),
                         None,
                     )
                 };
@@ -170,7 +170,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         })?;
         let mut item_vec = Vec::new();
         let mut item_uninit = MaybeUninit::<*mut ITEMIDLIST>::uninit();
-        while peidl.Next(1, item_uninit.as_mut_ptr(), std::ptr::null_mut()) == S_OK {
+        while let Ok(_) = peidl.Next(item_uninit.as_mut_ptr(), std::ptr::null_mut()) {
             let item = item_uninit.assume_init();
             defer! {{ CoTaskMemFree(item as *mut c_void); }}
             let id = get_display_name((&recycle_bin).into(), item, SHGDN_FORPARSING)?;
@@ -214,7 +214,7 @@ where
                 recycle_bin.ParseDisplayName(
                     Default::default(),
                     None,
-                    PWSTR(id_wstr.as_mut_ptr()),
+                    PCWSTR(id_wstr.as_ptr()),
                     std::ptr::null_mut(),
                     pidl.as_mut_ptr(),
                     std::ptr::null_mut(),
@@ -275,7 +275,7 @@ where
                 recycle_bin.ParseDisplayName(
                     Default::default(),
                     None,
-                    PWSTR(id_wstr.as_mut_ptr()),
+                    PCWSTR(id_wstr.as_ptr()),
                     std::ptr::null_mut(),
                     pidl.as_mut_ptr(),
                     std::ptr::null_mut(),
@@ -294,7 +294,7 @@ where
                 item.original_parent.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
             let orig_folder_shi: IShellItem = check_res_and_get_ok! {
                 SHCreateItemFromParsingName(
-                    PWSTR(parent_path_wide.as_mut_ptr()),
+                    PCWSTR(parent_path_wide.as_ptr()),
                     None,
                 )
             };
@@ -302,7 +302,7 @@ where
                 .encode_wide()
                 .chain(std::iter::once(0))
                 .collect();
-            check_hresult! { pfo.MoveItem(trash_item_shi, orig_folder_shi, PWSTR(name_wstr.as_mut_ptr()), None) };
+            check_hresult! { pfo.MoveItem(trash_item_shi, orig_folder_shi, PCWSTR(name_wstr.as_ptr()), None) };
         }
         if !items.is_empty() {
             check_hresult! { pfo.PerformOperations() };
@@ -357,9 +357,7 @@ unsafe fn get_date_unix(
     pidl: *mut ITEMIDLIST,
     pscid: *const PROPERTYKEY,
 ) -> Result<i64, Error> {
-    let mut vt = MaybeUninit::<VARIANT>::uninit();
-    check_hresult! { psf.GetDetailsEx(pidl, pscid, vt.as_mut_ptr()) };
-    let vt = vt.assume_init();
+    let vt = psf.GetDetailsEx(pidl, pscid)?;
     let mut vt = scopeguard::guard(vt, |mut vt| {
         // Ignoring the return value
         let _ = VariantClear(&mut vt as *mut _);
@@ -428,15 +426,10 @@ fn windows_ticks_to_unix_seconds(windows_ticks: u64) -> i64 {
 }
 
 unsafe fn bind_to_csidl<T: Interface>(csidl: c_int) -> Result<T, Error> {
-    let pidl = SHGetSpecialFolderLocation(Default::default(), csidl)?;
+    let pidl = SHGetSpecialFolderLocation(HWND::default(), csidl)?;
     defer! {{ CoTaskMemFree(pidl as _); }};
 
-    let mut desktop = MaybeUninit::<Option<IShellFolder>>::uninit();
-    check_hresult! { SHGetDesktopFolder(desktop.as_mut_ptr()) };
-    let desktop = desktop.assume_init();
-    let desktop = desktop.ok_or_else(|| Error::Unknown {
-        description: "`SHGetDesktopFolder` set its output to `None`.".into(),
-    })?;
+    let desktop = SHGetDesktopFolder()?;
     if (*pidl).mkid.cb != 0 {
         let target: T = check_res_and_get_ok! { desktop.BindToObject(pidl, None) };
         Ok(target)
