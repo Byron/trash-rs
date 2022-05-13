@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.1.2 (2022-05-13)
+
+### Bug Fixes
+
+ - <csr-id-367cf5f2616f1f49b115189b3bede3bb99f8324d/> avoid inconsistency when using relative paths in trashed file info.
+   We use absolute paths now without trying to generate a relative path
+   based on some top directory as the latter seems to be causing
+   inconsistencies on some linux distros, as the restore path ends
+   up being incorrect.
+   
+   Rather go with the absolute truth and don't fiddle with path
+   transformations at all to make it work everywhere.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 2 days passed between releases.
+ - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#39](https://github.com/Byron/trash-rs/issues/39)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#39](https://github.com/Byron/trash-rs/issues/39)**
+    - avoid inconsistency when using relative paths in trashed file info. ([`367cf5f`](https://github.com/Byron/trash-rs/commit/367cf5f2616f1f49b115189b3bede3bb99f8324d))
+</details>
+
 ## 2.1.1 (2022-05-10)
 
 ### Bug Fixes
@@ -26,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release over the course of 2 calendar days.
+ - 7 commits contributed to the release over the course of 2 calendar days.
  - 3 days passed between releases.
  - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#47](https://github.com/Byron/trash-rs/issues/47)
@@ -43,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - proper cleanup after potential assertion failure ([`1f3a600`](https://github.com/Byron/trash-rs/commit/1f3a6005eabd4629fe0743030a612a29fcb7d80c))
     - remove unused trait ([`ac913d8`](https://github.com/Byron/trash-rs/commit/ac913d83ed9344d8ed8e18957b2e99136e0b29c1))
  * **Uncategorized**
+    - Release trash v2.1.1 ([`50ab31a`](https://github.com/Byron/trash-rs/commit/50ab31afa9f641a16a1ab50bf1ea8f8bacb0330f))
     - update changelog ([`98d32c8`](https://github.com/Byron/trash-rs/commit/98d32c88e85b2b40ea17d372c427ef168ad80b30))
     - more robust removal of test files in failure case on os specific tests ([`3f6502d`](https://github.com/Byron/trash-rs/commit/3f6502db02e09e36c2fbce2fea054a9a2b9229de))
 </details>
