@@ -361,12 +361,10 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
 fn move_to_trash(
     src: impl AsRef<Path>,
     trash_folder: impl AsRef<Path>,
-    topdir: impl AsRef<Path>,
+    _topdir: impl AsRef<Path>,
 ) -> Result<(), Error> {
     let src = src.as_ref();
     let trash_folder = trash_folder.as_ref();
-    let topdir = topdir.as_ref();
-    let root = Path::new("/");
     let files_folder = trash_folder.join("files");
     let info_folder = trash_folder.join("info");
 
@@ -417,15 +415,7 @@ fn move_to_trash(
                 writeln!(file, "[Trash Info]")
                     .and_then(|_| {
                         let absolute_uri = encode_uri_path(src);
-                        let topdir_uri = encode_uri_path(topdir);
-                        let relative_untrimmed = absolute_uri
-                            .chars()
-                            .skip(topdir_uri.chars().count())
-                            .collect::<String>();
-                        let relative_uri = relative_untrimmed.trim_start_matches('/');
-                        let path =
-                            if topdir == root { absolute_uri.as_str() } else { relative_uri };
-                        writeln!(file, "Path={}", path).and_then(|_| {
+                        writeln!(file, "Path={}", absolute_uri).and_then(|_| {
                             writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
                         })
                     })
