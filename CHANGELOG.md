@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixes
+
+- include `windows` crate only on windows for reduced CI build times from ~9s to ~4s.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 3 days passed between releases.
+ - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' where seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Merge pull request #50 from rgwood/windows-dep ([`883c5a4`](https://github.com/Byron/trash-rs/commit/883c5a48c8ad07bef4f7e1822a31761211cf304d))
+    - Add names to CI steps ([`ef7003a`](https://github.com/Byron/trash-rs/commit/ef7003a4f83910f318b05a3f51960a33fd444915))
+</details>
+
 ## 2.1.2 (2022-05-13)
 
 ### Bug Fixes
@@ -22,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 3 commits contributed to the release.
  - 2 days passed between releases.
  - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#39](https://github.com/Byron/trash-rs/issues/39)
@@ -35,6 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **[#39](https://github.com/Byron/trash-rs/issues/39)**
     - avoid inconsistency when using relative paths in trashed file info. ([`367cf5f`](https://github.com/Byron/trash-rs/commit/367cf5f2616f1f49b115189b3bede3bb99f8324d))
+ * **Uncategorized**
+    - Release trash v2.1.2 ([`e0746f0`](https://github.com/Byron/trash-rs/commit/e0746f0df91623231d13531ec33632f03f0588ac))
+    - Only use `windows` crate on Windows ([`e088525`](https://github.com/Byron/trash-rs/commit/e088525047a14a531d414fe9cd098e08fe2ff79f))
 </details>
 
 ## 2.1.1 (2022-05-10)
