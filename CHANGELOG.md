@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 2.1.3 (2022-05-17)
 
 ### Fixes
 
@@ -15,10 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 3 days passed between releases.
  - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' where seen in commit messages
+ - 1 unique issue was worked on: [#5050505050](https://github.com/Byron/trash-rs/issues/5050505050)
 
 ### Commit Details
 
@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <details><summary>view details</summary>
 
+ * **[#5050505050](https://github.com/Byron/trash-rs/issues/5050505050)**
+    - update changelog ([`8e64f34`](https://github.com/Byron/trash-rs/commit/8e64f34bd6f1b823353fae61d60f765615be0024))
  * **Uncategorized**
     - Merge pull request #50 from rgwood/windows-dep ([`883c5a4`](https://github.com/Byron/trash-rs/commit/883c5a48c8ad07bef4f7e1822a31761211cf304d))
     - Add names to CI steps ([`ef7003a`](https://github.com/Byron/trash-rs/commit/ef7003a4f83910f318b05a3f51960a33fd444915))
