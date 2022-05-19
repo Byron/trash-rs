@@ -10,14 +10,13 @@ use std::{
 };
 
 use scopeguard::defer;
-use windows::core::{Interface, GUID, HRESULT, PCWSTR, PWSTR};
+use windows::core::{Interface, GUID, PCWSTR, PWSTR};
 
 use crate::{into_unknown, Error, TrashContext, TrashItem};
 
 use windows::Win32::{
-    Foundation::*, System::Com::*, System::Ole::*, System::SystemServices::*, System::Time::*,
-    System::WindowsProgramming::*, UI::Shell::Common::*, UI::Shell::PropertiesSystem::*,
-    UI::Shell::*, UI::WindowsAndMessaging::*,
+    Foundation::*, System::Com::*, System::Ole::*, System::Time::*, UI::Shell::Common::*,
+    UI::Shell::PropertiesSystem::*, UI::Shell::*,
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -41,56 +40,6 @@ const FOF_WANTNUKEWARNING: u32 = 0x4000;
 const FOF_NO_UI: u32 = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOCONFIRMMKDIR;
 const FOFX_EARLYFAILURE: u32 = 0x00100000;
 ///////////////////////////////////////////////////////////////////////////
-
-// macro_rules! check_res_and_get_ok {
-//     {$f_name:ident($($args:tt)*)} => ({
-//         let res = $f_name($($args)*);
-//         match res {
-//             Err(e) => {
-//                 return Err(Error::Unknown {
-//                     description: format!("`{}` failed with the result: {:?}", stringify!($f_name), e)
-//                 });
-//             }
-//             Ok(value) => value
-//         }
-//     });
-//     {$obj:ident.$f_name:ident($($args:tt)*)} => ({
-//         let res = $obj.$f_name($($args)*);
-//         match res {
-//             Err(e) => {
-//                 return Err(Error::Unknown {
-//                     description: format!("`{}` failed with the result: {:?}", stringify!($f_name), e)
-//                 });
-//             }
-//             Ok(value) => value
-//         }
-//     });
-// }
-
-// macro_rules! check_hresult {
-//     {$f_name:ident($($args:tt)*)} => ({
-//         let hr = $f_name($($args)*);
-//         if hr.is_err() {
-//             return Err(Error::Unknown {
-//                 description: format!("`{}` failed with the result: {:?}", stringify!($f_name), hr)
-//             });
-//         }
-//     });
-//     {$obj:ident.$f_name:ident($($args:tt)*)} => ({
-//         let _ = check_and_get_hresult!{$obj.$f_name($($args)*)};
-//     });
-// }
-// macro_rules! check_and_get_hresult {
-//     {$obj:ident.$f_name:ident($($args:tt)*)} => ({
-//         let hr = ($obj).$f_name($($args)*);
-//         if hr.is_err() {
-//             return Err(Error::Unknown {
-//                 description: format!("`{}` failed with the result: {:?}", stringify!($f_name), hr)
-//             });
-//         }
-//         hr
-//     });
-// }
 
 impl From<windows::core::Error> for Error {
     fn from(err: windows::core::Error) -> Error {
@@ -159,27 +108,33 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             description: "`EnumObjects` set its output to None.".into(),
         })?;
         let mut item_vec = Vec::new();
-        // let mut item_uninit = MaybeUninit::<*mut ITEMIDLIST>::uninit();
-        // expected mutable reference `&mut [*mut windows::Win32::UI::Shell::Common::ITEMIDLIST]`
-        // found raw pointer `*mut *mut windows::Win32::UI::Shell::Common::ITEMIDLIST`
 
-        let item = CoTaskMemAlloc(size_of::<ITEMIDLIST>()) as *mut ITEMIDLIST;
+        // TODO: take care of freeing this?
+        let mut item_uninit = MaybeUninit::<ITEMIDLIST>::uninit();
+        let mut count = 0;
 
-        while let Ok(_) = peidl.Next(&mut [item], std::ptr::null_mut()) {
-            // let item = item_uninit.assume_init();
-            defer! {{ CoTaskMemFree(item as *mut c_void); }}
-            let id = get_display_name((&recycle_bin).into(), item, SHGDN_FORPARSING)?;
-            let name = get_display_name((&recycle_bin).into(), item, SHGDN_INFOLDER)?;
+        while let Ok(_) = peidl.Next(&mut [item_uninit.as_mut_ptr()], &mut count) {
+            if count > 0 {
+                let mut item = item_uninit.assume_init();
 
-            let orig_loc = get_detail(&recycle_bin, item, &SCID_ORIGINAL_LOCATION as *const _)?;
-            let date_deleted = get_date_unix(&recycle_bin, item, &SCID_DATE_DELETED as *const _)?;
+                let id = get_display_name((&recycle_bin).into(), &mut item, SHGDN_FORPARSING)?;
+                let name = get_display_name((&recycle_bin).into(), &mut item, SHGDN_INFOLDER)?;
 
-            item_vec.push(TrashItem {
-                id,
-                name: name.into_string().map_err(|original| Error::ConvertOsString { original })?,
-                original_parent: PathBuf::from(orig_loc),
-                time_deleted: date_deleted,
-            });
+                let orig_loc =
+                    get_detail(&recycle_bin, &mut item, &SCID_ORIGINAL_LOCATION as *const _)?;
+                let date_deleted =
+                    get_date_unix(&recycle_bin, &mut item, &SCID_DATE_DELETED as *const _)?;
+
+                eprintln!("in while2");
+                item_vec.push(TrashItem {
+                    id,
+                    name: name
+                        .into_string()
+                        .map_err(|original| Error::ConvertOsString { original })?,
+                    original_parent: PathBuf::from(orig_loc),
+                    time_deleted: date_deleted,
+                });
+            }
         }
         Ok(item_vec)
     }
@@ -209,14 +164,19 @@ where
             )?;
             let pidl = pidl.assume_init();
             defer! {{ CoTaskMemFree(pidl as *mut c_void); }}
-            let shi: IShellItem = check_res_and_get_ok! {
-                SHCreateItemWithParent(
-                    std::ptr::null_mut(),
-                    &recycle_bin,
-                    pidl,
-                )
-            };
-            pfo.DeleteItem(shi, None)?;
+
+            let trash_item = CoTaskMemAlloc(size_of::<IShellItem>()) as *mut IShellItem;
+            defer! {{ CoTaskMemFree(trash_item as *mut c_void); }}
+
+            SHCreateItemWithParent(
+                std::ptr::null(),
+                &recycle_bin,
+                pidl,
+                &IShellItem::IID,
+                &mut (trash_item as *mut c_void),
+            )?;
+
+            pfo.DeleteItem(&*trash_item, None)?;
         }
         if at_least_one {
             pfo.PerformOperations()?;
@@ -250,7 +210,7 @@ where
         let pfo: IFileOperation = CoCreateInstance(&FileOperation as *const _, None, CLSCTX_ALL)?;
         pfo.SetOperationFlags(FOF_NO_UI | FOFX_EARLYFAILURE)?;
         for item in items.iter() {
-            let mut id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
+            let id_wstr: Vec<_> = item.id.encode_wide().chain(std::iter::once(0)).collect();
             let mut pidl = MaybeUninit::<*mut ITEMIDLIST>::uninit();
             recycle_bin.ParseDisplayName(
                 HWND::default(),
@@ -259,36 +219,31 @@ where
                 std::ptr::null_mut(),
                 pidl.as_mut_ptr(),
                 std::ptr::null_mut(),
-            );
+            )?;
             let pidl = pidl.assume_init();
             defer! {{ CoTaskMemFree(pidl as *mut c_void); }}
 
+            let trash_item = CoTaskMemAlloc(size_of::<IShellItem>()) as *mut IShellItem;
+            defer! {{ CoTaskMemFree(trash_item as *mut c_void); }}
 
-                SHCreateItemWithParent(
-                    std::ptr::null_mut(),
-                    &recycle_bin,
-                    pidl,
-                )
+            SHCreateItemWithParent(
+                std::ptr::null(),
+                &recycle_bin,
+                pidl,
+                &IShellItem::IID,
+                &mut (trash_item as *mut c_void),
+            )?;
 
-            // let trash_item_shi: IShellItem = check_res_and_get_ok! {
-            //     SHCreateItemWithParent(
-            //         std::ptr::null_mut(),
-            //         &recycle_bin,
-            //         pidl,
-            //     )
-            // };
-            let mut parent_path_wide: Vec<_> =
+            let parent_path_wide: Vec<_> =
                 item.original_parent.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
-            let orig_folder_shi: IShellItem = 
-                SHCreateItemFromParsingName(
-                    PCWSTR(parent_path_wide.as_ptr()),
-                    None,
-                )?;
-            let mut name_wstr: Vec<_> = AsRef::<OsStr>::as_ref(&item.name)
+            let orig_folder_shi: IShellItem =
+                SHCreateItemFromParsingName(PCWSTR(parent_path_wide.as_ptr()), None)?;
+            let name_wstr: Vec<_> = AsRef::<OsStr>::as_ref(&item.name)
                 .encode_wide()
                 .chain(std::iter::once(0))
                 .collect();
-            pfo.MoveItem(trash_item_shi, orig_folder_shi, PCWSTR(name_wstr.as_ptr()), None)?;
+
+            pfo.MoveItem(&*trash_item, orig_folder_shi, PCWSTR(name_wstr.as_ptr()), None)?;
         }
         if !items.is_empty() {
             pfo.PerformOperations()?;
@@ -302,7 +257,7 @@ unsafe fn get_display_name(
     pidl: *mut ITEMIDLIST,
     flags: _SHGDNF,
 ) -> Result<OsString, Error> {
-    let sr = psf.GetDisplayNameOf(pidl, flags.0 as u32)?;
+    let mut sr = psf.GetDisplayNameOf(pidl, flags.0 as u32)?;
     let mut name = MaybeUninit::<PWSTR>::uninit();
     StrRetToStrW(&mut sr as *mut _, pidl, name.as_mut_ptr())?;
     let name = name.assume_init();
@@ -331,7 +286,7 @@ unsafe fn get_detail(
         let _ = VariantClear(&mut vt as *mut _);
     });
     VariantChangeType(vt.deref_mut() as *mut _, vt.deref_mut() as *mut _, 0, VT_BSTR.0 as u16)?;
-    let pstr = vt.Anonymous.Anonymous.Anonymous.bstrVal;
+    let pstr = &vt.Anonymous.Anonymous.Anonymous.bstrVal;
     Ok(OsString::from_wide(pstr.as_wide()))
 }
 
@@ -376,10 +331,7 @@ unsafe fn variant_time_to_unix_time(from: f64) -> Result<i64, Error> {
     let mut ft = MaybeUninit::<FILETIME>::uninit();
     if SystemTimeToFileTime(&st, ft.as_mut_ptr()) == false {
         return Err(Error::Unknown {
-            description: format!(
-                "`SystemTimeToFileTime` failed with: {:?}",
-                GetLastError()
-            ),
+            description: format!("`SystemTimeToFileTime` failed with: {:?}", GetLastError()),
         });
     }
     let ft = ft.assume_init();
