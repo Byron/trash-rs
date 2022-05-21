@@ -30,6 +30,9 @@ const SCID_ORIGINAL_LOCATION: PROPERTYKEY =
     PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_FROM };
 const SCID_DATE_DELETED: PROPERTYKEY =
     PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_DATE };
+// {43826D1E-E718-42EE-BC55-A1E261C37BFE}
+const IID_IShellItem: GUID =
+    GUID::from_values(0x43826d1e, 0xe718, 0x42ee, [0xbc, 0x55, 0xa1, 0xe2, 0x61, 0xc3, 0x7b, 0xfe]);
 
 const FOF_SILENT: u32 = 0x0004;
 const FOF_NOCONFIRMATION: u32 = 0x0010;
@@ -88,54 +91,105 @@ impl TrashContext {
 pub fn list() -> Result<Vec<TrashItem>, Error> {
     ensure_com_initialized();
     unsafe {
-        let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as c_int)?;
-        let mut peidl = MaybeUninit::<Option<IEnumIDList>>::uninit();
-        let flags = SHCONTF_FOLDERS.0 | SHCONTF_NONFOLDERS.0;
+        // let recycle_bin: IShellFolder2 = bind_to_csidl(CSIDL_BITBUCKET as c_int)?;
+        // let mut peidl = MaybeUninit::<Option<IEnumIDList>>::uninit();
+        // let flags = SHCONTF_FOLDERS.0 | SHCONTF_NONFOLDERS.0;
 
-        let hr = recycle_bin.EnumObjects(HWND::default(), flags as u32, peidl.as_mut_ptr());
-        // WARNING `hr.is_ok()` is DIFFERENT from `hr == S_OK`, because
-        // `is_ok` returns true if the HRESULT as any of the several success codes
-        // but here we want to be more strict and only accept S_OK.
-        if hr != S_OK {
-            return Err(Error::Unknown {
-                description: format!(
-                    "`EnumObjects` returned with HRESULT {:X}, but 0x0 was expected.",
-                    hr.0
-                ),
-            });
-        }
-        let peidl = peidl.assume_init().ok_or_else(|| Error::Unknown {
-            description: "`EnumObjects` set its output to None.".into(),
-        })?;
+        // let hr = recycle_bin.EnumObjects(HWND::default(), flags as u32, peidl.as_mut_ptr());
+        // // WARNING `hr.is_ok()` is DIFFERENT from `hr == S_OK`, because
+        // // `is_ok` returns true if the HRESULT as any of the several success codes
+        // // but here we want to be more strict and only accept S_OK.
+        // if hr != S_OK {
+        //     return Err(Error::Unknown {
+        //         description: format!(
+        //             "`EnumObjects` returned with HRESULT {:X}, but 0x0 was expected.",
+        //             hr.0
+        //         ),
+        //     });
+        // }
+        // let peidl = peidl.assume_init().ok_or_else(|| Error::Unknown {
+        //     description: "`EnumObjects` set its output to None.".into(),
+        // })?;
         let mut item_vec = Vec::new();
 
-        // TODO: take care of freeing this?
-        let mut item_uninit = MaybeUninit::<ITEMIDLIST>::uninit();
-        let mut count = 0;
+        // TODO: make sure we free this
+        let mut recycle_bin = MaybeUninit::<Option<IShellItem2>>::uninit();
 
-        while let Ok(_) = peidl.Next(&mut [item_uninit.as_mut_ptr()], &mut count) {
-            if count > 0 {
-                let mut item = item_uninit.assume_init();
+        SHGetKnownFolderItem(
+            &FOLDERID_RecycleBinFolder,
+            KF_FLAG_DEFAULT,
+            HANDLE::default(),
+            &IID_IShellItem,
+            recycle_bin.as_mut_ptr() as *mut *mut c_void,
+        )?;
 
-                let id = get_display_name((&recycle_bin).into(), &mut item, SHGDN_FORPARSING)?;
-                let name = get_display_name((&recycle_bin).into(), &mut item, SHGDN_INFOLDER)?;
+        let recycle_bin = recycle_bin.assume_init().expect("not initialized");
 
-                let orig_loc =
-                    get_detail(&recycle_bin, &mut item, &SCID_ORIGINAL_LOCATION as *const _)?;
-                let date_deleted =
-                    get_date_unix(&recycle_bin, &mut item, &SCID_DATE_DELETED as *const _)?;
+        let pesi: IEnumShellItems = recycle_bin.BindToHandler(None, &BHID_EnumItems)?;
+        let mut fetched: u32 = 0;
 
-                eprintln!("in while2");
-                item_vec.push(TrashItem {
-                    id,
-                    name: name
-                        .into_string()
-                        .map_err(|original| Error::ConvertOsString { original })?,
-                    original_parent: PathBuf::from(orig_loc),
-                    time_deleted: date_deleted,
-                });
+        loop {
+            let mut arr = [None];
+            pesi.Next(&mut arr, &mut fetched)?;
+
+            if fetched == 0 {
+                break;
+            }
+
+            // arr.len()
+            match &arr[0] {
+                Some(item) => {
+                    // TODO: is SIGDN_DESKTOPABSOLUTEPARSING equivalent to SHGDN_FORPARSING?
+                    let id = get_display_name_new(item, SIGDN_DESKTOPABSOLUTEPARSING)?;
+                    let name = get_display_name_new(item, SIGDN_NORMALDISPLAY)?;
+                    // println!("{:?}", id);
+                    let item2: IShellItem2 = item.cast()?;
+                    // TODO: free this?
+                    let original_location_variant = item2.GetProperty(
+                        &(PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_FROM }),
+                    )?;
+                    let original_location_bstr = PropVariantToBSTR(&original_location_variant)?;
+                    let original_location = OsString::from_wide(original_location_bstr.as_wide());
+
+                    item_vec.push(TrashItem {
+                        id,
+                        name: name
+                            .into_string()
+                            .map_err(|original| Error::ConvertOsString { original })?,
+                        original_parent: PathBuf::from(original_location),
+                        time_deleted: 0, // TODO get actual value
+                    });
+                    // PropVariantChangeType()
+                    // dbg!(original_location);
+                }
+                None => {
+                    break;
+                }
             }
         }
+
+        // while let Ok(_) = peidl.Next(&mut [item_uninit.as_mut_ptr()], &mut count) {
+        //     if count > 0 {
+        //         let mut item = item_uninit.assume_init();
+
+        //         let id = get_display_name((&recycle_bin).into(), &mut item, SHGDN_FORPARSING)?;
+        //         let name = get_display_name((&recycle_bin).into(), &mut item, SHGDN_INFOLDER)?;
+
+        //         let orig_loc =
+        //             get_detail(&recycle_bin, &mut item, &SCID_ORIGINAL_LOCATION as *const _)?;
+        //         let date_deleted =
+        //             get_date_unix(&recycle_bin, &mut item, &SCID_DATE_DELETED as *const _)?;
+
+        //         item_vec.push(TrashItem {
+        //             id,
+        //             name: name
+        //                 .into_string()
+        //                 .map_err(|original| Error::ConvertOsString { original })?,
+        //             original_parent: PathBuf::from(orig_loc),
+        //             time_deleted: date_deleted,
+        //         });
+        //     }
+        // }
         Ok(item_vec)
     }
 }
@@ -264,6 +318,16 @@ unsafe fn get_display_name(
     let result = wstr_to_os_string(name);
     CoTaskMemFree(name.0 as *mut c_void);
     Ok(result)
+}
+
+unsafe fn get_display_name_new(psi: &IShellItem, sigdnname: SIGDN) -> Result<OsString, Error> {
+    unsafe {
+        let name = psi.GetDisplayName(sigdnname)?;
+        let ret = wstr_to_os_string(name);
+        // todo: is this safe? not totally sure whether wstr_to_os_string is cloning the string
+        CoTaskMemFree(name.0 as *const c_void);
+        Ok(ret)
+    }
 }
 
 unsafe fn wstr_to_os_string(wstr: PWSTR) -> OsString {

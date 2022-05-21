@@ -54,6 +54,7 @@ mod os_limited {
             trash::delete_all(&names).unwrap();
         }
         let items = trash::os_limited::list().unwrap();
+        dbg!(&items);
         let items: HashMap<_, Vec<_>> = items
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
