@@ -44,7 +44,7 @@ once_cell = "1.7.2"
 once_cell = "1.7.2"
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.36.0", features = [ "alloc",
+windows = { version = "0.37.0", features = [ "alloc",
     "Win32_Foundation",
     "Win32_System_Com_StructuredStorage",
     "Win32_UI_Shell_PropertiesSystem",
