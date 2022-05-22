@@ -5,10 +5,9 @@ use std::{
     path::PathBuf,
 };
 
-use windows::core::{Interface, GUID, PCWSTR, PWSTR};
-
 use crate::{Error, TrashContext, TrashItem};
 
+use windows::core::{Interface, GUID, PCWSTR, PWSTR};
 use windows::Win32::{Foundation::*, System::Com::*, UI::Shell::PropertiesSystem::*, UI::Shell::*};
 
 ///////////////////////////////////////////////////////////////////////////
