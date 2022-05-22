@@ -141,15 +141,19 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 Some(item) => {
                     // TODO: is SIGDN_DESKTOPABSOLUTEPARSING equivalent to SHGDN_FORPARSING?
                     let id = get_display_name_new(item, SIGDN_DESKTOPABSOLUTEPARSING)?;
-                    let name = get_display_name_new(item, SIGDN_NORMALDISPLAY)?;
-                    // println!("{:?}", id);
+                    dbg!(&id);
+                    let name = get_display_name_new(item, SIGDN_PARENTRELATIVE)?;
+                    dbg!(&name);
                     let item2: IShellItem2 = item.cast()?;
                     // TODO: free this?
-                    let original_location_variant = item2.GetProperty(
-                        &(PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_FROM }),
-                    )?;
+                    let original_location_variant = item2.GetProperty(&SCID_ORIGINAL_LOCATION)?;
                     let original_location_bstr = PropVariantToBSTR(&original_location_variant)?;
                     let original_location = OsString::from_wide(original_location_bstr.as_wide());
+
+                    // let date_deleted_variant = item2.GetProperty(&SCID_DATE_DELETED)?;
+                    // let date_deleted = PropVariantToFileTime(&date_deleted_variant, PSTIME_FLAGS)?;
+                    let date_deleted = get_date_unix_new(&item2)?;
+                    // dbg!(date_deleted);
 
                     item_vec.push(TrashItem {
                         id,
@@ -157,7 +161,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                             .into_string()
                             .map_err(|original| Error::ConvertOsString { original })?,
                         original_parent: PathBuf::from(original_location),
-                        time_deleted: 0, // TODO get actual value
+                        time_deleted: date_deleted, // TODO get actual value
                     });
                     // PropVariantChangeType()
                     // dbg!(original_location);
@@ -321,13 +325,11 @@ unsafe fn get_display_name(
 }
 
 unsafe fn get_display_name_new(psi: &IShellItem, sigdnname: SIGDN) -> Result<OsString, Error> {
-    unsafe {
-        let name = psi.GetDisplayName(sigdnname)?;
-        let ret = wstr_to_os_string(name);
-        // todo: is this safe? not totally sure whether wstr_to_os_string is cloning the string
-        CoTaskMemFree(name.0 as *const c_void);
-        Ok(ret)
-    }
+    let name = psi.GetDisplayName(sigdnname)?;
+    let ret = wstr_to_os_string(name);
+    // todo: is this safe? not totally sure whether wstr_to_os_string is cloning the string
+    CoTaskMemFree(name.0 as *const c_void);
+    Ok(ret)
 }
 
 unsafe fn wstr_to_os_string(wstr: PWSTR) -> OsString {
@@ -352,6 +354,22 @@ unsafe fn get_detail(
     VariantChangeType(vt.deref_mut() as *mut _, vt.deref_mut() as *mut _, 0, VT_BSTR.0 as u16)?;
     let pstr = &vt.Anonymous.Anonymous.Anonymous.bstrVal;
     Ok(OsString::from_wide(pstr.as_wide()))
+}
+
+unsafe fn get_date_unix_new(
+    item: &IShellItem2
+) -> Result<i64, Error> {
+    // let vt = psf.GetDetailsEx(pidl, pscid)?;
+    let vt = item.GetProperty(&SCID_DATE_DELETED)?;
+    
+    // let mut vt = scopeguard::guard(vt, |mut vt| {
+    //     // Ignoring the return value
+    //     let _ = VariantClear(&mut vt as *mut _);
+    // });
+    // VariantChangeType(vt.deref_mut() as *mut _, vt.deref_mut() as *mut _, 0, VT_DATE.0 as u16)?;
+    let date = vt.Anonymous.Anonymous.Anonymous.date;
+    let unix_time = variant_time_to_unix_time(date)?;
+    Ok(unix_time)
 }
 
 unsafe fn get_date_unix(
