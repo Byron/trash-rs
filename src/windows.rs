@@ -5,7 +5,6 @@ use std::{
     path::PathBuf,
 };
 
-use scopeguard::defer;
 use windows::core::{Interface, GUID, PCWSTR, PWSTR};
 
 use crate::{Error, TrashContext, TrashItem};
@@ -36,7 +35,7 @@ const FOFX_EARLYFAILURE: u32 = 0x00100000;
 
 impl From<windows::core::Error> for Error {
     fn from(err: windows::core::Error) -> Error {
-        Error::Unknown { description: format!("windows error: {}", err.to_string()) }
+        Error::Unknown { description: format!("windows error: {}", err) }
     }
 }
 
@@ -107,7 +106,6 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 break;
             }
 
-            // arr.len()
             match &arr[0] {
                 Some(item) => {
                     let id = get_display_name(item, SIGDN_DESKTOPABSOLUTEPARSING)?;
