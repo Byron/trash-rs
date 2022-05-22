@@ -244,8 +244,8 @@ where
 pub struct TrashItem {
     /// A system specific identifier of the item in the trash.
     ///
-    /// On Windows it is the string returned by `IShellFolder::GetDisplayNameOf`
-    /// with the `SHGDN_FORPARSING` flag.
+    /// On Windows it is the string returned by `IShellItem::GetDisplayName`
+    /// with the `SIGDN_DESKTOPABSOLUTEPARSING` flag.
     ///
     /// On Linux it is an absolute path to the `.trashinfo` file associated with
     /// the item.
