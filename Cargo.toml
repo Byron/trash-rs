@@ -46,20 +46,8 @@ once_cell = "1.7.2"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.36.0", features = [ "alloc",
-    "Win32_System_Memory",
-    "Win32_System_SystemServices",
-    "Win32_UI_WindowsAndMessaging",
-    "Win32_UI_Shell_PropertiesSystem",
-    "Win32_UI_Shell",
-    "Win32_System_WindowsProgramming",
-    "Win32_System_Com",
-    "Win32_UI",
-    "Win32_UI_Shell",
-    "Win32_UI_Shell_Common",
     "Win32_Foundation",
-    "Win32_System_Ole",
-    "Win32_UI_Shell_PropertiesSystem",
-    "Win32_System_Time",
     "Win32_System_Com_StructuredStorage",
+    "Win32_UI_Shell_PropertiesSystem",
 ] }
 scopeguard = "1.0.0"
