@@ -83,7 +83,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         let mut item_vec = Vec::new();
 
         // TODO: make sure we free this?
-        let mut recycle_bin = MaybeUninit::<Option<IShellItem2>>::uninit();
+        let mut recycle_bin = MaybeUninit::<Option<IShellItem>>::uninit();
 
         SHGetKnownFolderItem(
             &FOLDERID_RecycleBinFolder,
