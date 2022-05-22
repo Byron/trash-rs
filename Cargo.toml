@@ -20,7 +20,6 @@ coinit_disable_ole1dde = []
 coinit_speed_over_memory = []
 
 [dependencies]
-anyhow = "1.0"
 log = "0.4"
 
 [dev-dependencies]
