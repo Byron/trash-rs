@@ -1,12 +1,10 @@
 use std::{
-    ffi::{c_void, OsStr, OsString},
+    ffi::{OsStr, OsString},
     mem::MaybeUninit,
     os::windows::{ffi::OsStrExt, prelude::*},
     path::PathBuf,
 };
-
 use crate::{Error, TrashContext, TrashItem};
-
 use windows::core::{Interface, GUID, PCWSTR, PWSTR};
 use windows::Win32::{Foundation::*, System::Com::*, UI::Shell::PropertiesSystem::*, UI::Shell::*};
 
@@ -80,8 +78,6 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     ensure_com_initialized();
     unsafe {
         let mut item_vec = Vec::new();
-
-        // TODO: make sure we free this?
         let mut recycle_bin = MaybeUninit::<Option<IShellItem>>::uninit();
 
         SHGetKnownFolderItem(
@@ -89,7 +85,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             KF_FLAG_DEFAULT,
             HANDLE::default(),
             &IShellItem::IID,
-            recycle_bin.as_mut_ptr() as *mut *mut c_void,
+            recycle_bin.as_mut_ptr() as _,
         )?;
 
         let recycle_bin = recycle_bin.assume_init().expect("not initialized");
@@ -110,7 +106,6 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     let id = get_display_name(item, SIGDN_DESKTOPABSOLUTEPARSING)?;
                     let name = get_display_name(item, SIGDN_PARENTRELATIVE)?;
                     let item2: IShellItem2 = item.cast()?;
-                    // TODO: free these?
                     let original_location_variant = item2.GetProperty(&SCID_ORIGINAL_LOCATION)?;
                     let original_location_bstr = PropVariantToBSTR(&original_location_variant)?;
                     let original_location = OsString::from_wide(original_location_bstr.as_wide());
@@ -206,7 +201,7 @@ where
 unsafe fn get_display_name(psi: &IShellItem, sigdnname: SIGDN) -> Result<OsString, Error> {
     let name = psi.GetDisplayName(sigdnname)?;
     let result = wstr_to_os_string(name);
-    CoTaskMemFree(name.0 as *const c_void);
+    CoTaskMemFree(name.0 as _);
     Ok(result)
 }
 
