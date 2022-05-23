@@ -1,10 +1,10 @@
+use crate::{Error, TrashContext, TrashItem};
 use std::{
     ffi::{OsStr, OsString},
     mem::MaybeUninit,
     os::windows::{ffi::OsStrExt, prelude::*},
     path::PathBuf,
 };
-use crate::{Error, TrashContext, TrashItem};
 use windows::core::{Interface, GUID, PCWSTR, PWSTR};
 use windows::Win32::{Foundation::*, System::Com::*, UI::Shell::PropertiesSystem::*, UI::Shell::*};
 
