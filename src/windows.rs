@@ -89,7 +89,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         )?;
 
         let recycle_bin = recycle_bin.assume_init().ok_or(Error::Unknown {
-            description: "SHGetKnownFolderItem gave NULL for FOLDERID_RecycleBinFolder".into()
+            description: "SHGetKnownFolderItem gave NULL for FOLDERID_RecycleBinFolder".into(),
         })?;
 
         let pesi: IEnumShellItems = recycle_bin.BindToHandler(None, &BHID_EnumItems)?;
