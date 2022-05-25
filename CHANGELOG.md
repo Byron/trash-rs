@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 2.1.4 (2022-05-25)
 
 ### Fixes
 
@@ -16,10 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 8 days passed between releases.
  - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
- - 1 unique issue was worked on: [#51](https://github.com/Byron/trash-rs/issues/51)
+ - 2 unique issues were worked on: [#39](https://github.com/Byron/trash-rs/issues/39), [#51](https://github.com/Byron/trash-rs/issues/51)
 
 ### Commit Details
 
@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <details><summary>view details</summary>
 
+ * **[#39](https://github.com/Byron/trash-rs/issues/39)**
+    - prepare changelog ([`7816e07`](https://github.com/Byron/trash-rs/commit/7816e07bab38a79aa6f5d705a4fb40f330ac155b))
  * **[#51](https://github.com/Byron/trash-rs/issues/51)**
     - Upgrade windows crate ([`d18f9d4`](https://github.com/Byron/trash-rs/commit/d18f9d435d2f76fb982f4bfcc98d5ccfe57c092c))
 </details>
@@ -437,6 +439,8 @@ All previous 2.0.* releases which contained this function were yanked from crate
 </details>
 
 ## v1.0.1 (2020-05-16)
+
+<csr-id-576fad719cb240203dec030890d54fe416a42edd/>
 
 ### Refactor
 
