@@ -73,13 +73,15 @@ mod os_limited {
                 Some(items) => {
                     assert_eq!(items.len(), batches);
                     for item in items {
-                        let diff = (item.time_deleted - actual_unix_deletion_time).abs();
-                        if diff > MAX_SECONDS_DIFFERENCE {
-                            panic!(
-                                "The deleted item does not have the timestamp that represents its deletion time. Expected: {}. Got: {}",
-                                actual_unix_deletion_time,
-                                item.time_deleted
-                            );
+                        if cfg!(feature = "chrono") {
+                            let diff = (item.time_deleted - actual_unix_deletion_time).abs();
+                            if diff > MAX_SECONDS_DIFFERENCE {
+                                panic!(
+                                    "The deleted item does not have the timestamp that represents its deletion time. Expected: {}. Got: {}",
+                                    actual_unix_deletion_time,
+                                    item.time_deleted
+                                );
+                            }
                         }
                     }
                 }

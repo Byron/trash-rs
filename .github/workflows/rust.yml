@@ -35,6 +35,11 @@ jobs:
       with:
         command: test
         args: --verbose
+    - name: cargo test
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --verbose --no-default-features
     - name: cargo fmt
       uses: actions-rs/cargo@v1
       with:

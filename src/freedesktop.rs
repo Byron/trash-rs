@@ -14,8 +14,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use chrono::{NaiveDateTime, TimeZone};
-use log::{debug, error, warn};
+use log::{debug, warn};
 
 use crate::{Error, TrashContext, TrashItem};
 
@@ -116,6 +115,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 continue;
             }
         };
+        #[cfg_attr(not(feature = "chrono"), allow(unused_labels))]
         'trash_item: for entry in read_dir {
             let info_entry = match entry {
                 Ok(entry) => entry,
@@ -150,6 +150,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             let id = info_path.clone().into();
             let mut name = None;
             let mut original_parent: Option<PathBuf> = None;
+            #[cfg_attr(not(feature = "chrono"), allow(unused_mut))]
             let mut time_deleted = None;
 
             let info_reader = BufReader::new(info_file);
@@ -177,31 +178,39 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     let parent = full_path_utf8.parent().unwrap();
                     original_parent = Some(parent.into());
                 } else if key == "DeletionDate" {
-                    let parsed_time = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S");
-                    let naive_local = match parsed_time {
-                        Ok(t) => t,
-                        Err(e) => {
-                            error!("Failed to parse the deletion date of the trash item {:?}. The deletion date was '{}'. Parse error was: {:?}", name, value, e);
-                            continue 'trash_item;
-                        }
-                    };
-                    let time = chrono::Local.from_local_datetime(&naive_local).earliest();
-                    match time {
-                        Some(time) => time_deleted = Some(time.timestamp()),
-                        None => {
-                            error!("Failed to convert the local time to a UTC time. Local time was {:?}", naive_local);
-                            continue 'trash_item;
+                    #[cfg(feature = "chrono")]
+                    {
+                        use chrono::{NaiveDateTime, TimeZone};
+                        let parsed_time = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S");
+                        let naive_local = match parsed_time {
+                            Ok(t) => t,
+                            Err(e) => {
+                                log::error!("Failed to parse the deletion date of the trash item {:?}. The deletion date was '{}'. Parse error was: {:?}", name, value, e);
+                                continue 'trash_item;
+                            }
+                        };
+                        let time = chrono::Local.from_local_datetime(&naive_local).earliest();
+                        match time {
+                            Some(time) => time_deleted = Some(time.timestamp()),
+                            None => {
+                                log::error!("Failed to convert the local time to a UTC time. Local time was {:?}", naive_local);
+                                continue 'trash_item;
+                            }
                         }
                     }
                 }
             }
             if let Some(name) = name {
                 if let Some(original_parent) = original_parent {
-                    if let Some(time_deleted) = time_deleted {
-                        result.push(TrashItem { id, name, original_parent, time_deleted });
-                    } else {
+                    if time_deleted.is_none() {
                         warn!("Could not determine the deletion time of the trash item. (The `DeletionDate` field is probably missing from the info file.) The info file path is: '{:?}'", info_path);
                     }
+                    result.push(TrashItem {
+                        id,
+                        name,
+                        original_parent,
+                        time_deleted: time_deleted.unwrap_or(-1),
+                    });
                 } else {
                     warn!("Could not determine the original parent folder of the trash item. (The `Path` field is probably missing from the info file.) The info file path is: '{:?}'", info_path);
                 }
@@ -411,12 +420,19 @@ fn move_to_trash(
             Ok(mut file) => {
                 debug!("Successfully created {:?}", info_file_path);
                 // Write the info file before actually moving anything
-                let now = chrono::Local::now();
                 writeln!(file, "[Trash Info]")
                     .and_then(|_| {
                         let absolute_uri = encode_uri_path(src);
                         writeln!(file, "Path={}", absolute_uri).and_then(|_| {
-                            writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
+                            #[cfg(feature = "chrono")]
+                            {
+                                let now = chrono::Local::now();
+                                writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
+                            }
+                            #[cfg(not(feature = "chrono"))]
+                            {
+                                Ok(())
+                            }
                         })
                     })
                     .map_err(|e| fsys_err_to_unknown(&info_file_path, e))?;

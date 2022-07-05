@@ -13,7 +13,7 @@ edition = "2018"
 include = ["src/**/*", "LICENSE.txt", "README.md", "CHANGELOG.md", "build.rs"]
 
 [features]
-default = ["coinit_apartmentthreaded"]
+default = ["coinit_apartmentthreaded", "chrono"]
 coinit_apartmentthreaded = []
 coinit_multithreaded = []
 coinit_disable_ole1dde = []
@@ -34,7 +34,7 @@ env_logger = "0.9"
 objc = "0.2.7"
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))'.dependencies]
-chrono = "0.4.9"
+chrono = { version = "0.4.9", optional = true }
 libc = "0.2.65"
 scopeguard = "1.0.0"
 url = "2.1.0"
