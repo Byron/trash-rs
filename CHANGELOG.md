@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.1.5 (2022-07-05)
+
+### Bug Fixes
+
+ - <csr-id-67244ba2e4c71135b0ab36331dc465615e23211a/> Make chrono a default-enabled optional feature.
+   This allows to turn chrono support off without actually affecting the
+   ability to trash and restore items.
+   `chrono` still has issues to dubious local-time support which relies
+   on a c-library function that can cause undefined behaviour as it
+   accesses an environment variable in a non-threadsafe fashion.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release.
+ - 40 days passed between releases.
+ - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#39](https://github.com/Byron/trash-rs/issues/39)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#39](https://github.com/Byron/trash-rs/issues/39)**
+    - Make chrono a default-enabled optional feature. ([`67244ba`](https://github.com/Byron/trash-rs/commit/67244ba2e4c71135b0ab36331dc465615e23211a))
+ * **Uncategorized**
+    - improve CI stage names; fix feature configuration on windows ([`5591fda`](https://github.com/Byron/trash-rs/commit/5591fdab131de1f6fa5a04bef44d7b394d3f7f72))
+    - silence clippy ([`d13be48`](https://github.com/Byron/trash-rs/commit/d13be48c59a1a0df3e37aa676cda06cc1f48ece9))
+    - add rust-cache for faster builds ([`676a43f`](https://github.com/Byron/trash-rs/commit/676a43f7ec7c116a7b40dcf4236bf2156a88fd04))
+</details>
+
 ## 2.1.4 (2022-05-25)
 
 ### Fixes
@@ -16,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 8 days passed between releases.
  - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#39](https://github.com/Byron/trash-rs/issues/39), [#51](https://github.com/Byron/trash-rs/issues/51)
@@ -31,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - prepare changelog ([`7816e07`](https://github.com/Byron/trash-rs/commit/7816e07bab38a79aa6f5d705a4fb40f330ac155b))
  * **[#51](https://github.com/Byron/trash-rs/issues/51)**
     - Upgrade windows crate ([`d18f9d4`](https://github.com/Byron/trash-rs/commit/d18f9d435d2f76fb982f4bfcc98d5ccfe57c092c))
+ * **Uncategorized**
+    - Release trash v2.1.4 ([`17d162f`](https://github.com/Byron/trash-rs/commit/17d162fcf7a53d3d82961a448d4b70b4eb596825))
 </details>
 
 ## 2.1.3 (2022-05-17)
