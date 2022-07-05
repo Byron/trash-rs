@@ -186,7 +186,10 @@ struct OwnedObject {
 }
 impl Drop for OwnedObject {
     fn drop(&mut self) {
-        let () = unsafe { msg_send![self.ptr, release] };
+        #[allow(clippy::let_unit_value)]
+        {
+            let () = unsafe { msg_send![self.ptr, release] };
+        }
     }
 }
 
