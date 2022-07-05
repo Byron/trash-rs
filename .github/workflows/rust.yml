@@ -35,11 +35,11 @@ jobs:
       with:
         command: test
         args: --verbose
-    - name: cargo test
+    - name: cargo test (without chrono)
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --verbose --no-default-features
+        args: --verbose --no-default-features --features coinit_apartmentthreaded
     - name: cargo fmt
       uses: actions-rs/cargo@v1
       with:
