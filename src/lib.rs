@@ -240,7 +240,7 @@ where
 ///
 /// A trash item can be a file or folder or any other object that the target
 /// operating system allows to put into the trash.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TrashItem {
     /// A system specific identifier of the item in the trash.
     ///
