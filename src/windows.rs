@@ -1,7 +1,6 @@
 use crate::{Error, TrashContext, TrashItem};
 use std::{
-    ffi::{OsStr, OsString},
-    mem::MaybeUninit,
+    ffi::{c_void, OsStr, OsString},
     os::windows::{ffi::OsStrExt, prelude::*},
     path::PathBuf,
 };
@@ -66,7 +65,7 @@ impl TrashContext {
                 let shi: IShellItem =
                     SHCreateItemFromParsingName(PCWSTR(wide_path_slice.as_ptr()), None)?;
 
-                pfo.DeleteItem(shi, None)?;
+                pfo.DeleteItem(&shi, None)?;
             }
             pfo.PerformOperations()?;
             Ok(())
@@ -78,28 +77,18 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     ensure_com_initialized();
     unsafe {
         let mut item_vec = Vec::new();
-        let mut recycle_bin = MaybeUninit::<Option<IShellItem>>::uninit();
 
-        SHGetKnownFolderItem(
-            &FOLDERID_RecycleBinFolder,
-            KF_FLAG_DEFAULT,
-            HANDLE::default(),
-            &IShellItem::IID,
-            recycle_bin.as_mut_ptr() as _,
-        )?;
-
-        let recycle_bin = recycle_bin.assume_init().ok_or(Error::Unknown {
-            description: "SHGetKnownFolderItem gave NULL for FOLDERID_RecycleBinFolder".into(),
-        })?;
+        let recycle_bin: IShellItem =
+            SHGetKnownFolderItem(&FOLDERID_RecycleBinFolder, KF_FLAG_DEFAULT, HANDLE::default())?;
 
         let pesi: IEnumShellItems = recycle_bin.BindToHandler(None, &BHID_EnumItems)?;
-        let mut fetched: u32 = 0;
 
         loop {
+            let mut fetched_count: u32 = 0;
             let mut arr = [None];
-            pesi.Next(&mut arr, &mut fetched)?;
+            pesi.Next(&mut arr, Some(&mut fetched_count as *mut u32))?;
 
-            if fetched == 0 {
+            if fetched_count == 0 {
                 break;
             }
 
@@ -145,7 +134,7 @@ where
             at_least_one = true;
             let id_as_wide: Vec<u16> = item.id.encode_wide().chain(std::iter::once(0)).collect();
             let parsing_name = PCWSTR(id_as_wide.as_ptr());
-            let trash_item: IShellItem = SHCreateItemFromParsingName(&parsing_name, None)?;
+            let trash_item: IShellItem = SHCreateItemFromParsingName(parsing_name, None)?;
             pfo.DeleteItem(&trash_item, None)?;
         }
         if at_least_one {
@@ -181,7 +170,7 @@ where
         for item in items.iter() {
             let id_as_wide: Vec<u16> = item.id.encode_wide().chain(std::iter::once(0)).collect();
             let parsing_name = PCWSTR(id_as_wide.as_ptr());
-            let trash_item: IShellItem = SHCreateItemFromParsingName(&parsing_name, None)?;
+            let trash_item: IShellItem = SHCreateItemFromParsingName(parsing_name, None)?;
             let parent_path_wide: Vec<_> =
                 item.original_parent.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
             let orig_folder_shi: IShellItem =
@@ -191,7 +180,7 @@ where
                 .chain(std::iter::once(0))
                 .collect();
 
-            pfo.MoveItem(trash_item, orig_folder_shi, PCWSTR(name_wstr.as_ptr()), None)?;
+            pfo.MoveItem(&trash_item, &orig_folder_shi, PCWSTR(name_wstr.as_ptr()), None)?;
         }
         if !items.is_empty() {
             pfo.PerformOperations()?;
@@ -203,7 +192,7 @@ where
 unsafe fn get_display_name(psi: &IShellItem, sigdnname: SIGDN) -> Result<OsString, Error> {
     let name = psi.GetDisplayName(sigdnname)?;
     let result = wstr_to_os_string(name);
-    CoTaskMemFree(name.0 as _);
+    CoTaskMemFree(Some(name.0 as *const c_void));
     Ok(result)
 }
 
@@ -257,7 +246,7 @@ impl CoInitializer {
         if cfg!(feature = "coinit_speed_over_memory") {
             init_mode |= COINIT_SPEED_OVER_MEMORY;
         }
-        let hr = unsafe { CoInitializeEx(std::ptr::null_mut(), init_mode) };
+        let hr = unsafe { CoInitializeEx(None, init_mode) };
         if hr.is_err() {
             panic!("Call to CoInitializeEx failed. HRESULT: {:?}. Consider using `trash` with the feature `coinit_multithreaded`", hr);
         }

@@ -242,7 +242,7 @@ where
         } else {
             std::fs::remove_file(&file).map_err(|e| fsys_err_to_unknown(&file, e))?;
         }
-        std::fs::remove_file(info_file).map_err(|e| fsys_err_to_unknown(&info_file, e))?;
+        std::fs::remove_file(info_file).map_err(|e| fsys_err_to_unknown(info_file, e))?;
     }
 
     Ok(())
@@ -252,7 +252,7 @@ fn restorable_file_in_trash_from_info_file(info_file: impl AsRef<std::ffi::OsStr
     let info_file = info_file.as_ref();
     let trash_folder = Path::new(info_file).parent().unwrap().parent().unwrap();
     let name_in_trash = Path::new(info_file).file_stem().unwrap();
-    trash_folder.join("files").join(&name_in_trash)
+    trash_folder.join("files").join(name_in_trash)
 }
 
 pub fn restore_all<I>(items: I) -> Result<(), Error>
@@ -308,7 +308,7 @@ where
             });
         }
         std::fs::rename(&file, &original_path).map_err(|e| fsys_err_to_unknown(&file, e))?;
-        std::fs::remove_file(info_file).map_err(|e| fsys_err_to_unknown(&info_file, e))?;
+        std::fs::remove_file(info_file).map_err(|e| fsys_err_to_unknown(info_file, e))?;
     }
     Ok(())
 }
