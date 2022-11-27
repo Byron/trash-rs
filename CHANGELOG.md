@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.0.0 (2022-11-27)
+
+### Chore (BREAKING)
+
+ - <csr-id-a024b44b6e1cd4a357ffabda8f31e82dcc7e78cb/> Upgrade from `windows` v0.37 to v0.43.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release over the course of 132 calendar days.
+ - 145 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Upgrade from `windows` v0.37 to v0.43. ([`a024b44`](https://github.com/Byron/trash-rs/commit/a024b44b6e1cd4a357ffabda8f31e82dcc7e78cb))
+    - Fix Clippy failures on Linux ([`538dea0`](https://github.com/Byron/trash-rs/commit/538dea0e77af2ed70c6f8b17c86b956b8caa6459))
+    - Upgrade windows crate from v0.37 to v0.43 ([`48cdc67`](https://github.com/Byron/trash-rs/commit/48cdc67d09e20f8d07438e45d3ceefd23da6af9a))
+    - derive Clone for TrashItem ([`fcf6bb5`](https://github.com/Byron/trash-rs/commit/fcf6bb5eded49de4fedb40513c949f11c6da0b12))
+</details>
+
 ## 2.1.5 (2022-07-05)
 
 ### Bug Fixes
@@ -20,9 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 40 days passed between releases.
- - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#39](https://github.com/Byron/trash-rs/issues/39)
 
 ### Commit Details
@@ -34,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#39](https://github.com/Byron/trash-rs/issues/39)**
     - Make chrono a default-enabled optional feature. ([`67244ba`](https://github.com/Byron/trash-rs/commit/67244ba2e4c71135b0ab36331dc465615e23211a))
  * **Uncategorized**
+    - Release trash v2.1.5 ([`266d780`](https://github.com/Byron/trash-rs/commit/266d7808d2309f0911ebc6c8a0189511c4e77835))
     - improve CI stage names; fix feature configuration on windows ([`5591fda`](https://github.com/Byron/trash-rs/commit/5591fdab131de1f6fa5a04bef44d7b394d3f7f72))
     - silence clippy ([`d13be48`](https://github.com/Byron/trash-rs/commit/d13be48c59a1a0df3e37aa676cda06cc1f48ece9))
     - add rust-cache for faster builds ([`676a43f`](https://github.com/Byron/trash-rs/commit/676a43f7ec7c116a7b40dcf4236bf2156a88fd04))
@@ -52,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - 3 commits contributed to the release.
  - 8 days passed between releases.
- - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#39](https://github.com/Byron/trash-rs/issues/39), [#51](https://github.com/Byron/trash-rs/issues/51)
 
 ### Commit Details
@@ -81,7 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - 5 commits contributed to the release.
  - 3 days passed between releases.
- - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#5050505050](https://github.com/Byron/trash-rs/issues/5050505050)
 
 ### Commit Details
@@ -118,7 +147,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - 2 commits contributed to the release.
  - 2 days passed between releases.
- - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#39](https://github.com/Byron/trash-rs/issues/39)
 
 ### Commit Details
@@ -156,7 +185,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - 7 commits contributed to the release over the course of 2 calendar days.
  - 3 days passed between releases.
- - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#47](https://github.com/Byron/trash-rs/issues/47)
 
 ### Commit Details
@@ -188,7 +217,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - 8 commits contributed to the release.
  - 103 days passed between releases.
- - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#45](https://github.com/Byron/trash-rs/issues/45), [#47](https://github.com/Byron/trash-rs/issues/47)
 
 ### Commit Details
@@ -231,8 +260,8 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
  - 10 commits contributed to the release over the course of 30 calendar days.
  - 30 days passed between releases.
- - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' where seen in commit messages
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
 
@@ -266,7 +295,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
  - 6 commits contributed to the release over the course of 125 calendar days.
  - 125 days passed between releases.
- - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#37](https://github.com/Byron/trash-rs/issues/37), [#40](https://github.com/Byron/trash-rs/issues/40)
 
 ### Commit Details
@@ -300,7 +329,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
  - 10 commits contributed to the release over the course of 104 calendar days.
  - 108 days passed between releases.
- - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#34](https://github.com/Byron/trash-rs/issues/34), [#35](https://github.com/Byron/trash-rs/issues/35), [#36](https://github.com/Byron/trash-rs/issues/36)
 
 ### Commit Details
@@ -337,8 +366,8 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
  - 4 commits contributed to the release.
  - 11 days passed between releases.
- - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' where seen in commit messages
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
 
@@ -369,8 +398,8 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
  - 32 commits contributed to the release over the course of 4 calendar days.
  - 86 days passed between releases.
- - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' where seen in commit messages
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
 
@@ -421,8 +450,8 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
  - 18 commits contributed to the release over the course of 154 calendar days.
  - 165 days passed between releases.
- - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' where seen in commit messages
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
 
@@ -459,7 +488,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
  - 2 commits contributed to the release.
  - 87 days passed between releases.
- - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#17](https://github.com/Byron/trash-rs/issues/17)
 
 ### Commit Details
@@ -494,8 +523,8 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
  - 59 commits contributed to the release over the course of 198 calendar days.
  - 218 days passed between releases.
- - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' where seen in commit messages
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
 
@@ -590,8 +619,8 @@ All previous 2.0.* releases which contained this function were yanked from crate
 <csr-read-only-do-not-edit/>
 
  - 19 commits contributed to the release over the course of 99 calendar days.
- - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' where seen in commit messages
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
 
