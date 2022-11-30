@@ -1,5 +1,5 @@
 //! This implementation will manage the trash according to the Freedesktop Trash specification,
-//! version 1.0 found at https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html
+//! version 1.0 found at <https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html>
 //!
 //! Most -if not all- Linux based desktop operating systems implement the Trash according to this specification.
 //! In other words: I looked, but I could not find any Linux based desktop OS that used anything else than the
@@ -1033,5 +1033,5 @@ mod tests {
 
 /// Converts a file system error to a crate `Error`
 fn fsys_err_to_unknown<P: AsRef<Path>>(path: P, orig: std::io::Error) -> Error {
-    Error::Unknown { description: format!("Path: '{:?}'. Message: {}", path.as_ref(), orig) }
+    Error::FileSystem { path: path.as_ref().to_owned(), kind: orig.kind() }
 }
