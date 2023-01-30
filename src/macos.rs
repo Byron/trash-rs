@@ -98,7 +98,7 @@ fn delete_using_file_mgr(full_paths: Vec<String>) -> Result<(), Error> {
         let url: id = unsafe { msg_send![url_cls, fileURLWithPath:string.ptr] };
         if url == nil {
             return Err(Error::Unknown {
-                description: format!("Failed to convert a path to an NSURL. Path: '{}'", path),
+                description: format!("Failed to convert a path to an NSURL. Path: '{path}'"),
             });
         }
         trace!("Finished fileURLWithPath");
@@ -121,9 +121,8 @@ fn delete_using_file_mgr(full_paths: Vec<String>) -> Result<(), Error> {
             if error == nil {
                 return Err(Error::Unknown {
                     description: format!(
-                        "While deleting '{}', `trashItemAtURL` returned with failure but no error was specified.",
-                        path
-                    )
+                        "While deleting '{path}', `trashItemAtURL` returned with failure but no error was specified.",
+                    ),
                 });
             }
             let code: isize = unsafe { msg_send![error, code] };
@@ -131,8 +130,7 @@ fn delete_using_file_mgr(full_paths: Vec<String>) -> Result<(), Error> {
             let domain = unsafe { ns_string_to_rust(domain)? };
             return Err(Error::Unknown {
                 description: format!(
-                    "While deleting '{}', `trashItemAtURL` failed, code: {}, domain: {}",
-                    path, code, domain
+                    "While deleting '{path}', `trashItemAtURL` failed, code: {code}, domain: {domain}",
                 ),
             });
         }
@@ -145,12 +143,8 @@ fn delete_using_finder(full_paths: Vec<String>) -> Result<(), Error> {
     //   osascript -e 'tell application "Finder" to delete { POSIX file "file1", POSIX "file2" }'
     // The `-e` flag is used to execute only one line of AppleScript.
     let mut command = Command::new("osascript");
-    let posix_files = full_paths
-        .into_iter()
-        .map(|p| format!("POSIX file \"{}\"", p))
-        .collect::<Vec<String>>()
-        .join(", ");
-    let script = format!("tell application \"Finder\" to delete {{ {} }}", posix_files);
+    let posix_files = full_paths.into_iter().map(|p| format!("POSIX file \"{p}\"")).collect::<Vec<String>>().join(", ");
+    let script = format!("tell application \"Finder\" to delete {{ {posix_files} }}");
 
     let argv: Vec<OsString> = vec!["-e".into(), script.into()];
     command.args(argv);

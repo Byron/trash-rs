@@ -60,7 +60,9 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         Ok(home_trash) => {
             if !home_trash.is_dir() {
                 home_error = Some(Error::Unknown {
-                    description: "The 'home trash' either does not exist or is not a directory (or a link pointing to a dir)".into()
+                    description:
+                        "The 'home trash' either does not exist or is not a directory (or a link pointing to a dir)"
+                            .into(),
                 });
             } else {
                 trash_folders.insert(home_trash);
@@ -83,10 +85,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         })?;
     }
     if trash_folders.is_empty() {
-        warn!(
-            "No trash folder was found. The error when looking for the 'home trash' was: {:?}",
-            home_error
-        );
+        warn!("No trash folder was found. The error when looking for the 'home trash' was: {:?}", home_error);
         return Ok(vec![]);
     }
     // List all items from the set of trash folders
@@ -96,10 +95,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         let top_dir = get_topdir_for_path(folder, &mount_points);
         let info_folder = folder.join("info");
         if !info_folder.is_dir() {
-            warn!(
-                "The path {:?} did not point to a directory, skipping this trash folder.",
-                info_folder
-            );
+            warn!("The path {:?} did not point to a directory, skipping this trash folder.", info_folder);
             continue;
         }
         let read_dir = match std::fs::read_dir(&info_folder) {
@@ -108,10 +104,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 // After all the earlier checks, it's still possible that the directory does not exist at this point (or is not readable)
                 // because another process may have deleted it or modified its access rights in the meantime.
                 // So let's just pring a warning and continue to the rest of the folders
-                warn!(
-                    "The trash info folder {:?} could not be read. Error was {:?}",
-                    info_folder, e
-                );
+                warn!("The trash info folder {:?} could not be read. Error was {:?}", info_folder, e);
                 continue;
             }
         };
@@ -193,7 +186,10 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                         match time {
                             Some(time) => time_deleted = Some(time.timestamp()),
                             None => {
-                                log::error!("Failed to convert the local time to a UTC time. Local time was {:?}", naive_local);
+                                log::error!(
+                                    "Failed to convert the local time to a UTC time. Local time was {:?}",
+                                    naive_local
+                                );
                                 continue 'trash_item;
                             }
                         }
@@ -205,12 +201,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     if time_deleted.is_none() {
                         warn!("Could not determine the deletion time of the trash item. (The `DeletionDate` field is probably missing from the info file.) The info file path is: '{:?}'", info_path);
                     }
-                    result.push(TrashItem {
-                        id,
-                        name,
-                        original_parent,
-                        time_deleted: time_deleted.unwrap_or(-1),
-                    });
+                    result.push(TrashItem { id, name, original_parent, time_deleted: time_deleted.unwrap_or(-1) });
                 } else {
                     warn!("Could not determine the original parent folder of the trash item. (The `Path` field is probably missing from the info file.) The info file path is: '{:?}'", info_path);
                 }
@@ -277,8 +268,7 @@ where
         // if it already exists.
         let original_path = item.original_path();
         // Make sure the parent exists so that `create_dir` doesn't faile due to that.
-        create_dir_all(&item.original_parent)
-            .map_err(|e| fsys_err_to_unknown(&item.original_parent, e))?;
+        create_dir_all(&item.original_parent).map_err(|e| fsys_err_to_unknown(&item.original_parent, e))?;
         let mut collision = false;
         if file.is_dir() {
             // NOTE create_dir_all succeeds when the path already exist but create_dir
@@ -302,10 +292,7 @@ where
         }
         if collision {
             let remaining: Vec<_> = std::iter::once(item).chain(iter).collect();
-            return Err(Error::RestoreCollision {
-                path: original_path,
-                remaining_items: remaining,
-            });
+            return Err(Error::RestoreCollision { path: original_path, remaining_items: remaining });
         }
         std::fs::rename(&file, &original_path).map_err(|e| fsys_err_to_unknown(&file, e))?;
         std::fs::remove_file(info_file).map_err(|e| fsys_err_to_unknown(info_file, e))?;
@@ -342,14 +329,11 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
                 }
             }
         } else {
-            warn!(
-                "A Trash folder was found at '{:?}', but it's invalid because it's {:?}",
-                trash_path, validity
-            );
+            warn!("A Trash folder was found at '{:?}', but it's invalid because it's {:?}", trash_path, validity);
         }
     }
     // See if there's a ".Trash-$UID" directory at the mounted location
-    let trash_path = topdir.join(format!(".Trash-{}", uid));
+    let trash_path = topdir.join(format!(".Trash-{uid}"));
     let should_execute;
     if !trash_path.exists() || !trash_path.is_dir() {
         if create_folder {
@@ -405,7 +389,7 @@ fn move_to_trash(
         } else {
             filename.to_str().unwrap().into()
         };
-        let info_name = format!("{}.trashinfo", in_trash_name);
+        let info_name = format!("{in_trash_name}.trashinfo");
         let info_file_path = info_folder.join(&info_name);
         let info_result = OpenOptions::new().create_new(true).write(true).open(&info_file_path);
         match info_result {
@@ -423,7 +407,7 @@ fn move_to_trash(
                 writeln!(file, "[Trash Info]")
                     .and_then(|_| {
                         let absolute_uri = encode_uri_path(src);
-                        writeln!(file, "Path={}", absolute_uri).and_then(|_| {
+                        writeln!(file, "Path={absolute_uri}").and_then(|_| {
                             #[cfg(feature = "chrono")]
                             {
                                 let now = chrono::Local::now();
@@ -495,10 +479,7 @@ where
 }
 
 /// An error may mean that a collision was found.
-fn move_items_no_replace(
-    src: impl AsRef<Path>,
-    dst: impl AsRef<Path>,
-) -> Result<(), std::io::Error> {
+fn move_items_no_replace(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), std::io::Error> {
     let src = src.as_ref();
     let dst = dst.as_ref();
 
@@ -508,10 +489,7 @@ fn move_items_no_replace(
     execute_src_to_dst_operation(src, dst, &|_| Ok(()), &|src, dst| {
         if let Some(parent) = dst.parent() {
             if let Err(err) = std::fs::create_dir_all(parent) {
-                warn!(
-                    "Failed to create destination directory. It probably already exists. {:?}",
-                    err
-                );
+                warn!("Failed to create destination directory. It probably already exists. {:?}", err);
             }
         }
         std::fs::rename(src, dst)
@@ -524,10 +502,7 @@ fn move_items_no_replace(
     Ok(())
 }
 
-fn try_creating_placeholders(
-    src: impl AsRef<Path>,
-    dst: impl AsRef<Path>,
-) -> Result<(), std::io::Error> {
+fn try_creating_placeholders(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), std::io::Error> {
     let src = src.as_ref();
     let dst = dst.as_ref();
     let metadata = src.symlink_metadata()?;
@@ -591,9 +566,7 @@ fn home_trash() -> Result<PathBuf, Error> {
             return Ok(home_path.join(".local/share/Trash"));
         }
     }
-    Err(Error::Unknown {
-        description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into(),
-    })
+    Err(Error::Unknown { description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into() })
 }
 
 fn home_topdir(mnt_points: &[MountPoint]) -> Result<PathBuf, Error> {
@@ -609,9 +582,7 @@ fn home_topdir(mnt_points: &[MountPoint]) -> Result<PathBuf, Error> {
             return Ok(get_topdir_for_path(home_path, mnt_points).to_owned());
         }
     }
-    Err(Error::Unknown {
-        description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into(),
-    })
+    Err(Error::Unknown { description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into() })
 }
 
 fn get_topdir_for_path<'a>(path: &Path, mnt_points: &'a [MountPoint]) -> &'a Path {
@@ -659,16 +630,13 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     //let file;
     let read_arg = CString::new("r").unwrap();
     let mounts_path = CString::new("/proc/mounts").unwrap();
-    let mut file =
-        unsafe { libc::fopen(mounts_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
+    let mut file = unsafe { libc::fopen(mounts_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
     if file.is_null() {
         let mtab_path = CString::new("/etc/mtab").unwrap();
         file = unsafe { libc::fopen(mtab_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
     }
     if file.is_null() {
-        return Err(Error::Unknown {
-            description: "Neither '/proc/mounts' nor '/etc/mtab' could be opened.".into(),
-        });
+        return Err(Error::Unknown { description: "Neither '/proc/mounts' nor '/etc/mtab' could be opened.".into() });
     }
     defer! { unsafe { libc::fclose(file); } }
     let mut result = Vec::new();
@@ -692,9 +660,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     }
     if result.is_empty() {
         return Err(Error::Unknown {
-            description:
-                "A mount points file could be opened, but the call to `getmntent` returned NULL."
-                    .into(),
+            description: "A mount points file could be opened, but the call to `getmntent` returned NULL.".into(),
         });
     }
     Ok(result)
@@ -729,8 +695,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     if count < 1 {
         return Ok(Vec::new());
     }
-    let fs_infos: &[libc::statfs] =
-        unsafe { std::slice::from_raw_parts(fs_infos as _, count as _) };
+    let fs_infos: &[libc::statfs] = unsafe { std::slice::from_raw_parts(fs_infos as _, count as _) };
 
     let mut result = Vec::new();
     for fs_info in fs_infos {
@@ -748,11 +713,8 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         };
         let mount_from = c_buf_to_str(&fs_info.f_mntfromname).unwrap_or_default();
 
-        let mount_point = MountPoint {
-            mnt_dir: mount_to.into(),
-            _mnt_fsname: mount_from.into(),
-            _mnt_type: fs_type.into(),
-        };
+        let mount_point =
+            MountPoint { mnt_dir: mount_to.into(), _mnt_fsname: mount_from.into(), _mnt_type: fs_type.into() };
         result.push(mount_point);
     }
     Ok(result)
@@ -788,8 +750,7 @@ mod tests {
         let file_name_prefix = get_unique_name();
         let batches: usize = 2;
         let files_per_batch: usize = 3;
-        let names: Vec<_> =
-            (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        let names: Vec<_> = (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
         for _ in 0..batches {
             for path in names.iter() {
                 File::create(path).unwrap();
@@ -798,19 +759,15 @@ mod tests {
             let result = delete_all_using_system_program(&names);
             if let Err(SystemTrashError::NoTrashProgram) = &result {
                 // For example may be the case on build systems that don't have a destop environment
-                warn!(
-                    "No system default trashing utility was found, using this crate's implementation"
-                );
+                warn!("No system default trashing utility was found, using this crate's implementation");
                 delete_all(&names).unwrap();
             } else {
                 result.unwrap();
             }
         }
         let items = list().unwrap();
-        let items: HashMap<_, Vec<_>> = items
-            .into_iter()
-            .filter(|x| x.name.starts_with(&file_name_prefix))
-            .fold(HashMap::new(), |mut map, x| {
+        let items: HashMap<_, Vec<_>> =
+            items.into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).fold(HashMap::new(), |mut map, x| {
                 match map.entry(x.name.clone()) {
                     Entry::Occupied(mut entry) => {
                         entry.get_mut().push(x);
@@ -863,9 +820,7 @@ mod tests {
 
     /// This is based on the electron library's implementation.
     /// See: https://github.com/electron/electron/blob/34c4c8d5088fa183f56baea28809de6f2a427e02/shell/common/platform_util_linux.cc#L96
-    pub fn delete_all_canonicalized_using_system_program(
-        full_paths: Vec<PathBuf>,
-    ) -> Result<(), SystemTrashError> {
+    pub fn delete_all_canonicalized_using_system_program(full_paths: Vec<PathBuf>) -> Result<(), SystemTrashError> {
         static DEFAULT_TRASH: &str = "gio";
         let trash = {
             // Determine desktop environment and set accordingly.

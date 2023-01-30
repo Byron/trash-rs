@@ -143,12 +143,7 @@ pub enum Error {
     /// **freedesktop only**
     ///
     /// Error coming from file system
-    #[cfg(all(
-        unix,
-        not(target_os = "macos"),
-        not(target_os = "ios"),
-        not(target_os = "android")
-    ))]
+    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
     FileSystem {
         path: PathBuf,
         kind: std::io::ErrorKind,
@@ -211,12 +206,12 @@ pub enum Error {
 }
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Error during a `trash` operation: {:?}", self)
+        write!(f, "Error during a `trash` operation: {self:?}")
     }
 }
 impl error::Error for Error {}
 pub fn into_unknown<E: std::fmt::Display>(err: E) -> Error {
-    Error::Unknown { description: format!("{}", err) }
+    Error::Unknown { description: format!("{err}") }
 }
 
 pub(crate) fn canonicalize_paths<I, T>(paths: I) -> Result<Vec<PathBuf>, Error>
@@ -229,17 +224,15 @@ where
         .map(|x| {
             let target_ref = x.as_ref();
             let target = if target_ref.is_relative() {
-                let curr_dir = current_dir().map_err(|_| Error::CouldNotAccess {
-                    target: "[Current working directory]".into(),
-                })?;
+                let curr_dir = current_dir()
+                    .map_err(|_| Error::CouldNotAccess { target: "[Current working directory]".into() })?;
                 curr_dir.join(target_ref)
             } else {
                 target_ref.to_owned()
             };
             let parent = target.parent().ok_or(Error::TargetedRoot)?;
-            let canonical_parent = parent
-                .canonicalize()
-                .map_err(|_| Error::CanonicalizePath { original: parent.to_owned() })?;
+            let canonical_parent =
+                parent.canonicalize().map_err(|_| Error::CanonicalizePath { original: parent.to_owned() })?;
             if let Some(file_name) = target.file_name() {
                 Ok(canonical_parent.join(file_name))
             } else {

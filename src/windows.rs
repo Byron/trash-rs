@@ -14,10 +14,8 @@ const PSGUID_DISPLACED: GUID =
     GUID::from_values(0x9b174b33, 0x40ff, 0x11d2, [0xa2, 0x7e, 0x00, 0xc0, 0x4f, 0xc3, 0x8, 0x71]);
 const PID_DISPLACED_FROM: u32 = 2;
 const PID_DISPLACED_DATE: u32 = 3;
-const SCID_ORIGINAL_LOCATION: PROPERTYKEY =
-    PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_FROM };
-const SCID_DATE_DELETED: PROPERTYKEY =
-    PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_DATE };
+const SCID_ORIGINAL_LOCATION: PROPERTYKEY = PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_FROM };
+const SCID_DATE_DELETED: PROPERTYKEY = PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_DATE };
 
 const FOF_SILENT: u32 = 0x0004;
 const FOF_NOCONFIRMATION: u32 = 0x0010;
@@ -31,7 +29,7 @@ const FOFX_EARLYFAILURE: u32 = 0x00100000;
 
 impl From<windows::core::Error> for Error {
     fn from(err: windows::core::Error) -> Error {
-        Error::Unknown { description: format!("windows error: {}", err) }
+        Error::Unknown { description: format!("windows error: {err}") }
     }
 }
 
@@ -47,8 +45,7 @@ impl TrashContext {
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         ensure_com_initialized();
         unsafe {
-            let pfo: IFileOperation =
-                CoCreateInstance(&FileOperation as *const _, None, CLSCTX_ALL).unwrap();
+            let pfo: IFileOperation = CoCreateInstance(&FileOperation as *const _, None, CLSCTX_ALL).unwrap();
 
             pfo.SetOperationFlags(FOF_NO_UI | FOF_ALLOWUNDO | FOF_WANTNUKEWARNING)?;
 
@@ -62,8 +59,7 @@ impl TrashContext {
                     &wide_path_container[0..]
                 };
 
-                let shi: IShellItem =
-                    SHCreateItemFromParsingName(PCWSTR(wide_path_slice.as_ptr()), None)?;
+                let shi: IShellItem = SHCreateItemFromParsingName(PCWSTR(wide_path_slice.as_ptr()), None)?;
 
                 pfo.DeleteItem(&shi, None)?;
             }
@@ -104,9 +100,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
 
                     item_vec.push(TrashItem {
                         id,
-                        name: name
-                            .into_string()
-                            .map_err(|original| Error::ConvertOsString { original })?,
+                        name: name.into_string().map_err(|original| Error::ConvertOsString { original })?,
                         original_parent: PathBuf::from(original_location),
                         time_deleted: date_deleted,
                     });
@@ -173,12 +167,9 @@ where
             let trash_item: IShellItem = SHCreateItemFromParsingName(parsing_name, None)?;
             let parent_path_wide: Vec<_> =
                 item.original_parent.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
-            let orig_folder_shi: IShellItem =
-                SHCreateItemFromParsingName(PCWSTR(parent_path_wide.as_ptr()), None)?;
-            let name_wstr: Vec<_> = AsRef::<OsStr>::as_ref(&item.name)
-                .encode_wide()
-                .chain(std::iter::once(0))
-                .collect();
+            let orig_folder_shi: IShellItem = SHCreateItemFromParsingName(PCWSTR(parent_path_wide.as_ptr()), None)?;
+            let name_wstr: Vec<_> =
+                AsRef::<OsStr>::as_ref(&item.name).encode_wide().chain(std::iter::once(0)).collect();
 
             pfo.MoveItem(&trash_item, &orig_folder_shi, PCWSTR(name_wstr.as_ptr()), None)?;
         }
@@ -222,10 +213,7 @@ struct CoInitializer {}
 impl CoInitializer {
     fn new() -> CoInitializer {
         //let first = INITIALIZER_THREAD_COUNT.fetch_add(1, Ordering::SeqCst) == 0;
-        #[cfg(all(
-            not(feature = "coinit_multithreaded"),
-            not(feature = "coinit_apartmentthreaded")
-        ))]
+        #[cfg(all(not(feature = "coinit_multithreaded"), not(feature = "coinit_apartmentthreaded")))]
         {
             0 = "THIS IS AN ERROR ON PURPOSE. Either the `coinit_multithreaded` or the `coinit_apartmentthreaded` feature must be specified";
         }

@@ -63,7 +63,7 @@ fn test_delete_all() {
     trace!("Started test_delete_all");
     let count: usize = 3;
 
-    let paths: Vec<_> = (0..count).map(|i| format!("test_file_to_delete_{}", i)).collect();
+    let paths: Vec<_> = (0..count).map(|i| format!("test_file_to_delete_{i}")).collect();
     for path in paths.iter() {
         File::create(path).unwrap();
     }
@@ -148,6 +148,6 @@ fn recursive_file_deletion() {
     File::create(dir1.join("same-name")).unwrap();
     File::create(dir2.join("same-name")).unwrap();
 
-    trash::delete(&parent_dir).unwrap();
+    trash::delete(parent_dir).unwrap();
     assert!(!parent_dir.exists());
 }
