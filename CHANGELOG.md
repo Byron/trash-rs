@@ -5,7 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.0.1 (2023-01-30)
+
+### Chore
+
+ - <csr-id-865a7c6d688cc6dd00dc8b16cd0e4a4fd60d953c/> bump `windows` crate to 0.44
+   Merge branch 'bump-windows-0.44'
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release over the course of 61 calendar days.
+ - 64 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Thanks Clippy
+
+<csr-read-only-do-not-edit/>
+
+[Clippy](https://github.com/rust-lang/rust-clippy) helped 1 time to make code idiomatic. 
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - bump `windows` crate to 0.44 ([`865a7c6`](https://github.com/Byron/trash-rs/commit/865a7c6d688cc6dd00dc8b16cd0e4a4fd60d953c))
+    - thanks clippy ([`37dedb3`](https://github.com/Byron/trash-rs/commit/37dedb35ed71e4c43af3af7d39ae5d722c8b5a94))
+    - Update `windows` crate to `0.44` ([`1a347fc`](https://github.com/Byron/trash-rs/commit/1a347fcce57627dd71979ca8399dedba149f9569))
+    - add `Error::FileSystem` ([`575b8ed`](https://github.com/Byron/trash-rs/commit/575b8ed4c78b76e9ecdf4fe877b6e32cd74cf166))
+</details>
+
 ## 3.0.0 (2022-11-27)
+
+<csr-id-a024b44b6e1cd4a357ffabda8f31e82dcc7e78cb/>
 
 ### Chore (BREAKING)
 
@@ -15,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release over the course of 132 calendar days.
+ - 5 commits contributed to the release over the course of 132 calendar days.
  - 145 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v3.0.0 ([`1fb5ad6`](https://github.com/Byron/trash-rs/commit/1fb5ad628868f1480510efe10bdc021ce65b4f32))
     - Upgrade from `windows` v0.37 to v0.43. ([`a024b44`](https://github.com/Byron/trash-rs/commit/a024b44b6e1cd4a357ffabda8f31e82dcc7e78cb))
     - Fix Clippy failures on Linux ([`538dea0`](https://github.com/Byron/trash-rs/commit/538dea0e77af2ed70c6f8b17c86b956b8caa6459))
     - Upgrade windows crate from v0.37 to v0.43 ([`48cdc67`](https://github.com/Byron/trash-rs/commit/48cdc67d09e20f8d07438e45d3ceefd23da6af9a))
