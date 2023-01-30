@@ -46,7 +46,7 @@ mod os_limited {
         let batches: usize = 2;
         let files_per_batch: usize = 3;
         let names: Vec<_> =
-            (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+            (0..files_per_batch).map(|i| format!("{file_name_prefix}#{i}")).collect();
         for _ in 0..batches {
             for path in names.iter() {
                 File::create(path).unwrap();
@@ -91,7 +91,7 @@ mod os_limited {
 
         // Let's try to purge all the items we just created but ignore any errors
         // as this test should succeed as long as `list` works properly.
-        let _ = trash::os_limited::purge_all(items.into_iter().map(|(_name, item)| item).flatten());
+        let _ = trash::os_limited::purge_all(items.into_values().flatten());
     }
 
     #[test]
@@ -114,7 +114,7 @@ mod os_limited {
         let batches: usize = 2;
         let files_per_batch: usize = 3;
         let names: Vec<_> =
-            (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+            (0..files_per_batch).map(|i| format!("{file_name_prefix}#{i}")).collect();
         for _ in 0..batches {
             for path in names.iter() {
                 File::create(path).unwrap();
@@ -144,8 +144,7 @@ mod os_limited {
         init_logging();
         let file_name_prefix = get_unique_name();
         let file_count: usize = 3;
-        let names: Vec<_> =
-            (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        let names: Vec<_> = (0..file_count).map(|i| format!("{file_name_prefix}#{i}")).collect();
         for path in names.iter() {
             File::create(path).unwrap();
         }
@@ -187,8 +186,7 @@ mod os_limited {
         let file_name_prefix = get_unique_name();
         let file_count: usize = 3;
         let collision_remaining = file_count - 1;
-        let names: Vec<_> =
-            (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        let names: Vec<_> = (0..file_count).map(|i| format!("{file_name_prefix}#{i}")).collect();
         for path in names.iter() {
             File::create(path).unwrap();
         }
@@ -203,8 +201,7 @@ mod os_limited {
             .collect();
         targets.sort_by(|a, b| a.name.cmp(&b.name));
         assert_eq!(targets.len(), file_count);
-        let remaining_count;
-        match trash::os_limited::restore_all(targets) {
+        let remaining_count = match trash::os_limited::restore_all(targets) {
             Err(trash::Error::RestoreCollision { remaining_items, .. }) => {
                 let contains = |v: &Vec<trash::TrashItem>, name: &String| {
                     for curr in v.iter() {
@@ -218,7 +215,7 @@ mod os_limited {
                 for path in names.iter().filter(|filename| !contains(&remaining_items, filename)) {
                     assert!(File::open(path).is_ok());
                 }
-                remaining_count = remaining_items.len();
+                remaining_items.len()
             }
             _ => {
                 for path in names.iter() {
@@ -228,7 +225,7 @@ mod os_limited {
                 "restore_all was expected to return `trash::ErrorKind::RestoreCollision` but did not."
             );
             }
-        }
+        };
         let remaining = trash::os_limited::list()
             .unwrap()
             .into_iter()
@@ -248,8 +245,7 @@ mod os_limited {
         init_logging();
         let file_name_prefix = get_unique_name();
         let file_count: usize = 4;
-        let names: Vec<_> =
-            (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        let names: Vec<_> = (0..file_count).map(|i| format!("{file_name_prefix}#{i}")).collect();
         for path in names.iter() {
             File::create(path).unwrap();
         }
@@ -257,7 +253,7 @@ mod os_limited {
 
         let twin_name = &names[1];
         File::create(twin_name).unwrap();
-        trash::delete(&twin_name).unwrap();
+        trash::delete(twin_name).unwrap();
 
         let mut targets: Vec<_> = trash::os_limited::list()
             .unwrap()

@@ -31,7 +31,7 @@ const FOFX_EARLYFAILURE: u32 = 0x00100000;
 
 impl From<windows::core::Error> for Error {
     fn from(err: windows::core::Error) -> Error {
-        Error::Unknown { description: format!("windows error: {}", err) }
+        Error::Unknown { description: format!("windows error: {err}") }
     }
 }
 

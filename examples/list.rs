@@ -25,5 +25,5 @@ fn main() {
         })
         .count();
 
-    println!("There are {} old items in your trash.", old_count);
+    println!("There are {old_count} old items in your trash.");
 }
