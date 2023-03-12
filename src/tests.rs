@@ -144,7 +144,7 @@ mod os_limited {
         let targets: Vec<_> =
             trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).collect();
         assert_eq!(targets.len(), file_count);
-        trash::os_limited::restore_all(targets).unwrap();
+        trash::os_limited::restore_all(&targets).unwrap();
         let remaining =
             trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).count();
         assert_eq!(remaining, 0);
@@ -170,48 +170,50 @@ mod os_limited {
         let file_name_prefix = get_unique_name();
         let file_count: usize = 3;
         let collision_remaining = file_count - 1;
+
+        // Make a batch of deleted files
         let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
         for path in names.iter() {
             File::create(path).unwrap();
         }
         trash::delete_all(&names).unwrap();
+
+        // Remake partially the files whose name are same with the previous deleted
         for path in names.iter().skip(file_count - collision_remaining) {
             File::create(path).unwrap();
         }
+
+        // Prepare the files to be restored
         let mut targets: Vec<_> =
             trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).collect();
         targets.sort_by(|a, b| a.name.cmp(&b.name));
         assert_eq!(targets.len(), file_count);
-        let remaining_count;
-        match trash::os_limited::restore_all(targets) {
-            Err(trash::Error::RestoreCollision { remaining_items, .. }) => {
-                let contains = |v: &Vec<trash::TrashItem>, name: &String| {
-                    for curr in v.iter() {
-                        if *curr.name == *name {
-                            return true;
-                        }
-                    }
-                    false
-                };
-                // Are all items that got restored reside in the folder?
-                for path in names.iter().filter(|filename| !contains(&remaining_items, filename)) {
-                    assert!(File::open(path).is_ok());
-                }
-                remaining_count = remaining_items.len();
+
+        let Err(trash::Error::RestoreCollision { restored, .. }) =
+            trash::os_limited::restore_all(&targets) else
+        {
+            for path in &names {
+                std::fs::remove_file(path).ok();
             }
-            _ => {
-                for path in names.iter() {
-                    std::fs::remove_file(path).ok();
-                }
-                panic!("restore_all was expected to return `trash::ErrorKind::RestoreCollision` but did not.");
-            }
+            panic!("restore_all was expected to return `trash::ErrorKind::RestoreCollision` but did not.");
+        };
+
+        // Are all items that got restored reside in the folder?
+        // Take the restored ones and verify their existence as `File`
+        for path in targets.iter().take(restored).map(|item| item.original_path()) {
+            assert!(File::open(path).is_ok());
         }
+
+        // The count of unrestored ones should equal to `remaining_count`
+        let remaining_count = file_count - restored;
         let remaining = trash::os_limited::list()
             .unwrap()
             .into_iter()
             .filter(|x| x.name.starts_with(&file_name_prefix))
             .collect::<Vec<_>>();
         assert_eq!(remaining.len(), remaining_count);
+
+        // Clean test files
         trash::os_limited::purge_all(&remaining).unwrap();
         for path in names.iter() {
             // This will obviously fail on the items that both didn't collide and weren't restored.
@@ -239,10 +241,10 @@ mod os_limited {
             trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).collect();
         targets.sort_by(|a, b| a.name.cmp(&b.name));
         assert_eq!(targets.len(), file_count + 1); // plus one for one of the twins
-        match trash::os_limited::restore_all(targets) {
-            Err(trash::Error::RestoreTwins { path, items }) => {
+        match trash::os_limited::restore_all(&targets) {
+            Err(trash::Error::RestoreTwins(path)) => {
                 assert_eq!(path.file_name().unwrap().to_str().unwrap(), twin_name);
-                trash::os_limited::purge_all(&items).unwrap();
+                trash::os_limited::purge_all(&targets).unwrap();
             }
             _ => panic!("restore_all was expected to return `trash::ErrorKind::RestoreTwins` but did not."),
         }

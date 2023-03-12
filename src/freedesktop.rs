@@ -246,15 +246,15 @@ fn restorable_file_in_trash_from_info_file(info_file: impl AsRef<std::ffi::OsStr
     trash_folder.join("files").join(name_in_trash)
 }
 
-pub fn restore_all<I>(items: I) -> Result<(), Error>
+pub fn restore_all<'a, I>(items: I) -> Result<(), Error>
 where
-    I: IntoIterator<Item = TrashItem>,
+    I: IntoIterator<Item = &'a TrashItem>,
 {
     // Simply read the items' original location from the infofile and attemp to move the items there
     // and delete the infofile if the move operation was sucessful.
 
-    let mut iter = items.into_iter();
-    while let Some(item) = iter.next() {
+    let iter = items.into_iter();
+    for (n, item) in iter.enumerate() {
         // The "in-trash" filename must be parsed from the trashinfo filename
         // which is the filename in the `id` field.
         let info_file = &item.id;
@@ -291,8 +291,8 @@ where
             }
         }
         if collision {
-            let remaining: Vec<_> = std::iter::once(item).chain(iter).collect();
-            return Err(Error::RestoreCollision { path: original_path, remaining_items: remaining });
+            // `n` counts from 0
+            return Err(Error::RestoreCollision { path: original_path, restored: n });
         }
         std::fs::rename(&file, &original_path).map_err(|e| fsys_err_to_unknown(&file, e))?;
         std::fs::remove_file(info_file).map_err(|e| fsys_err_to_unknown(info_file, e))?;

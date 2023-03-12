@@ -185,24 +185,19 @@ pub enum Error {
     ///
     /// `path`: The path of the file that's blocking the trash item from being restored.
     ///
-    /// `remaining_items`: All items that were not restored in the order they were provided,
-    /// starting with the item that triggered the error.
+    /// `restored`: The count of successfully restored items.
     RestoreCollision {
         path: PathBuf,
-        remaining_items: Vec<TrashItem>,
+        restored: usize,
     },
 
     /// This sort of error is returned when multiple items with the same `original_path` were
     /// requested to be restored. These items are referred to as twins here. If there are twins
     /// among the items, then none of the items are restored.
-    ///
-    /// `path`: The `original_path` of the twins.
-    ///
-    /// `items`: The complete list of items that were handed over to the `restore_all` function.
-    RestoreTwins {
-        path: PathBuf,
-        items: Vec<TrashItem>,
-    },
+    RestoreTwins(
+        /// The `original_path` of the twins.
+        PathBuf,
+    ),
 }
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -372,15 +367,16 @@ pub mod os_limited {
     /// use trash::os_limited::{list, restore_all};
     /// let filename = "trash-restore_all-example";
     /// File::create(filename).unwrap();
-    /// restore_all(list().unwrap().into_iter().filter(|x| x.name == filename)).unwrap();
+    /// let selected: Vec<_> = list().unwrap().into_iter().filter(|x| x.name == filename).collect();
+    /// restore_all(&selected).unwrap();
     /// std::fs::remove_file(filename).unwrap();
     /// ```
     ///
     /// [`RestoreCollision`]: Error::RestoreCollision
     /// [`RestoreTwins`]: Error::RestoreTwins
-    pub fn restore_all<I>(items: I) -> Result<(), Error>
+    pub fn restore_all<'a, I>(items: I) -> Result<(), Error>
     where
-        I: IntoIterator<Item = TrashItem>,
+        I: IntoIterator<Item = &'a TrashItem>,
     {
         // Check for twins here cause that's pretty platform independent.
         struct ItemWrapper<'a>(&'a TrashItem);
@@ -399,7 +395,7 @@ pub mod os_limited {
         let mut item_set = HashSet::with_capacity(items.len());
         for item in items.iter() {
             if !item_set.insert(ItemWrapper(item)) {
-                return Err(Error::RestoreTwins { path: item.original_path(), items });
+                return Err(Error::RestoreTwins(item.original_path()));
             }
         }
         platform::restore_all(items)
