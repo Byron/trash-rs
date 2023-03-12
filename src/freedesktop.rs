@@ -213,9 +213,9 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     Ok(result)
 }
 
-pub fn purge_all<I>(items: I) -> Result<(), Error>
+pub fn purge_all<'a, I>(items: I) -> Result<(), Error>
 where
-    I: IntoIterator<Item = TrashItem>,
+    I: IntoIterator<Item = &'a TrashItem>,
 {
     for item in items.into_iter() {
         // When purging an item the "in-trash" filename must be parsed from the trashinfo filename
@@ -787,7 +787,7 @@ mod tests {
 
         // Let's try to purge all the items we just created but ignore any errors
         // as this test should succeed as long as `list` works properly.
-        let _ = purge_all(items.into_iter().map(|(_name, item)| item).flatten());
+        let _ = purge_all(items.values().flatten());
     }
 
     //////////////////////////////////////////////////////////////////////////////////////

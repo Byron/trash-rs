@@ -341,11 +341,11 @@ pub mod os_limited {
     /// // There's no need to `collect` it otherwise.
     /// let selected: Vec<_> = list().unwrap().into_iter().filter(|x| x.name == filename).collect();
     /// assert_eq!(selected.len(), 1);
-    /// purge_all(selected).unwrap();
+    /// purge_all(&selected).unwrap();
     /// ```
-    pub fn purge_all<I>(items: I) -> Result<(), Error>
+    pub fn purge_all<'a, I>(items: I) -> Result<(), Error>
     where
-        I: IntoIterator<Item = TrashItem>,
+        I: IntoIterator<Item = &'a TrashItem>,
     {
         platform::purge_all(items)
     }

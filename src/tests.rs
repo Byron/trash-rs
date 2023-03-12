@@ -88,7 +88,7 @@ mod os_limited {
 
         // Let's try to purge all the items we just created but ignore any errors
         // as this test should succeed as long as `list` works properly.
-        let _ = trash::os_limited::purge_all(items.into_iter().map(|(_name, item)| item).flatten());
+        let _ = trash::os_limited::purge_all(items.values().flatten());
     }
 
     #[test]
@@ -122,7 +122,7 @@ mod os_limited {
         let targets: Vec<_> =
             trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).collect();
         assert_eq!(targets.len(), batches * files_per_batch);
-        trash::os_limited::purge_all(targets).unwrap();
+        trash::os_limited::purge_all(&targets).unwrap();
         let remaining =
             trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).count();
         assert_eq!(remaining, 0);
@@ -212,7 +212,7 @@ mod os_limited {
             .filter(|x| x.name.starts_with(&file_name_prefix))
             .collect::<Vec<_>>();
         assert_eq!(remaining.len(), remaining_count);
-        trash::os_limited::purge_all(remaining).unwrap();
+        trash::os_limited::purge_all(&remaining).unwrap();
         for path in names.iter() {
             // This will obviously fail on the items that both didn't collide and weren't restored.
             std::fs::remove_file(path).ok();
@@ -242,7 +242,7 @@ mod os_limited {
         match trash::os_limited::restore_all(targets) {
             Err(trash::Error::RestoreTwins { path, items }) => {
                 assert_eq!(path.file_name().unwrap().to_str().unwrap(), twin_name);
-                trash::os_limited::purge_all(items).unwrap();
+                trash::os_limited::purge_all(&items).unwrap();
             }
             _ => panic!("restore_all was expected to return `trash::ErrorKind::RestoreTwins` but did not."),
         }
