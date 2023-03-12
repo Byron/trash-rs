@@ -228,12 +228,12 @@ where
         let file = restorable_file_in_trash_from_info_file(info_file);
         assert!(file.exists());
         if file.is_dir() {
-            std::fs::remove_dir_all(&file).map_err(|e| fsys_err_to_unknown(&file, e))?;
+            std::fs::remove_dir_all(&file)?;
         // TODO Update directory size cache if there's one.
         } else {
-            std::fs::remove_file(&file).map_err(|e| fsys_err_to_unknown(&file, e))?;
+            std::fs::remove_file(&file)?;
         }
-        std::fs::remove_file(info_file).map_err(|e| fsys_err_to_unknown(info_file, e))?;
+        std::fs::remove_file(info_file)?;
     }
 
     Ok(())
@@ -268,7 +268,7 @@ where
         // if it already exists.
         let original_path = item.original_path();
         // Make sure the parent exists so that `create_dir` doesn't faile due to that.
-        create_dir_all(&item.original_parent).map_err(|e| fsys_err_to_unknown(&item.original_parent, e))?;
+        create_dir_all(&item.original_parent)?;
         let mut collision = false;
         if file.is_dir() {
             // NOTE create_dir_all succeeds when the path already exist but create_dir
@@ -277,7 +277,7 @@ where
                 if e.kind() == std::io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
-                    return Err(fsys_err_to_unknown(&original_path, e));
+                    return Err(e.into());
                 }
             }
         } else {
@@ -286,7 +286,7 @@ where
                 if e.kind() == std::io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
-                    return Err(fsys_err_to_unknown(&original_path, e));
+                    return Err(e.into());
                 }
             }
         }
@@ -294,8 +294,8 @@ where
             // `n` counts from 0
             return Err(Error::RestoreCollision { path: original_path, restored: n });
         }
-        std::fs::rename(&file, &original_path).map_err(|e| fsys_err_to_unknown(&file, e))?;
-        std::fs::remove_file(info_file).map_err(|e| fsys_err_to_unknown(info_file, e))?;
+        std::fs::rename(&file, &original_path)?;
+        std::fs::remove_file(info_file)?;
     }
     Ok(())
 }
@@ -337,7 +337,7 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     let should_execute;
     if !trash_path.exists() || !trash_path.is_dir() {
         if create_folder {
-            std::fs::create_dir(&trash_path).map_err(|e| fsys_err_to_unknown(&trash_path, e))?;
+            std::fs::create_dir(&trash_path)?;
             should_execute = true;
         } else {
             should_execute = false;
@@ -362,8 +362,8 @@ fn move_to_trash(
     let info_folder = trash_folder.join("info");
 
     // Ensure the `files` and `info` folders exist
-    create_dir_all(&files_folder).map_err(|e| fsys_err_to_unknown(&files_folder, e))?;
-    create_dir_all(&info_folder).map_err(|e| fsys_err_to_unknown(&info_folder, e))?;
+    create_dir_all(&files_folder)?;
+    create_dir_all(&info_folder)?;
 
     // This kind of validity must only apply ot administrator style trash folders
     // See Trash directories, (1) at https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html
@@ -398,28 +398,26 @@ fn move_to_trash(
                     continue;
                 } else {
                     debug!("Failed to create the new file {:?}", info_file_path);
-                    return Err(fsys_err_to_unknown(info_file_path, error));
+                    return Err(error.into());
                 }
             }
             Ok(mut file) => {
                 debug!("Successfully created {:?}", info_file_path);
                 // Write the info file before actually moving anything
-                writeln!(file, "[Trash Info]")
-                    .and_then(|_| {
-                        let absolute_uri = encode_uri_path(src);
-                        writeln!(file, "Path={absolute_uri}").and_then(|_| {
-                            #[cfg(feature = "chrono")]
-                            {
-                                let now = chrono::Local::now();
-                                writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
-                            }
-                            #[cfg(not(feature = "chrono"))]
-                            {
-                                Ok(())
-                            }
-                        })
+                writeln!(file, "[Trash Info]").and_then(|_| {
+                    let absolute_uri = encode_uri_path(src);
+                    writeln!(file, "Path={absolute_uri}").and_then(|_| {
+                        #[cfg(feature = "chrono")]
+                        {
+                            let now = chrono::Local::now();
+                            writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
+                        }
+                        #[cfg(not(feature = "chrono"))]
+                        {
+                            Ok(())
+                        }
                     })
-                    .map_err(|e| fsys_err_to_unknown(&info_file_path, e))?;
+                })?;
             }
         }
         let path = files_folder.join(&in_trash_name);
@@ -433,7 +431,7 @@ fn move_to_trash(
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
-                    return Err(fsys_err_to_unknown(path, error));
+                    return Err(error.into());
                 }
             }
             Ok(_) => {
@@ -539,7 +537,7 @@ fn folder_validity(path: impl AsRef<Path>) -> Result<TrashValidity, Error> {
     /// Taken from: http://man7.org/linux/man-pages/man7/inode.7.html
     const S_ISVTX: u32 = 0x1000;
 
-    let metadata = path.as_ref().symlink_metadata().map_err(|e| fsys_err_to_unknown(path, e))?;
+    let metadata = path.as_ref().symlink_metadata()?;
     if metadata.file_type().is_symlink() {
         return Ok(TrashValidity::InvalidSymlink);
     }
@@ -984,9 +982,4 @@ mod tests {
 
         DesktopEnvironment::Other
     }
-}
-
-/// Converts a file system error to a crate `Error`
-fn fsys_err_to_unknown<P: AsRef<Path>>(path: P, orig: std::io::Error) -> Error {
-    Error::FileSystem { path: path.as_ref().to_owned(), kind: orig.kind() }
 }

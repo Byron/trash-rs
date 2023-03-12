@@ -29,12 +29,11 @@
 //! distribution it runs on, follows this specification.
 //!
 
+use std::env::current_dir;
 use std::ffi::OsString;
 use std::hash::{Hash, Hasher};
+use std::io;
 use std::path::{Path, PathBuf};
-
-use std::fmt;
-use std::{env::current_dir, error};
 
 use log::trace;
 
@@ -134,32 +133,20 @@ where
 ///
 /// Provides information about an error.
 ///
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-    Unknown {
-        description: String,
-    },
-
-    /// **freedesktop only**
-    ///
-    /// Error coming from file system
-    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
-    FileSystem {
-        path: PathBuf,
-        kind: std::io::ErrorKind,
-    },
-
     /// One of the target items was a root folder.
     /// If a list of items are requested to be removed by a single function call (e.g. `delete_all`)
     /// and this error is returned, then it's guaranteed that none of the items is removed.
+    #[error("Root directory inoperable")]
     TargetedRoot,
 
     /// The `target` does not exist or the process has insufficient permissions to access it.
-    CouldNotAccess {
-        target: String,
-    },
+    #[error("{target}: Not accessible")]
+    CouldNotAccess { target: String },
 
     /// Error while canonicalizing path.
+    #[error("{original:?}: Canonicalization failed")]
     CanonicalizePath {
         /// Path that triggered the error.
         original: PathBuf,
@@ -168,6 +155,7 @@ pub enum Error {
     /// Error while converting an [`OsString`] to a [`String`].
     ///
     /// This may also happen when converting a [`Path`] or [`PathBuf`] to an [`OsString`].
+    #[error("{original:?}: Conversion failed")]
     ConvertOsString {
         /// The string that was attempted to be converted.
         original: OsString,
@@ -186,27 +174,25 @@ pub enum Error {
     /// `path`: The path of the file that's blocking the trash item from being restored.
     ///
     /// `restored`: The count of successfully restored items.
-    RestoreCollision {
-        path: PathBuf,
-        restored: usize,
-    },
+    #[error("{path:?}: Already exists")]
+    RestoreCollision { path: PathBuf, restored: usize },
 
     /// This sort of error is returned when multiple items with the same `original_path` were
     /// requested to be restored. These items are referred to as twins here. If there are twins
     /// among the items, then none of the items are restored.
+    #[error("{0:?}: Same paths for twins")]
     RestoreTwins(
         /// The `original_path` of the twins.
         PathBuf,
     ),
-}
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Error during a `trash` operation: {self:?}")
-    }
-}
-impl error::Error for Error {}
-pub fn into_unknown<E: std::fmt::Display>(err: E) -> Error {
-    Error::Unknown { description: format!("{err}") }
+
+    /// Error coming from file system
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    #[error("{description}")]
+    Unknown { description: String },
+
 }
 
 pub(crate) fn canonicalize_paths<I, T>(paths: I) -> Result<Vec<PathBuf>, Error>
