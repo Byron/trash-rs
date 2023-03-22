@@ -38,7 +38,7 @@ use std::path::{Path, PathBuf};
 use log::trace;
 
 #[cfg(test)]
-pub mod tests;
+pub(crate) mod tests;
 
 #[cfg(target_os = "windows")]
 #[path = "windows.rs"]
@@ -138,15 +138,15 @@ pub enum Error {
     /// One of the target items was a root folder.
     /// If a list of items are requested to be removed by a single function call (e.g. `delete_all`)
     /// and this error is returned, then it's guaranteed that none of the items is removed.
-    #[error("Root directory inoperable")]
+    #[error("root directory is inoperable")]
     TargetedRoot,
 
     /// The `target` does not exist or the process has insufficient permissions to access it.
-    #[error("{target}: Not accessible")]
+    #[error("unable to access '{target}'")]
     CouldNotAccess { target: String },
 
     /// Error while canonicalizing path.
-    #[error("{original:?}: Canonicalization failed")]
+    #[error("fail to canonicalize path {original:?}")]
     CanonicalizePath {
         /// Path that triggered the error.
         original: PathBuf,
@@ -155,7 +155,7 @@ pub enum Error {
     /// Error while converting an [`OsString`] to a [`String`].
     ///
     /// This may also happen when converting a [`Path`] or [`PathBuf`] to an [`OsString`].
-    #[error("{original:?}: Conversion failed")]
+    #[error("fail at converting {original:?} to `String`")]
     ConvertOsString {
         /// The string that was attempted to be converted.
         original: OsString,
@@ -174,13 +174,13 @@ pub enum Error {
     /// `path`: The path of the file that's blocking the trash item from being restored.
     ///
     /// `restored`: The count of successfully restored items.
-    #[error("{path:?}: Already exists")]
+    #[error("{path:?} have already existed")]
     RestoreCollision { path: PathBuf, restored: usize },
 
     /// This sort of error is returned when multiple items with the same `original_path` were
     /// requested to be restored. These items are referred to as twins here. If there are twins
     /// among the items, then none of the items are restored.
-    #[error("{0:?}: Same paths for twins")]
+    #[error("multiple items have same path {0:?}")]
     RestoreTwins(
         /// The `original_path` of the twins.
         PathBuf,
@@ -190,9 +190,8 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] io::Error),
 
-    #[error("{description}")]
-    Unknown { description: String },
-
+    #[error("{0}")]
+    Unknown(String),
 }
 
 pub(crate) fn canonicalize_paths<I, T>(paths: I) -> Result<Vec<PathBuf>, Error>
