@@ -9,7 +9,7 @@
 use std::{
     collections::HashSet,
     fs::{create_dir_all, File, OpenOptions},
-    io::{BufRead, BufReader, Write},
+    io::{self, BufRead, BufReader, Write},
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
@@ -59,11 +59,9 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     match home_trash() {
         Ok(home_trash) => {
             if !home_trash.is_dir() {
-                home_error = Some(Error::Unknown {
-                    description:
-                        "The 'home trash' either does not exist or is not a directory (or a link pointing to a dir)"
-                            .into(),
-                });
+                home_error = Some(Error::Unknown(
+                    "The 'home trash' either does not exist or is not a directory (or a link pointing to a dir)".into(),
+                ));
             } else {
                 trash_folders.insert(home_trash);
                 home_error = None;
@@ -213,6 +211,16 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     Ok(result)
 }
 
+/// The path points to:
+/// - existing file | directory | symlink => Ok(true)
+/// - broken symlink => Ok(true)
+/// - nothing => Ok(false)
+/// - I/O Error => Err(Io)
+#[inline]
+pub fn virtually_exists(path: &Path) -> io::Result<bool> {
+    Ok(path.try_exists()? || path.is_symlink())
+}
+
 pub fn purge_all<'a, I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = &'a TrashItem>,
@@ -226,7 +234,7 @@ where
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
         let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(file.exists());
+        assert!(virtually_exists(&file)?);
         if file.is_dir() {
             std::fs::remove_dir_all(&file)?;
         // TODO Update directory size cache if there's one.
@@ -253,8 +261,7 @@ where
     // Simply read the items' original location from the infofile and attemp to move the items there
     // and delete the infofile if the move operation was sucessful.
 
-    let iter = items.into_iter();
-    for (n, item) in iter.enumerate() {
+    for (n, item) in items.into_iter().enumerate() {
         // The "in-trash" filename must be parsed from the trashinfo filename
         // which is the filename in the `id` field.
         let info_file = &item.id;
@@ -263,7 +270,7 @@ where
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
         let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(file.exists());
+        assert!(virtually_exists(&file)?);
         // TODO add option to forcefully replace any target at the restore location
         // if it already exists.
         let original_path = item.original_path();
@@ -382,7 +389,6 @@ fn move_to_trash(
     let filename = src.file_name().unwrap();
     let mut appendage = 0;
     loop {
-        use std::io;
         appendage += 1;
         let in_trash_name = if appendage > 1 {
             format!("{}.{}", filename.to_str().unwrap(), appendage)
@@ -564,7 +570,7 @@ fn home_trash() -> Result<PathBuf, Error> {
             return Ok(home_path.join(".local/share/Trash"));
         }
     }
-    Err(Error::Unknown { description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into() })
+    Err(Error::Unknown("Neither the XDG_DATA_HOME nor the HOME environment variable was found".into()))
 }
 
 fn home_topdir(mnt_points: &[MountPoint]) -> Result<PathBuf, Error> {
@@ -580,7 +586,7 @@ fn home_topdir(mnt_points: &[MountPoint]) -> Result<PathBuf, Error> {
             return Ok(get_topdir_for_path(home_path, mnt_points).to_owned());
         }
     }
-    Err(Error::Unknown { description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into() })
+    Err(Error::Unknown("Neither the XDG_DATA_HOME nor the HOME environment variable was found".into()))
 }
 
 fn get_topdir_for_path<'a>(path: &Path, mnt_points: &'a [MountPoint]) -> &'a Path {
@@ -634,7 +640,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         file = unsafe { libc::fopen(mtab_path.as_c_str().as_ptr(), read_arg.as_c_str().as_ptr()) };
     }
     if file.is_null() {
-        return Err(Error::Unknown { description: "Neither '/proc/mounts' nor '/etc/mtab' could be opened.".into() });
+        return Err(Error::Unknown("Neither '/proc/mounts' nor '/etc/mtab' could be opened.".into()));
     }
     defer! { unsafe { libc::fclose(file); } }
     let mut result = Vec::new();
@@ -657,9 +663,9 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         result.push(mount_point);
     }
     if result.is_empty() {
-        return Err(Error::Unknown {
-            description: "A mount points file could be opened, but the call to `getmntent` returned NULL.".into(),
-        });
+        return Err(Error::Unknown(
+            "A mount points file could be opened, but the call to `getmntent` returned NULL.".into(),
+        ));
     }
     Ok(result)
 }
@@ -727,6 +733,7 @@ mod tests {
         ffi::OsString,
         fmt,
         fs::File,
+        os::unix,
         path::{Path, PathBuf},
         process::Command,
     };
@@ -734,16 +741,16 @@ mod tests {
     use log::warn;
 
     use crate::{
-        canonicalize_paths, delete_all,
-        os_limited::{list, purge_all},
-        tests::get_unique_name,
+        canonicalize_paths, delete, delete_all,
+        os_limited::{list, purge_all, restore_all},
+        tests::{get_unique_name, init_logging},
         Error,
     };
 
     #[test]
     #[serial]
     fn test_list() {
-        crate::tests::init_logging();
+        init_logging();
 
         let file_name_prefix = get_unique_name();
         let batches: usize = 2;
@@ -786,6 +793,30 @@ mod tests {
         // Let's try to purge all the items we just created but ignore any errors
         // as this test should succeed as long as `list` works properly.
         let _ = purge_all(items.values().flatten());
+    }
+
+    #[test]
+    #[serial]
+    fn broken_symlink_is_safe() {
+        init_logging();
+
+        let target_name = get_unique_name();
+        let symlink_name = format!("{target_name}-symlink");
+
+        // Break the symbolic link
+        File::create(&target_name).unwrap();
+        unix::fs::symlink(&target_name, &symlink_name).unwrap();
+        std::fs::remove_file(&target_name).unwrap();
+
+        // Delete and Restore it without errors
+        delete(&symlink_name).unwrap();
+        let items = list().unwrap();
+        let item = items.iter().find(|&it| it.name == symlink_name).unwrap();
+        restore_all([item]).expect("The broken symbolic link should be restored successfully.");
+
+        // Delete and Purge it without errors
+        delete(&symlink_name).unwrap();
+        purge_all([item]).expect("The broken symbolic link should be purged successfully.");
     }
 
     //////////////////////////////////////////////////////////////////////////////////////
@@ -855,15 +886,11 @@ mod tests {
         let mut command = Command::new(trash);
         command.args(argv);
         let result = command.output().map_err(|e| {
-            SystemTrashError::Other(Error::Unknown {
-                description: format!("Tried executing: {:?} - Error was: {}", command, e),
-            })
+            SystemTrashError::Other(Error::Unknown(format!("Tried executing: {:?} - Error was: {}", command, e)))
         })?;
         if !result.status.success() {
             let stderr = String::from_utf8_lossy(&result.stderr);
-            return Err(SystemTrashError::Other(Error::Unknown {
-                description: format!("Used '{}', stderr: {}", trash, stderr),
-            }));
+            return Err(SystemTrashError::Other(Error::Unknown(format!("Used '{}', stderr: {}", trash, stderr))));
         }
         Ok(())
     }
