@@ -40,10 +40,10 @@ impl TrashContext {
                 debug!("The topdir was identical to the home topdir, so moving to the home trash.");
                 // Note that the following function creates the trash folder
                 // and its required subfolders in case they don't exist.
-                move_to_trash(path, &home_trash, topdir)?;
+                move_to_trash(&path, &home_trash, topdir)?;
             } else {
                 execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
-                    move_to_trash(&path, trash_path, topdir)
+                    move_to_trash(&path, &trash_path, topdir)
                 })?;
             }
         }
@@ -234,14 +234,14 @@ where
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
         let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(virtually_exists(&file)?);
+        assert!(virtually_exists(&file).map_err(|e| (&file, e))?);
         if file.is_dir() {
-            std::fs::remove_dir_all(&file)?;
+            std::fs::remove_dir_all(&file).map_err(|e| (&file, e))?;
         // TODO Update directory size cache if there's one.
         } else {
-            std::fs::remove_file(&file)?;
+            std::fs::remove_file(&file).map_err(|e| (&file, e))?;
         }
-        std::fs::remove_file(info_file)?;
+        std::fs::remove_file(info_file).map_err(|e| (info_file, e))?;
     }
 
     Ok(())
@@ -270,30 +270,30 @@ where
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
         let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(virtually_exists(&file)?);
+        assert!(virtually_exists(&file).map_err(|e| (&file, e))?);
         // TODO add option to forcefully replace any target at the restore location
         // if it already exists.
         let original_path = item.original_path();
         // Make sure the parent exists so that `create_dir` doesn't faile due to that.
-        create_dir_all(&item.original_parent)?;
+        create_dir_all(&item.original_parent).map_err(|e| (&item.original_parent, e))?;
         let mut collision = false;
         if file.is_dir() {
             // NOTE create_dir_all succeeds when the path already exist but create_dir
             // fails with `std::io::ErrorKind::AlreadyExists`.
             if let Err(e) = std::fs::create_dir(&original_path) {
-                if e.kind() == std::io::ErrorKind::AlreadyExists {
+                if e.kind() == io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
-                    return Err(e.into());
+                    return Err((original_path, e).into());
                 }
             }
         } else {
             // File or symlink
             if let Err(e) = OpenOptions::new().create_new(true).write(true).open(&original_path) {
-                if e.kind() == std::io::ErrorKind::AlreadyExists {
+                if e.kind() == io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
-                    return Err(e.into());
+                    return Err((original_path, e).into());
                 }
             }
         }
@@ -301,8 +301,8 @@ where
             // `n` counts from 0
             return Err(Error::RestoreCollision { path: original_path, restored: n });
         }
-        std::fs::rename(&file, &original_path)?;
-        std::fs::remove_file(info_file)?;
+        std::fs::rename(&file, &original_path).map_err(|e| (file, e))?;
+        std::fs::remove_file(info_file).map_err(|e| (info_file, e))?;
     }
     Ok(())
 }
@@ -315,14 +315,16 @@ where
 /// This function executes `op` providing it with a
 /// trash-folder path that's associated with the partition mounted at `topdir`.
 ///
-fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
+fn execute_on_mounted_trash_folders<F>(
     uid: u32,
-    topdir: impl AsRef<Path>,
+    topdir: &Path,
     first_only: bool,
     create_folder: bool,
     mut op: F,
-) -> Result<(), Error> {
-    let topdir = topdir.as_ref();
+) -> Result<(), (PathBuf, io::Error)>
+where
+    F: FnMut(PathBuf) -> Result<(), (PathBuf, io::Error)>,
+{
     // See if there's a ".Trash" directory at the mounted location
     let trash_path = topdir.join(".Trash");
     if trash_path.is_dir() {
@@ -344,7 +346,7 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     let should_execute;
     if !trash_path.exists() || !trash_path.is_dir() {
         if create_folder {
-            std::fs::create_dir(&trash_path)?;
+            std::fs::create_dir(&trash_path).map_err(|e| (trash_path.to_owned(), e))?;
             should_execute = true;
         } else {
             should_execute = false;
@@ -358,23 +360,17 @@ fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), Error>>(
     Ok(())
 }
 
-fn move_to_trash(
-    src: impl AsRef<Path>,
-    trash_folder: impl AsRef<Path>,
-    _topdir: impl AsRef<Path>,
-) -> Result<(), Error> {
-    let src = src.as_ref();
-    let trash_folder = trash_folder.as_ref();
+fn move_to_trash(src: &Path, trash_folder: &Path, _topdir: &Path) -> Result<(), (PathBuf, io::Error)> {
     let files_folder = trash_folder.join("files");
     let info_folder = trash_folder.join("info");
 
     // Ensure the `files` and `info` folders exist
-    create_dir_all(&files_folder)?;
-    create_dir_all(&info_folder)?;
+    create_dir_all(&files_folder).map_err(|e| (files_folder.to_owned(), e))?;
+    create_dir_all(&info_folder).map_err(|e| (info_folder.to_owned(), e))?;
 
     // This kind of validity must only apply ot administrator style trash folders
     // See Trash directories, (1) at https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html
-    //assert_eq!(folder_validity(trash_folder)?, TrashValidity::Valid);
+    // assert_eq!(folder_validity(trash_folder)?, TrashValidity::Valid);
 
     // When trashing a file one must make sure that every trashed item is uniquely named.
     // However the `rename` function -that is used in *nix systems to move files- by default
@@ -399,45 +395,47 @@ fn move_to_trash(
         let info_file_path = info_folder.join(&info_name);
         let info_result = OpenOptions::new().create_new(true).write(true).open(&info_file_path);
         match info_result {
-            Err(error) => {
-                if error.kind() == io::ErrorKind::AlreadyExists {
+            Err(e) => {
+                if e.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
                     debug!("Failed to create the new file {:?}", info_file_path);
-                    return Err(error.into());
+                    return Err((info_file_path, e));
                 }
             }
             Ok(mut file) => {
                 debug!("Successfully created {:?}", info_file_path);
                 // Write the info file before actually moving anything
-                writeln!(file, "[Trash Info]").and_then(|_| {
-                    let absolute_uri = encode_uri_path(src);
-                    writeln!(file, "Path={absolute_uri}").and_then(|_| {
-                        #[cfg(feature = "chrono")]
-                        {
-                            let now = chrono::Local::now();
-                            writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
-                        }
-                        #[cfg(not(feature = "chrono"))]
-                        {
-                            Ok(())
-                        }
+                writeln!(file, "[Trash Info]")
+                    .and_then(|_| {
+                        let absolute_uri = encode_uri_path(src);
+                        writeln!(file, "Path={absolute_uri}").and_then(|_| {
+                            #[cfg(feature = "chrono")]
+                            {
+                                let now = chrono::Local::now();
+                                writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
+                            }
+                            #[cfg(not(feature = "chrono"))]
+                            {
+                                Ok(())
+                            }
+                        })
                     })
-                })?;
+                    .map_err(|e| (info_file_path.to_owned(), e))?;
             }
         }
         let path = files_folder.join(&in_trash_name);
         match move_items_no_replace(src, &path) {
-            Err(error) => {
-                debug!("Failed moving item to the trash (this is usually OK). {:?}", error);
+            Err((path, e)) => {
+                debug!("Failed moving item to the trash (this is usually OK). {:?}", e);
                 // Try to delete the info file
                 if let Err(info_err) = std::fs::remove_file(info_file_path) {
                     warn!("Created the trash info file, then failed to move the item to the trash. So far it's OK, but then failed remove the initial info file. There's either a bug in this program or another faulty program is manupulating the Trash. The error was: {:?}", info_err);
                 }
-                if error.kind() == io::ErrorKind::AlreadyExists {
+                if e.kind() == io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
-                    return Err(error.into());
+                    return Err((path, e));
                 }
             }
             Ok(_) => {
@@ -450,30 +448,24 @@ fn move_to_trash(
     Ok(())
 }
 
-fn execute_src_to_dst_operation<S1, D1>(
-    src: S1,
-    dst: D1,
-    dir: &'static dyn Fn(&Path) -> Result<(), std::io::Error>,
-    file: &'static dyn Fn(&Path, &Path) -> Result<(), std::io::Error>,
-) -> Result<(), std::io::Error>
-where
-    S1: AsRef<Path>,
-    D1: AsRef<Path>,
-{
-    let src = src.as_ref();
-    let dst = dst.as_ref();
-
-    let metadata = src.symlink_metadata()?;
+#[allow(clippy::type_complexity)]
+fn execute_src_to_dst_operation(
+    src: &Path,
+    dst: &Path,
+    dir: &'static dyn Fn(&Path) -> Result<(), (PathBuf, io::Error)>,
+    file: &'static dyn Fn(&Path, &Path) -> Result<(), (PathBuf, io::Error)>,
+) -> Result<(), (PathBuf, io::Error)> {
+    let metadata = src.symlink_metadata().map_err(|e| (src.to_owned(), e))?;
     if metadata.is_dir() {
         dir(dst)?;
-        let dir_entries = std::fs::read_dir(src)?;
+        let dir_entries = std::fs::read_dir(src).map_err(|e| (src.to_owned(), e))?;
         for entry in dir_entries {
             // Forward the error because it's not okay if something is happening
             // to the files while we are trying to move them.
-            let entry = entry?;
+            let entry = entry.map_err(|e| (src.to_owned(), e))?;
             let entry_src = entry.path();
             let entry_dst = dst.join(entry.file_name());
-            execute_src_to_dst_operation(entry_src, entry_dst, dir, file)?;
+            execute_src_to_dst_operation(&entry_src, &entry_dst, dir, file)?;
         }
     } else {
         // Symlink or file
@@ -483,10 +475,7 @@ where
 }
 
 /// An error may mean that a collision was found.
-fn move_items_no_replace(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), std::io::Error> {
-    let src = src.as_ref();
-    let dst = dst.as_ref();
-
+fn move_items_no_replace(src: &Path, dst: &Path) -> Result<(), (PathBuf, io::Error)> {
     try_creating_placeholders(src, dst)?;
 
     // All placeholders are in place. LET'S OVERWRITE
@@ -496,26 +485,24 @@ fn move_items_no_replace(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result
                 warn!("Failed to create destination directory. It probably already exists. {:?}", err);
             }
         }
-        std::fs::rename(src, dst)
+        std::fs::rename(src, dst).map_err(|e| (src.to_owned(), e))
     })?;
 
     // Once everything is moved, lets recursively remove the directory
     if src.is_dir() {
-        std::fs::remove_dir_all(src)?;
+        std::fs::remove_dir_all(src).map_err(|e| (src.to_owned(), e))?;
     }
     Ok(())
 }
 
-fn try_creating_placeholders(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), std::io::Error> {
-    let src = src.as_ref();
-    let dst = dst.as_ref();
-    let metadata = src.symlink_metadata()?;
+fn try_creating_placeholders(src: &Path, dst: &Path) -> Result<(), (PathBuf, io::Error)> {
+    let metadata = src.symlink_metadata().map_err(|e| (src.to_owned(), e))?;
     if metadata.is_dir() {
         // NOTE create_dir fails if the directory already exists
-        std::fs::create_dir(dst)?;
+        std::fs::create_dir(dst).map_err(|e| (dst.to_owned(), e))?;
     } else {
         // Symlink or file
-        OpenOptions::new().create_new(true).write(true).open(dst)?;
+        OpenOptions::new().create_new(true).write(true).open(dst).map_err(|e| (dst.to_owned(), e))?;
     }
     Ok(())
 }
@@ -538,12 +525,12 @@ enum TrashValidity {
     InvalidNotSticky,
 }
 
-fn folder_validity(path: impl AsRef<Path>) -> Result<TrashValidity, Error> {
+fn folder_validity(path: &Path) -> Result<TrashValidity, (PathBuf, io::Error)> {
     /// Mask for the sticky bit
     /// Taken from: http://man7.org/linux/man-pages/man7/inode.7.html
     const S_ISVTX: u32 = 0x1000;
 
-    let metadata = path.as_ref().symlink_metadata()?;
+    let metadata = path.symlink_metadata().map_err(|e| (path.to_owned(), e))?;
     if metadata.file_type().is_symlink() {
         return Ok(TrashValidity::InvalidSymlink);
     }

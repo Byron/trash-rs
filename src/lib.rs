@@ -180,18 +180,28 @@ pub enum Error {
     /// This sort of error is returned when multiple items with the same `original_path` were
     /// requested to be restored. These items are referred to as twins here. If there are twins
     /// among the items, then none of the items are restored.
-    #[error("multiple items have same path {0:?}")]
+    #[error("multiple items have the same original path {0:?}")]
     RestoreTwins(
         /// The `original_path` of the twins.
         PathBuf,
     ),
 
     /// Error coming from file system
-    #[error(transparent)]
-    Io(#[from] io::Error),
+    ///
+    /// `path`: The path where the error occurred.
+    ///
+    /// `base`: The I/O error.
+    #[error("{path:?}: {base}")]
+    Io { path: PathBuf, base: io::Error },
 
     #[error("{0}")]
     Unknown(String),
+}
+
+impl<P: Into<PathBuf>> From<(P, io::Error)> for Error {
+    fn from((path, base): (P, io::Error)) -> Self {
+        Self::Io { path: path.into(), base }
+    }
 }
 
 pub(crate) fn canonicalize_paths<I, T>(paths: I) -> Result<Vec<PathBuf>, Error>
