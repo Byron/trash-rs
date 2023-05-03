@@ -49,6 +49,21 @@ impl TrashContext {
         }
         Ok(())
     }
+
+    /// Retrieves the path of the Trash directory.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::fs::File;
+    /// use trash::{ delete, trash_path };
+    /// File::create("mv_to_trash").unwrap();
+    /// delete("mv_to_trash").unwrap();
+    /// assert!(trash_path().unwrap().join("files").join("mv_to_trash").exists())
+    /// ```
+    pub fn trash_path(&self) -> Result<PathBuf, Error> {
+        home_trash()
+    }
 }
 
 pub fn list() -> Result<Vec<TrashItem>, Error> {

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use log::trace;
 
 use serial_test::serial;
-use trash::{delete, delete_all};
+use trash::{delete, delete_all, trash_path};
 
 mod util {
     use std::sync::atomic::{AtomicI64, Ordering};
@@ -38,6 +38,20 @@ fn test_delete_file() {
     delete(&path).unwrap();
     assert!(File::open(&path).is_err());
     trace!("Finished test_delete_file");
+}
+
+#[test]
+#[serial]
+fn test_trash_path() {
+    init_logging();
+    trace!("Started test_trash_path");
+
+    let path = PathBuf::from(get_unique_name());
+    File::create(&path).unwrap();
+
+    delete(&path).unwrap();
+    assert!(trash_path().unwrap().join("files").join(path).exists());
+    trace!("Finished test_trash_path");
 }
 
 #[test]

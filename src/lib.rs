@@ -113,6 +113,13 @@ impl TrashContext {
     }
 }
 
+/// Convenience method for `DEFAULT_TRASH_CTX.trash_path()`
+///
+/// See: [`TrashContext::trash_path`](TrashContext::trash_path)
+pub fn trash_path() -> Result<PathBuf, Error> {
+    DEFAULT_TRASH_CTX.trash_path()
+}
+
 /// Convenience method for `DEFAULT_TRASH_CTX.delete()`.
 ///
 /// See: [`TrashContext::delete`](TrashContext::delete)
