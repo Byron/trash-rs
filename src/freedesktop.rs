@@ -213,6 +213,16 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     Ok(result)
 }
 
+/// The path points to:
+/// - existing file | directory | symlink => Ok(true)
+/// - broken symlink => Ok(true)
+/// - nothing => Ok(false)
+/// - I/O Error => Err(Io)
+#[inline]
+pub fn virtually_exists(path: &Path) -> std::io::Result<bool> {
+    Ok(path.try_exists()? || path.is_symlink())
+}
+
 pub fn purge_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
@@ -226,7 +236,7 @@ where
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
         let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(file.exists());
+        assert!(virtually_exists(&file).map_err(|e| fsys_err_to_unknown(&file, e))?);
         if file.is_dir() {
             std::fs::remove_dir_all(&file).map_err(|e| fsys_err_to_unknown(&file, e))?;
         // TODO Update directory size cache if there's one.
@@ -263,7 +273,7 @@ where
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
         let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(file.exists());
+        assert!(virtually_exists(&file).map_err(|e| fsys_err_to_unknown(&file, e))?);
         // TODO add option to forcefully replace any target at the restore location
         // if it already exists.
         let original_path = item.original_path();
@@ -729,6 +739,7 @@ mod tests {
         ffi::OsString,
         fmt,
         fs::File,
+        os::unix,
         path::{Path, PathBuf},
         process::Command,
     };
@@ -736,8 +747,8 @@ mod tests {
     use log::warn;
 
     use crate::{
-        canonicalize_paths, delete_all,
-        os_limited::{list, purge_all},
+        canonicalize_paths, delete, delete_all,
+        os_limited::{list, purge_all, restore_all},
         tests::get_unique_name,
         Error,
     };
@@ -788,6 +799,43 @@ mod tests {
         // Let's try to purge all the items we just created but ignore any errors
         // as this test should succeed as long as `list` works properly.
         let _ = purge_all(items.into_iter().map(|(_name, item)| item).flatten());
+    }
+
+    #[test]
+    #[serial]
+    fn test_broken_symlinks() {
+        crate::tests::init_logging();
+
+        let file_name_prefix = get_unique_name();
+        let file_count = 2;
+        let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        let symlink_names: Vec<_> = names.iter().map(|name| format!("{}-symlink", name)).collect();
+
+        // Test file symbolic link and directory symbolic link
+        File::create(&names[0]).unwrap();
+        std::fs::create_dir(&names[1]).unwrap();
+
+        for (i, (name, symlink)) in names.iter().zip(&symlink_names).enumerate() {
+            // Create symbolic link
+            unix::fs::symlink(name, symlink).unwrap();
+
+            // Break the symbolic link
+            if i == 0 {
+                std::fs::remove_file(name).unwrap();
+            } else {
+                std::fs::remove_dir(name).unwrap();
+            }
+
+            // Delete and Restore it without errors
+            delete(symlink).unwrap();
+            let items = list().unwrap();
+            let item = items.into_iter().find(|it| it.name == *symlink).unwrap();
+            restore_all([item.clone()]).expect("The broken symbolic link should be restored successfully.");
+
+            // Delete and Purge it without errors
+            delete(symlink).unwrap();
+            purge_all([item]).expect("The broken symbolic link should be purged successfully.");
+        }
     }
 
     //////////////////////////////////////////////////////////////////////////////////////
