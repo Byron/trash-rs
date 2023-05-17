@@ -219,7 +219,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
 /// - nothing => Ok(false)
 /// - I/O Error => Err(Io)
 #[inline]
-pub fn virtually_exists(path: &Path) -> std::io::Result<bool> {
+fn virtually_exists(path: &Path) -> std::io::Result<bool> {
     Ok(path.try_exists()? || path.is_symlink())
 }
 
