@@ -8,9 +8,8 @@
 
 The `trash` is a Rust library for moving files and folders to the operating system's Recycle Bin or Trash or Rubbish Bin or what have you :D
 
-The library supports Windows, macOS, and all FreeDesktop Trash compliant environments (including
-GNOME, KDE, XFCE, and more). See more about the FreeDesktop Trash implementation in the
-`freedesktop.rs` file.
+The library supports Windows, macOS, and all FreeDesktop Trash compliant environments (including GNOME, KDE, XFCE, and more). 
+See more about the FreeDesktop Trash implementation in the `freedesktop.rs` file.
 
 ## Usage
 
