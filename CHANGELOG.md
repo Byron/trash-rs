@@ -5,7 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.0.2 (2023-05-17)
+
+### Bug Fixes
+
+ - <csr-id-75daea606cbdbc4d15a514bb674591d986e57490/> broken symlinks won't cause failure anymore on freedesktop platforms.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 106 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Broken symlinks won't cause failure anymore on freedesktop platforms. ([`75daea6`](https://github.com/Byron/trash-rs/commit/75daea606cbdbc4d15a514bb674591d986e57490))
+    - Make `virtually_exists` private ([`454a77e`](https://github.com/Byron/trash-rs/commit/454a77e667b00a0aeb492dab9a81e69e77178802))
+    - Operate broken symbolic links is safe now ([`9198013`](https://github.com/Byron/trash-rs/commit/919801376bc44fa3c4948349690c7e912be2dd3a))
+</details>
+
 ## 3.0.1 (2023-01-30)
+
+<csr-id-865a7c6d688cc6dd00dc8b16cd0e4a4fd60d953c/>
 
 ### Chore
 
@@ -16,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release over the course of 61 calendar days.
+ - 5 commits contributed to the release over the course of 61 calendar days.
  - 64 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -34,10 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
-    - bump `windows` crate to 0.44 ([`865a7c6`](https://github.com/Byron/trash-rs/commit/865a7c6d688cc6dd00dc8b16cd0e4a4fd60d953c))
-    - thanks clippy ([`37dedb3`](https://github.com/Byron/trash-rs/commit/37dedb35ed71e4c43af3af7d39ae5d722c8b5a94))
+    - Release trash v3.0.1 ([`eef463a`](https://github.com/Byron/trash-rs/commit/eef463aca73d5c623dd7b52bcb8b01b3b3d76b15))
+    - Bump `windows` crate to 0.44 ([`865a7c6`](https://github.com/Byron/trash-rs/commit/865a7c6d688cc6dd00dc8b16cd0e4a4fd60d953c))
+    - Thanks clippy ([`37dedb3`](https://github.com/Byron/trash-rs/commit/37dedb35ed71e4c43af3af7d39ae5d722c8b5a94))
     - Update `windows` crate to `0.44` ([`1a347fc`](https://github.com/Byron/trash-rs/commit/1a347fcce57627dd71979ca8399dedba149f9569))
-    - add `Error::FileSystem` ([`575b8ed`](https://github.com/Byron/trash-rs/commit/575b8ed4c78b76e9ecdf4fe877b6e32cd74cf166))
+    - Add `Error::FileSystem` ([`575b8ed`](https://github.com/Byron/trash-rs/commit/575b8ed4c78b76e9ecdf4fe877b6e32cd74cf166))
 </details>
 
 ## 3.0.0 (2022-11-27)
@@ -68,7 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Upgrade from `windows` v0.37 to v0.43. ([`a024b44`](https://github.com/Byron/trash-rs/commit/a024b44b6e1cd4a357ffabda8f31e82dcc7e78cb))
     - Fix Clippy failures on Linux ([`538dea0`](https://github.com/Byron/trash-rs/commit/538dea0e77af2ed70c6f8b17c86b956b8caa6459))
     - Upgrade windows crate from v0.37 to v0.43 ([`48cdc67`](https://github.com/Byron/trash-rs/commit/48cdc67d09e20f8d07438e45d3ceefd23da6af9a))
-    - derive Clone for TrashItem ([`fcf6bb5`](https://github.com/Byron/trash-rs/commit/fcf6bb5eded49de4fedb40513c949f11c6da0b12))
+    - Derive Clone for TrashItem ([`fcf6bb5`](https://github.com/Byron/trash-rs/commit/fcf6bb5eded49de4fedb40513c949f11c6da0b12))
 </details>
 
 ## 2.1.5 (2022-07-05)
@@ -101,9 +131,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Make chrono a default-enabled optional feature. ([`67244ba`](https://github.com/Byron/trash-rs/commit/67244ba2e4c71135b0ab36331dc465615e23211a))
  * **Uncategorized**
     - Release trash v2.1.5 ([`266d780`](https://github.com/Byron/trash-rs/commit/266d7808d2309f0911ebc6c8a0189511c4e77835))
-    - improve CI stage names; fix feature configuration on windows ([`5591fda`](https://github.com/Byron/trash-rs/commit/5591fdab131de1f6fa5a04bef44d7b394d3f7f72))
-    - silence clippy ([`d13be48`](https://github.com/Byron/trash-rs/commit/d13be48c59a1a0df3e37aa676cda06cc1f48ece9))
-    - add rust-cache for faster builds ([`676a43f`](https://github.com/Byron/trash-rs/commit/676a43f7ec7c116a7b40dcf4236bf2156a88fd04))
+    - Improve CI stage names; fix feature configuration on windows ([`5591fda`](https://github.com/Byron/trash-rs/commit/5591fdab131de1f6fa5a04bef44d7b394d3f7f72))
+    - Silence clippy ([`d13be48`](https://github.com/Byron/trash-rs/commit/d13be48c59a1a0df3e37aa676cda06cc1f48ece9))
+    - Add rust-cache for faster builds ([`676a43f`](https://github.com/Byron/trash-rs/commit/676a43f7ec7c116a7b40dcf4236bf2156a88fd04))
 </details>
 
 ## 2.1.4 (2022-05-25)
@@ -129,7 +159,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#39](https://github.com/Byron/trash-rs/issues/39)**
-    - prepare changelog ([`7816e07`](https://github.com/Byron/trash-rs/commit/7816e07bab38a79aa6f5d705a4fb40f330ac155b))
+    - Prepare changelog ([`7816e07`](https://github.com/Byron/trash-rs/commit/7816e07bab38a79aa6f5d705a4fb40f330ac155b))
  * **[#51](https://github.com/Byron/trash-rs/issues/51)**
     - Upgrade windows crate ([`d18f9d4`](https://github.com/Byron/trash-rs/commit/d18f9d435d2f76fb982f4bfcc98d5ccfe57c092c))
  * **Uncategorized**
@@ -158,7 +188,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#5050505050](https://github.com/Byron/trash-rs/issues/5050505050)**
-    - update changelog ([`8e64f34`](https://github.com/Byron/trash-rs/commit/8e64f34bd6f1b823353fae61d60f765615be0024))
+    - Update changelog ([`8e64f34`](https://github.com/Byron/trash-rs/commit/8e64f34bd6f1b823353fae61d60f765615be0024))
  * **Uncategorized**
     - Release trash v2.1.3 ([`f98bc45`](https://github.com/Byron/trash-rs/commit/f98bc45199cbb24525d2b41c748b9547f3c3ac44))
     - Merge pull request #50 from rgwood/windows-dep ([`883c5a4`](https://github.com/Byron/trash-rs/commit/883c5a48c8ad07bef4f7e1822a31761211cf304d))
@@ -195,7 +225,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#39](https://github.com/Byron/trash-rs/issues/39)**
-    - avoid inconsistency when using relative paths in trashed file info. ([`367cf5f`](https://github.com/Byron/trash-rs/commit/367cf5f2616f1f49b115189b3bede3bb99f8324d))
+    - Avoid inconsistency when using relative paths in trashed file info. ([`367cf5f`](https://github.com/Byron/trash-rs/commit/367cf5f2616f1f49b115189b3bede3bb99f8324d))
  * **Uncategorized**
     - Release trash v2.1.2 ([`e0746f0`](https://github.com/Byron/trash-rs/commit/e0746f0df91623231d13531ec33632f03f0588ac))
 </details>
@@ -235,12 +265,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#47](https://github.com/Byron/trash-rs/issues/47)**
     - Properly reconstruct paths when restoring files on freedesktop if those were relative ([`dcda6df`](https://github.com/Byron/trash-rs/commit/dcda6df8cefa06bf08e7eca7db2c34b050c2d913))
     - Somewhat hard-code special case for fedora ([`90f0f9b`](https://github.com/Byron/trash-rs/commit/90f0f9b035678efe51a20d4a47fd09158b8ef455))
-    - proper cleanup after potential assertion failure ([`1f3a600`](https://github.com/Byron/trash-rs/commit/1f3a6005eabd4629fe0743030a612a29fcb7d80c))
-    - remove unused trait ([`ac913d8`](https://github.com/Byron/trash-rs/commit/ac913d83ed9344d8ed8e18957b2e99136e0b29c1))
+    - Proper cleanup after potential assertion failure ([`1f3a600`](https://github.com/Byron/trash-rs/commit/1f3a6005eabd4629fe0743030a612a29fcb7d80c))
+    - Remove unused trait ([`ac913d8`](https://github.com/Byron/trash-rs/commit/ac913d83ed9344d8ed8e18957b2e99136e0b29c1))
  * **Uncategorized**
     - Release trash v2.1.1 ([`50ab31a`](https://github.com/Byron/trash-rs/commit/50ab31afa9f641a16a1ab50bf1ea8f8bacb0330f))
-    - update changelog ([`98d32c8`](https://github.com/Byron/trash-rs/commit/98d32c88e85b2b40ea17d372c427ef168ad80b30))
-    - more robust removal of test files in failure case on os specific tests ([`3f6502d`](https://github.com/Byron/trash-rs/commit/3f6502db02e09e36c2fbce2fea054a9a2b9229de))
+    - Update changelog ([`98d32c8`](https://github.com/Byron/trash-rs/commit/98d32c88e85b2b40ea17d372c427ef168ad80b30))
+    - More robust removal of test files in failure case on os specific tests ([`3f6502d`](https://github.com/Byron/trash-rs/commit/3f6502db02e09e36c2fbce2fea054a9a2b9229de))
 </details>
 
 ## 2.1.0 (2022-05-06)
@@ -265,15 +295,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#45](https://github.com/Byron/trash-rs/issues/45)**
-    - reproduce issue with lack of leading directories and fix it ([`d5b6faa`](https://github.com/Byron/trash-rs/commit/d5b6faa81d59ccd6185261399bc7449432b9deb6))
+    - Reproduce issue with lack of leading directories and fix it ([`d5b6faa`](https://github.com/Byron/trash-rs/commit/d5b6faa81d59ccd6185261399bc7449432b9deb6))
  * **[#47](https://github.com/Byron/trash-rs/issues/47)**
     - Try to reproduce ([`8eba501`](https://github.com/Byron/trash-rs/commit/8eba50155e006cf923d8bb77fea88cde6395512e))
  * **Uncategorized**
     - Release trash v2.1.0 ([`b3a4547`](https://github.com/Byron/trash-rs/commit/b3a45471ce5fcd489a096145e06ac663ed854747))
-    - prepare upcoming release ([`e3bbb6b`](https://github.com/Byron/trash-rs/commit/e3bbb6be1072675c331176e8d0585cc67910d17b))
+    - Prepare upcoming release ([`e3bbb6b`](https://github.com/Byron/trash-rs/commit/e3bbb6be1072675c331176e8d0585cc67910d17b))
     - Merge branch 'refactor-tests' ([`0e90cac`](https://github.com/Byron/trash-rs/commit/0e90cace515344c68eead8e59180487561849289))
     - Assure tests don't race ([`d9778ba`](https://github.com/Byron/trash-rs/commit/d9778ba1912c5764cbfaa9c46b2bba5c3d1899eb))
-    - thanks clippy ([`220a216`](https://github.com/Byron/trash-rs/commit/220a2164e86bf7f0e1e636d24595b6ce4182de14))
+    - Thanks clippy ([`220a216`](https://github.com/Byron/trash-rs/commit/220a2164e86bf7f0e1e636d24595b6ce4182de14))
     - Move all intergration tests into corresponding location ([`e5dc62e`](https://github.com/Byron/trash-rs/commit/e5dc62ee2b363a11e57e4aad2c1d128d2f8961e2))
 </details>
 
@@ -315,7 +345,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
     - Merge pull request #43 from wezm/num-threads-freebsd ([`8f10c85`](https://github.com/Byron/trash-rs/commit/8f10c852bd9ec2e69353a0dd5397fab1c4ba089f))
     - Fix build on FreeBSD after refactor ([`f3d31e5`](https://github.com/Byron/trash-rs/commit/f3d31e54dd93c22605e8178958a1caa503be19f4))
     - Use `num_threads()` to avoid UB in FreeBSD version of get_mount_points() ([`3c153ae`](https://github.com/Byron/trash-rs/commit/3c153ae2f1ed92d8a240a742e90fcb0e483284b8))
-    - refactor ([`92ab7b9`](https://github.com/Byron/trash-rs/commit/92ab7b91adcde3305cc3e319fb0b59feff8f81cc))
+    - Refactor ([`92ab7b9`](https://github.com/Byron/trash-rs/commit/92ab7b91adcde3305cc3e319fb0b59feff8f81cc))
     - Add BSD compatible implementation of get_mount_points ([`82d2132`](https://github.com/Byron/trash-rs/commit/82d2132f8e1323272f5d8e1f54112589f75c3202))
     - Run `cargo-diet` for a more minimal crates package ([`561f21d`](https://github.com/Byron/trash-rs/commit/561f21d9de2a56cb0f0c87002d2ead3dc8ca6ab2))
 </details>
@@ -343,13 +373,13 @@ All previous 2.0.* releases which contained this function were yanked from crate
 <details><summary>view details</summary>
 
  * **[#37](https://github.com/Byron/trash-rs/issues/37)**
-    - fix some clippy warnings ([`3c566ef`](https://github.com/Byron/trash-rs/commit/3c566ef417350b75e02ea80be51165815014ec74))
+    - Fix some clippy warnings ([`3c566ef`](https://github.com/Byron/trash-rs/commit/3c566ef417350b75e02ea80be51165815014ec74))
  * **[#40](https://github.com/Byron/trash-rs/issues/40)**
-    - let dependency specification in Cargo.toml match cfg directives in code ([`cb5b617`](https://github.com/Byron/trash-rs/commit/cb5b6176aa296853f7a6e3cfa177e1235acaa903))
+    - Let dependency specification in Cargo.toml match cfg directives in code ([`cb5b617`](https://github.com/Byron/trash-rs/commit/cb5b6176aa296853f7a6e3cfa177e1235acaa903))
  * **Uncategorized**
     - Release trash v2.0.3 ([`6864e34`](https://github.com/Byron/trash-rs/commit/6864e340890f247f675982744396bae8ea856565))
     - Disable lint for platforms where it matters ([`b4add86`](https://github.com/Byron/trash-rs/commit/b4add8643cc0659b4318f3113a197794cb0032b0))
-    - update changelog with `cargo changelog` ([`932cea4`](https://github.com/Byron/trash-rs/commit/932cea48c6ceba2adf0b824c3236b330e232de12))
+    - Update changelog with `cargo changelog` ([`932cea4`](https://github.com/Byron/trash-rs/commit/932cea48c6ceba2adf0b824c3236b330e232de12))
     - Add Rust CI status badge ([`b94fce2`](https://github.com/Byron/trash-rs/commit/b94fce2bf74dd5c1ee66735eca32d6ace5db83ea))
 </details>
 
@@ -503,7 +533,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
     - Ran fmt and fix for warning ([`ff7cf3b`](https://github.com/Byron/trash-rs/commit/ff7cf3b09916c04ff861047db2b5005621d0597a))
     - Fix for path canonicalization ([`5dfe5dc`](https://github.com/Byron/trash-rs/commit/5dfe5dc0beaa29a537808d017e5852ad976644e4))
     - Merge pull request #23 from cbr9/optimize--get-desktop-environment ([`c887b6b`](https://github.com/Byron/trash-rs/commit/c887b6bdbe707320aada2478e5033f101e86aba6))
-    - optimized get_desktop_environment() ([`a0a7fbb`](https://github.com/Byron/trash-rs/commit/a0a7fbbcd3e0e60b4b59066b65f3f4443ab57dbf))
+    - Optimized get_desktop_environment() ([`a0a7fbb`](https://github.com/Byron/trash-rs/commit/a0a7fbbcd3e0e60b4b59066b65f3f4443ab57dbf))
     - Update readme ([`30427f0`](https://github.com/Byron/trash-rs/commit/30427f04121bfbd8526d06deaf1d04cc7db145b0))
     - Oops that Path wasn't completely unused after all ([`ba850ee`](https://github.com/Byron/trash-rs/commit/ba850eee27299e2aca0b1fc634f566f91a40e43b))
     - Fixed compile warning and ran rustfmt ([`c556d28`](https://github.com/Byron/trash-rs/commit/c556d284887ae72bf95b6fafba357a59f982204d))
@@ -514,7 +544,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
     - Add `delete` functions for Linux ([`fedeb83`](https://github.com/Byron/trash-rs/commit/fedeb8350625f252510ae5a2c5bb26fb74876b49))
     - Update to the readme, incorporating some suggestions by Caleb Bassi ([`9bddccc`](https://github.com/Byron/trash-rs/commit/9bddccc2e8e368f7278135e60d41da601fa20aa4))
     - Merge pull request #18 from cjbassi/rename-files ([`c49b496`](https://github.com/Byron/trash-rs/commit/c49b4961b1e83548777ea0a24cd99c7e6c6660fe))
-    - rename readme and license files ([`5a9a5a6`](https://github.com/Byron/trash-rs/commit/5a9a5a66b53803b037636febc9265b66bcfc7334))
+    - Rename readme and license files ([`5a9a5a6`](https://github.com/Byron/trash-rs/commit/5a9a5a66b53803b037636febc9265b66bcfc7334))
     - Adds a deprecated attribute to the `is_implemented` function. ([`386db96`](https://github.com/Byron/trash-rs/commit/386db96e8eebed0b60d79ac055e8e312f01a605c))
 </details>
 
@@ -614,7 +644,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
     - Fix for `list` failing on Linux. This happened because `list` on Linux didn't handle paralell threads manipulating the trash correctly. ([`d6cb6ba`](https://github.com/Byron/trash-rs/commit/d6cb6bac6758a0020b88ef5632bf9f06f748f7ca))
     - Merge pull request #6 from ayazhafiz/refactor/mac2 ([`adf0ea4`](https://github.com/Byron/trash-rs/commit/adf0ea4fab0ace99b443c5498ba5495c89abcd30))
     - Remove the Cirrus CI config. ([`fd597fc`](https://github.com/Byron/trash-rs/commit/fd597fc852eddb23472276be6c638e6e40281f67))
-    - port mac implementation to work with v2 ([`576fad7`](https://github.com/Byron/trash-rs/commit/576fad719cb240203dec030890d54fe416a42edd))
+    - Port mac implementation to work with v2 ([`576fad7`](https://github.com/Byron/trash-rs/commit/576fad719cb240203dec030890d54fe416a42edd))
     - Add MacOS and Linux as targets for CI tests. ([`e409a98`](https://github.com/Byron/trash-rs/commit/e409a983b64d36c2b585ecdb5374357a34f5da53))
     - Fix OS setup in Azure's config. ([`08db817`](https://github.com/Byron/trash-rs/commit/08db8172080832727bd5002e394054c34c5147ea))
     - Update Azure's target operating systems. ([`cfb25b6`](https://github.com/Byron/trash-rs/commit/cfb25b6e0d9e8fd00379871760430009c52289cd))
@@ -669,7 +699,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
  * **Uncategorized**
     - Updated version number and readme ([`79ee69e`](https://github.com/Byron/trash-rs/commit/79ee69e3e12a9a66146897ab432f29eaa8ac2d28))
     - Merge pull request #1 from ayazhafiz/feat/mac ([`48a6b11`](https://github.com/Byron/trash-rs/commit/48a6b11cae520ca1b60c42270912402c1d51c018))
-    - implementation for macOS ([`d68cc2a`](https://github.com/Byron/trash-rs/commit/d68cc2aedee5e8316117bec257975da30cbd7483))
+    - Implementation for macOS ([`d68cc2a`](https://github.com/Byron/trash-rs/commit/d68cc2aedee5e8316117bec257975da30cbd7483))
     - Fix wrong code references in the linux implementation. ([`037fed8`](https://github.com/Byron/trash-rs/commit/037fed8ae6b5ed76cec00037cdc8340d7787d7cb))
     - Add docs badge to readme ([`88261d5`](https://github.com/Byron/trash-rs/commit/88261d5af0b165a06483ea07e5aa378d2223d067))
     - Increment version number ([`f758543`](https://github.com/Byron/trash-rs/commit/f75854358b7c8dea23aec6f40362fab4039d9659))
