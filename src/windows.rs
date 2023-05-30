@@ -1,6 +1,7 @@
 use crate::{Error, TrashContext, TrashItem};
 use std::{
     ffi::{c_void, OsStr, OsString},
+    fs,
     os::windows::{ffi::OsStrExt, prelude::*},
     path::PathBuf,
 };
@@ -66,6 +67,42 @@ impl TrashContext {
             pfo.PerformOperations()?;
             Ok(())
         }
+    }
+
+    /// Removes all files and folder paths recursively.  
+    pub(crate) fn delete_all_canonicalized_recursive(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+        let mut collection = Vec::new();
+        self.collect_all_canonicalized_paths_recursive(full_paths, &mut collection)?;
+        self.delete_all_canonicalized(collection)
+    }
+
+    /// Collects all paths in the given files and folders recursively.
+    ///
+    /// # Arguments
+    /// 1. List of paths to remove.
+    /// 2. List to collect all the paths into.
+    fn collect_all_canonicalized_paths_recursive(
+        &self,
+        full_paths: Vec<PathBuf>,
+        collection: &mut Vec<PathBuf>,
+    ) -> Result<(), Error> {
+        for base_path in full_paths.into_iter() {
+            if base_path.is_file() {
+                collection.push(base_path);
+                continue;
+            }
+
+            // directory
+            for entry in fs::read_dir(&base_path).unwrap() {
+                let entry = entry.unwrap();
+                let path = base_path.join(entry.file_name());
+                self.collect_all_canonicalized_paths_recursive(Vec::from([path]), collection)?;
+            }
+
+            collection.push(base_path);
+        }
+
+        Ok(())
     }
 }
 

@@ -1,4 +1,5 @@
 use std::fs::{create_dir, File};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use log::trace;
@@ -149,5 +150,22 @@ fn recursive_file_deletion() {
     File::create(dir2.join("same-name")).unwrap();
 
     trash::delete(parent_dir).unwrap();
+    assert!(!parent_dir.exists());
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn recursive_file_with_content_deletion() {
+    let parent_dir = Path::new("remove-me-content");
+    let dir1 = parent_dir.join("dir1");
+    let dir2 = parent_dir.join("dir2");
+    std::fs::create_dir_all(&dir1).unwrap();
+    std::fs::create_dir_all(&dir2).unwrap();
+    File::create(dir1.join("same-name")).unwrap();
+    let file = File::create(dir2.join("same-name")).unwrap();
+    let mut file = std::io::LineWriter::new(file);
+    file.write_all(b"some content").unwrap();
+
+    trash::delete_recursive(parent_dir).unwrap();
     assert!(!parent_dir.exists());
 }

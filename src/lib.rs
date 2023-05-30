@@ -111,6 +111,36 @@ impl TrashContext {
         trace!("Finished canonicalize_paths");
         self.delete_all_canonicalized(full_paths)
     }
+
+    /// **window only**
+    ///
+    /// Removes all files/directories specified by the collection of paths provided as an argument, and all sub files and folders recursively.
+    ///
+    /// When a symbolic link is provided to this function, the symbolic link will be removed and the link
+    /// target will be kept intact.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::fs::File;
+    /// use trash::delete_recursive;
+    /// File::create("delete_me_1").unwrap();
+    /// File::create("delete_me_2").unwrap();
+    /// delete_recursive(&["delete_me_1", "delete_me_2"]).unwrap();
+    /// assert!(File::open("delete_me_1").is_err());
+    /// assert!(File::open("delete_me_2").is_err());
+    /// ```
+    #[cfg(target_os = "windows")]
+    pub fn delete_recursive<I, T>(&self, paths: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = T>,
+        T: AsRef<Path>,
+    {
+        trace!("Starting canonicalize_paths");
+        let full_paths = canonicalize_paths(paths)?;
+        trace!("Finished canonicalize_paths");
+        self.delete_all_canonicalized_recursive(full_paths)
+    }
 }
 
 /// Convenience method for `DEFAULT_TRASH_CTX.delete()`.
@@ -129,6 +159,20 @@ where
     T: AsRef<Path>,
 {
     DEFAULT_TRASH_CTX.delete_all(paths)
+}
+
+/// **window only**
+///
+/// Convenience method for `DEFAULT_TRASH_CTX.delete_recursive()`.
+///
+/// See: [`TrashContext::delete_recursive`](TrashContext::delete_recursive)
+#[cfg(target_os = "windows")]
+pub fn delete_recursive<I, T>(paths: I) -> Result<(), Error>
+where
+    I: IntoIterator<Item = T>,
+    T: AsRef<Path>,
+{
+    DEFAULT_TRASH_CTX.delete_recursive(paths)
 }
 
 ///
