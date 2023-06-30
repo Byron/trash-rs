@@ -24,7 +24,7 @@ log = "0.4"
 
 [dev-dependencies]
 serial_test = "0.6.0"
-chrono = "0.4.9"
+chrono = { version = "0.4.9", default-features = false, features = ["clock"] }
 rand = "0.8.3"
 once_cell = "1.7.2"
 env_logger = "0.10.0"
@@ -35,7 +35,7 @@ tempfile = "3.6.0"
 objc = "0.2.7"
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))'.dependencies]
-chrono = { version = "0.4.9", optional = true }
+chrono = { version = "0.4.9", optional = true, default-features = false, features = ["clock"] }
 libc = "0.2.65"
 scopeguard = "1.0.0"
 url = "2.1.0"
