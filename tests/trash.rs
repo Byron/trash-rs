@@ -153,7 +153,6 @@ fn recursive_file_deletion() {
     assert!(!parent_dir.exists());
 }
 
-#[cfg(target_os = "windows")]
 #[test]
 fn recursive_file_with_content_deletion() {
     let parent_dir = Path::new("remove-me-content");
