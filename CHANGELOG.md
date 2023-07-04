@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.0.4 (2023-07-01)
+
+### Bug Fixes
+
+ - <csr-id-55b0d5c86e2608552836ec0bf3e9aa0ce8c303b8/> Don't use 'oldtime' feature of `chrono` by controlling exactly which features are enabled.
+   That particular feature has [a rustsec advisory](https://rustsec.org/advisories/RUSTSEC-2020-0071) up
+   against it.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release over the course of 1 calendar day.
+ - 19 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#75](https://github.com/Byron/trash-rs/issues/75)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#75](https://github.com/Byron/trash-rs/issues/75)**
+    - Don't use 'oldtime' feature of `chrono` by controlling exactly which features are enabled. ([`55b0d5c`](https://github.com/Byron/trash-rs/commit/55b0d5c86e2608552836ec0bf3e9aa0ce8c303b8))
+ * **Uncategorized**
+    - Don't use `oldtime` feature of chrono ([`fad81a4`](https://github.com/Byron/trash-rs/commit/fad81a4992fe053e30113f9ab0c7001d12b1ec17))
+</details>
+
+## 3.0.3 (2023-06-11)
+
+### Bug Fixes
+
+ - <csr-id-aa8cd7b05f8f0641d7fd73328619c2c45c7e050c/> disallow empty paths from being deleted.
+   Previously passing "" for deletion wuold delete the current working directory
+   as it would canonicalize any input path without validating the path is non-empty.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 25 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#73](https://github.com/Byron/trash-rs/issues/73)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#73](https://github.com/Byron/trash-rs/issues/73)**
+    - Disallow empty paths from being deleted. ([`aa8cd7b`](https://github.com/Byron/trash-rs/commit/aa8cd7b05f8f0641d7fd73328619c2c45c7e050c))
+ * **Uncategorized**
+    - Release trash v3.0.3 ([`841bc13`](https://github.com/Byron/trash-rs/commit/841bc1388959ab3be4f05ad1a90b03aa6bcaea67))
+</details>
+
 ## 3.0.2 (2023-05-17)
 
 ### Bug Fixes
@@ -15,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 106 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v3.0.2 ([`e20fe6a`](https://github.com/Byron/trash-rs/commit/e20fe6ae94aa73d07ff31d911ad9ecf98b17f3a8))
     - Broken symlinks won't cause failure anymore on freedesktop platforms. ([`75daea6`](https://github.com/Byron/trash-rs/commit/75daea606cbdbc4d15a514bb674591d986e57490))
     - Make `virtually_exists` private ([`454a77e`](https://github.com/Byron/trash-rs/commit/454a77e667b00a0aeb492dab9a81e69e77178802))
     - Operate broken symbolic links is safe now ([`9198013`](https://github.com/Byron/trash-rs/commit/919801376bc44fa3c4948349690c7e912be2dd3a))

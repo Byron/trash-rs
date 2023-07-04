@@ -267,6 +267,9 @@ where
     paths
         .map(|x| {
             let target_ref = x.as_ref();
+            if target_ref.as_os_str().is_empty() {
+                return Err(Error::CanonicalizePath { original: target_ref.to_owned() });
+            }
             let target = if target_ref.is_relative() {
                 let curr_dir = current_dir()
                     .map_err(|_| Error::CouldNotAccess { target: "[Current working directory]".into() })?;
