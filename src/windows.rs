@@ -43,7 +43,7 @@ impl PlatformTrashContext {
 }
 impl TrashContext {
     /// See https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
-    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+    pub(crate) fn delete_specified_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         ensure_com_initialized();
         unsafe {
             let pfo: IFileOperation = CoCreateInstance(&FileOperation as *const _, None, CLSCTX_ALL).unwrap();
@@ -70,10 +70,10 @@ impl TrashContext {
     }
 
     /// Removes all files and folder paths recursively.  
-    pub(crate) fn delete_all_canonicalized_recursive(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         let mut collection = Vec::new();
         self.collect_all_canonicalized_paths_recursive(full_paths, &mut collection)?;
-        self.delete_all_canonicalized(collection)
+        self.delete_specified_canonicalized(collection)
     }
 
     /// Collects all paths in the given files and folders recursively.
