@@ -72,7 +72,7 @@ impl TrashContext {
     /// Removes all files and folder paths recursively.  
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         let mut collection = Vec::new();
-        self.collect_all_canonicalized_paths_recursive(full_paths, &mut collection)?;
+        Self::collect_all_canonicalized_paths_recursive(full_paths, &mut collection)?;
         self.delete_specified_canonicalized(collection)
     }
 
@@ -82,7 +82,6 @@ impl TrashContext {
     /// 1. List of paths to remove.
     /// 2. List to collect all the paths into.
     fn collect_all_canonicalized_paths_recursive(
-        &self,
         full_paths: Vec<PathBuf>,
         collection: &mut Vec<PathBuf>,
     ) -> Result<(), Error> {
@@ -96,7 +95,7 @@ impl TrashContext {
             for entry in fs::read_dir(&base_path).unwrap() {
                 let entry = entry.unwrap();
                 let path = base_path.join(entry.file_name());
-                self.collect_all_canonicalized_paths_recursive(Vec::from([path]), collection)?;
+                Self::collect_all_canonicalized_paths_recursive(Vec::from([path]), collection)?;
             }
 
             collection.push(base_path);
