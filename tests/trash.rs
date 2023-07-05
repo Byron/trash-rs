@@ -165,6 +165,6 @@ fn recursive_file_with_content_deletion() {
     let mut file = std::io::LineWriter::new(file);
     file.write_all(b"some content").unwrap();
 
-    trash::delete_recursive(parent_dir).unwrap();
+    trash::delete(parent_dir).unwrap();
     assert!(!parent_dir.exists());
 }

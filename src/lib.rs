@@ -109,7 +109,12 @@ impl TrashContext {
         trace!("Starting canonicalize_paths");
         let full_paths = canonicalize_paths(paths)?;
         trace!("Finished canonicalize_paths");
-        self.delete_all_canonicalized(full_paths)
+
+        if cfg!(target_os = "windows") {
+            self.delete_recursive(full_paths)
+        } else {
+            self.delete_all_canonicalized(full_paths)
+        }
     }
 
     /// **window only**
