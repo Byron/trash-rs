@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.0.5 (2023-07-06)
+
+### Bug Fixes
+
+ - <csr-id-c1feece952dcd70163ed06ac2af79fdbb3d692bc/> On **windows**, `delete()` will now delete recursively like on the other platforms.
+   Note that the current implementation may consume a lot of memory as it will traverse the
+   entire directory structure once while storing each path for later trashing.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 8 commits contributed to the release over the course of 1 calendar day.
+ - 4 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Upgrade serial-test crate ([`0354d36`](https://github.com/Byron/trash-rs/commit/0354d36b7f870317cf57711624fd31054ffc946e))
+    - On **windows**, `delete()` will now delete recursively like on the other platforms. ([`c1feece`](https://github.com/Byron/trash-rs/commit/c1feece952dcd70163ed06ac2af79fdbb3d692bc))
+    - Refactor ([`41edcdf`](https://github.com/Byron/trash-rs/commit/41edcdfc8bdeb410b45ae636da25e3c7275a8a8c))
+    - Removed self as parameter only used in recurssion. ([`a7619c1`](https://github.com/Byron/trash-rs/commit/a7619c13215daaf88316f7e1876cf59c96491cf4))
+    - Reorganized code for cross-platform compatibility. ([`1c09e48`](https://github.com/Byron/trash-rs/commit/1c09e48c7977704b1a8d67078c84ed30b17c983a))
+    - Use recursive deletion on Windows by default. ([`46e0697`](https://github.com/Byron/trash-rs/commit/46e0697c649f9e8184654e47f18f6b2930b6bd67))
+    - Removed Windows only restriction for recursive deletion test. ([`d363dd8`](https://github.com/Byron/trash-rs/commit/d363dd840a0d35348b427ff6d1f6def568e008ed))
+    - Merge branch 'Byron:master' into bug/windows_nonempty_folder ([`0f4b2c8`](https://github.com/Byron/trash-rs/commit/0f4b2c81a209f70592b33675144c1d7922433741))
+</details>
+
 ## 3.0.4 (2023-07-01)
 
 ### Bug Fixes
@@ -17,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release over the course of 1 calendar day.
+ - 3 commits contributed to the release over the course of 1 calendar day.
  - 19 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#75](https://github.com/Byron/trash-rs/issues/75)
@@ -31,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#75](https://github.com/Byron/trash-rs/issues/75)**
     - Don't use 'oldtime' feature of `chrono` by controlling exactly which features are enabled. ([`55b0d5c`](https://github.com/Byron/trash-rs/commit/55b0d5c86e2608552836ec0bf3e9aa0ce8c303b8))
  * **Uncategorized**
+    - Release trash v3.0.4 ([`a2343c2`](https://github.com/Byron/trash-rs/commit/a2343c2692aa8d6b5fc8684a654349a14094486b))
     - Don't use `oldtime` feature of chrono ([`fad81a4`](https://github.com/Byron/trash-rs/commit/fad81a4992fe053e30113f9ab0c7001d12b1ec17))
 </details>
 
@@ -46,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release over the course of 11 calendar days.
  - 25 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#73](https://github.com/Byron/trash-rs/issues/73)
@@ -61,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Disallow empty paths from being deleted. ([`aa8cd7b`](https://github.com/Byron/trash-rs/commit/aa8cd7b05f8f0641d7fd73328619c2c45c7e050c))
  * **Uncategorized**
     - Release trash v3.0.3 ([`841bc13`](https://github.com/Byron/trash-rs/commit/841bc1388959ab3be4f05ad1a90b03aa6bcaea67))
+    - Fix issue #70.Added recursive removal on Windows. ([`05e0cf4`](https://github.com/Byron/trash-rs/commit/05e0cf442354b3b2b9ecfb8ed2b165b8547bc794))
 </details>
 
 ## 3.0.2 (2023-05-17)

@@ -2,7 +2,7 @@
 
 [package]
 name = "trash"
-version = "3.0.4"
+version = "3.0.5"
 authors = ["Artur Kovacs <kovacs.artur.barnabas@gmail.com>"]
 license = "MIT"
 readme = "README.md"
