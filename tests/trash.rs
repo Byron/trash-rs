@@ -151,3 +151,17 @@ fn recursive_file_deletion() {
     trash::delete(parent_dir).unwrap();
     assert!(!parent_dir.exists());
 }
+
+#[test]
+fn recursive_file_with_content_deletion() {
+    let parent_dir = Path::new("remove-me-content");
+    let dir1 = parent_dir.join("dir1");
+    let dir2 = parent_dir.join("dir2");
+    std::fs::create_dir_all(&dir1).unwrap();
+    std::fs::create_dir_all(&dir2).unwrap();
+    File::create(dir1.join("same-name")).unwrap();
+    std::fs::write(dir2.join("same-name"), b"some content").unwrap();
+
+    trash::delete(parent_dir).unwrap();
+    assert!(!parent_dir.exists());
+}

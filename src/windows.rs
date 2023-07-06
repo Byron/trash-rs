@@ -1,6 +1,7 @@
 use crate::{Error, TrashContext, TrashItem};
 use std::{
     ffi::{c_void, OsStr, OsString},
+    fs,
     os::windows::{ffi::OsStrExt, prelude::*},
     path::PathBuf,
 };
@@ -42,7 +43,7 @@ impl PlatformTrashContext {
 }
 impl TrashContext {
     /// See https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
-    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+    pub(crate) fn delete_specified_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         ensure_com_initialized();
         unsafe {
             let pfo: IFileOperation = CoCreateInstance(&FileOperation as *const _, None, CLSCTX_ALL).unwrap();
@@ -66,6 +67,13 @@ impl TrashContext {
             pfo.PerformOperations()?;
             Ok(())
         }
+    }
+
+    /// Removes all files and folder paths recursively.  
+    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+        let mut collection = Vec::new();
+        traverse_paths_recursively(full_paths, &mut collection)?;
+        self.delete_specified_canonicalized(collection)
     }
 }
 
@@ -255,4 +263,23 @@ thread_local! {
 }
 fn ensure_com_initialized() {
     CO_INITIALIZER.with(|_| {});
+}
+
+fn traverse_paths_recursively(
+    paths: impl IntoIterator<Item = PathBuf>,
+    collection: &mut Vec<PathBuf>,
+) -> Result<(), Error> {
+    for base_path in paths {
+        if base_path.is_file() {
+            collection.push(base_path);
+            continue;
+        }
+
+        for entry in fs::read_dir(&base_path).map_err(|err| Error::Unknown { description: err.to_string() })? {
+            let entry = entry.map_err(|err| Error::Unknown { description: err.to_string() })?;
+            traverse_paths_recursively(Some(entry.path()), collection)?;
+        }
+        collection.push(base_path);
+    }
+    Ok(())
 }

@@ -131,9 +131,7 @@ where
     DEFAULT_TRASH_CTX.delete_all(paths)
 }
 
-///
 /// Provides information about an error.
-///
 #[derive(Debug)]
 pub enum Error {
     Unknown {
