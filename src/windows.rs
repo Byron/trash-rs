@@ -72,36 +72,8 @@ impl TrashContext {
     /// Removes all files and folder paths recursively.  
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         let mut collection = Vec::new();
-        Self::collect_all_canonicalized_paths_recursive(full_paths, &mut collection)?;
+        traverse_paths_recursively(full_paths, &mut collection)?;
         self.delete_specified_canonicalized(collection)
-    }
-
-    /// Collects all paths in the given files and folders recursively.
-    ///
-    /// # Arguments
-    /// 1. List of paths to remove.
-    /// 2. List to collect all the paths into.
-    fn collect_all_canonicalized_paths_recursive(
-        full_paths: Vec<PathBuf>,
-        collection: &mut Vec<PathBuf>,
-    ) -> Result<(), Error> {
-        for base_path in full_paths.into_iter() {
-            if base_path.is_file() {
-                collection.push(base_path);
-                continue;
-            }
-
-            // directory
-            for entry in fs::read_dir(&base_path).unwrap() {
-                let entry = entry.unwrap();
-                let path = base_path.join(entry.file_name());
-                Self::collect_all_canonicalized_paths_recursive(Vec::from([path]), collection)?;
-            }
-
-            collection.push(base_path);
-        }
-
-        Ok(())
     }
 }
 
@@ -291,4 +263,23 @@ thread_local! {
 }
 fn ensure_com_initialized() {
     CO_INITIALIZER.with(|_| {});
+}
+
+fn traverse_paths_recursively(
+    paths: impl IntoIterator<Item = PathBuf>,
+    collection: &mut Vec<PathBuf>,
+) -> Result<(), Error> {
+    for base_path in paths {
+        if base_path.is_file() {
+            collection.push(base_path);
+            continue;
+        }
+
+        for entry in fs::read_dir(&base_path).map_err(|err| Error::Unknown { description: err.to_string() })? {
+            let entry = entry.map_err(|err| Error::Unknown { description: err.to_string() })?;
+            traverse_paths_recursively(Some(entry.path()), collection)?;
+        }
+        collection.push(base_path);
+    }
+    Ok(())
 }

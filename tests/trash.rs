@@ -1,5 +1,4 @@
 use std::fs::{create_dir, File};
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use log::trace;
@@ -161,9 +160,7 @@ fn recursive_file_with_content_deletion() {
     std::fs::create_dir_all(&dir1).unwrap();
     std::fs::create_dir_all(&dir2).unwrap();
     File::create(dir1.join("same-name")).unwrap();
-    let file = File::create(dir2.join("same-name")).unwrap();
-    let mut file = std::io::LineWriter::new(file);
-    file.write_all(b"some content").unwrap();
+    std::fs::write(dir2.join("same-name"), b"some content").unwrap();
 
     trash::delete(parent_dir).unwrap();
     assert!(!parent_dir.exists());
