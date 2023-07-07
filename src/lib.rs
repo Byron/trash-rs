@@ -275,6 +275,7 @@ pub struct TrashItem {
     /// moment the file was deleted.
     /// Without the "chrono" feature, this will be a negative number on linux only.
     pub time_deleted: i64,
+    pub fs_time_deleted: u64,
 }
 
 impl TrashItem {

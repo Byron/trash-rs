@@ -104,13 +104,15 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     let original_location_variant = item2.GetProperty(&SCID_ORIGINAL_LOCATION)?;
                     let original_location_bstr = PropVariantToBSTR(&original_location_variant)?;
                     let original_location = OsString::from_wide(original_location_bstr.as_wide());
-                    let date_deleted = get_date_deleted_unix(&item2)?;
+                    let fs_date_deleted = get_date_deleted_fs(&item2)?;
+                    let unix_date_deleted = date_fs_to_unix(&fs_date_deleted)?;
 
                     item_vec.push(TrashItem {
                         id,
                         name: name.into_string().map_err(|original| Error::ConvertOsString { original })?,
                         original_parent: PathBuf::from(original_location),
-                        time_deleted: date_deleted,
+                        time_deleted: unix_date_deleted,
+                        fs_time_deleted: fs_date_deleted,
                     });
                 }
                 None => {
@@ -204,18 +206,36 @@ unsafe fn wstr_to_os_string(wstr: PWSTR) -> OsString {
     OsString::from_wide(wstr_slice)
 }
 
-unsafe fn get_date_deleted_unix(item: &IShellItem2) -> Result<i64, Error> {
+unsafe fn get_date_deleted_fs(item: &IShellItem2) -> Result<u64, Error> {
+    let time = item.GetFileTime(&SCID_DATE_DELETED)?;
+    let time_u64 = ((time.dwHighDateTime as u64) << 32) | (time.dwLowDateTime as u64);
+
+    Ok(time_u64)
+}
+
+fn date_fs_to_unix(date: &u64) -> Result<i64, Error> {
     /// January 1, 1970 as Windows file time
     const EPOCH_AS_FILETIME: u64 = 116444736000000000;
     const HUNDREDS_OF_NANOSECONDS: u64 = 10000000;
 
-    let time = item.GetFileTime(&SCID_DATE_DELETED)?;
-    let time_u64 = ((time.dwHighDateTime as u64) << 32) | (time.dwLowDateTime as u64);
-    let rel_to_linux_epoch = time_u64 - EPOCH_AS_FILETIME;
+    let rel_to_linux_epoch = date - EPOCH_AS_FILETIME;
     let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
 
     Ok(seconds_since_unix_epoch as i64)
 }
+
+// unsafe fn get_date_deleted_unix(item: &IShellItem2) -> Result<i64, Error> {
+//     /// January 1, 1970 as Windows file time
+//     const EPOCH_AS_FILETIME: u64 = 116444736000000000;
+//     const HUNDREDS_OF_NANOSECONDS: u64 = 10000000;
+
+//     let time = item.GetFileTime(&SCID_DATE_DELETED)?;
+//     let time_u64 = ((time.dwHighDateTime as u64) << 32) | (time.dwLowDateTime as u64);
+//     let rel_to_linux_epoch = time_u64 - EPOCH_AS_FILETIME;
+//     let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
+
+//     Ok(seconds_since_unix_epoch as i64)
+// }
 
 struct CoInitializer {}
 impl CoInitializer {
