@@ -203,7 +203,13 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     }
                     let time_deleted_v = time_deleted.unwrap_or(-1);
                     let time_deleted_u64 = time_deleted_v as u64;
-                    result.push(TrashItem { id, name, original_parent, time_deleted: time_deleted.unwrap_or(-1), fs_time_deleted: time_deleted_u64});
+                    result.push(TrashItem {
+                        id,
+                        name,
+                        original_parent,
+                        time_deleted: time_deleted.unwrap_or(-1),
+                        fs_time_deleted: time_deleted_u64,
+                    });
                 } else {
                     warn!("Could not determine the original parent folder of the trash item. (The `Path` field is probably missing from the info file.) The info file path is: '{:?}'", info_path);
                 }
