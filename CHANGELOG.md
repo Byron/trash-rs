@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 3.0.5 (2023-07-06)
 
+YANKED: It was discovered that symlinks aren't handled correctly, which can lead to removals of unrelated directory trees.
+
+
 ### Bug Fixes
 
  - <csr-id-c1feece952dcd70163ed06ac2af79fdbb3d692bc/> On **windows**, `delete()` will now delete recursively like on the other platforms.
