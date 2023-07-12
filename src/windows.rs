@@ -270,7 +270,7 @@ fn traverse_paths_recursively(
     collection: &mut Vec<PathBuf>,
 ) -> Result<(), Error> {
     for base_path in paths {
-        if base_path.is_file() {
+        if base_path.is_file() || base_path.is_symlink() {
             collection.push(base_path);
             continue;
         }
