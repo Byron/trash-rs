@@ -5,10 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.0.6 (2023-07-12)
+
+### Bug Fixes
+
+ - <csr-id-3f5e8427cbf299322d66b358ec3fa61ca4a5d66c/> don't recurse into symlink when trashing a directory on windows.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 5 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Merge branch 'fix-symlink-traversal' ([`43d44cb`](https://github.com/Byron/trash-rs/commit/43d44cbe0979c92cbc117723387d762ecd9d3191))
+    - Don't recurse into symlink when trashing a directory on windows. ([`3f5e842`](https://github.com/Byron/trash-rs/commit/3f5e8427cbf299322d66b358ec3fa61ca4a5d66c))
+    - Inform about reason for yanking v3.0.5 ([`112e99e`](https://github.com/Byron/trash-rs/commit/112e99ecfd485c5115323b185efc5979eae26edc))
+</details>
+
 ## 3.0.5 (2023-07-06)
 
 YANKED: It was discovered that symlinks aren't handled correctly, which can lead to removals of unrelated directory trees.
-
 
 ### Bug Fixes
 
@@ -20,7 +46,7 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 
 <csr-read-only-do-not-edit/>
 
- - 8 commits contributed to the release over the course of 1 calendar day.
+ - 9 commits contributed to the release over the course of 1 calendar day.
  - 4 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -32,6 +58,7 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v3.0.5 ([`4655a07`](https://github.com/Byron/trash-rs/commit/4655a0723ab4209872d4037be89d2b0876a70731))
     - Upgrade serial-test crate ([`0354d36`](https://github.com/Byron/trash-rs/commit/0354d36b7f870317cf57711624fd31054ffc946e))
     - On **windows**, `delete()` will now delete recursively like on the other platforms. ([`c1feece`](https://github.com/Byron/trash-rs/commit/c1feece952dcd70163ed06ac2af79fdbb3d692bc))
     - Refactor ([`41edcdf`](https://github.com/Byron/trash-rs/commit/41edcdfc8bdeb410b45ae636da25e3c7275a8a8c))
