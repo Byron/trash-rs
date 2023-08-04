@@ -88,13 +88,13 @@ mod os_limited {
 
         // Let's try to purge all the items we just created but ignore any errors
         // as this test should succeed as long as `list` works properly.
-        let _ = trash::os_limited::purge_all(items.into_iter().map(|(_name, item)| item).flatten());
+        let _ = trash::os_limited::purge_all(items.iter().flat_map(|(_name, item)| item));
     }
 
     #[test]
     fn purge_empty() {
         init_logging();
-        trash::os_limited::purge_all(vec![]).unwrap();
+        trash::os_limited::purge_all::<Vec<trash::TrashItem>>(vec![]).unwrap();
     }
 
     #[test]
@@ -182,8 +182,7 @@ mod os_limited {
             trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).collect();
         targets.sort_by(|a, b| a.name.cmp(&b.name));
         assert_eq!(targets.len(), file_count);
-        let remaining_count;
-        match trash::os_limited::restore_all(targets) {
+        let remaining_count = match trash::os_limited::restore_all(targets) {
             Err(trash::Error::RestoreCollision { remaining_items, .. }) => {
                 let contains = |v: &Vec<trash::TrashItem>, name: &String| {
                     for curr in v.iter() {
@@ -197,7 +196,7 @@ mod os_limited {
                 for path in names.iter().filter(|filename| !contains(&remaining_items, filename)) {
                     assert!(File::open(path).is_ok());
                 }
-                remaining_count = remaining_items.len();
+                remaining_items.len()
             }
             _ => {
                 for path in names.iter() {
@@ -205,7 +204,7 @@ mod os_limited {
                 }
                 panic!("restore_all was expected to return `trash::ErrorKind::RestoreCollision` but did not.");
             }
-        }
+        };
         let remaining = trash::os_limited::list()
             .unwrap()
             .into_iter()
@@ -233,7 +232,7 @@ mod os_limited {
 
         let twin_name = &names[1];
         File::create(twin_name).unwrap();
-        trash::delete(&twin_name).unwrap();
+        trash::delete(twin_name).unwrap();
 
         let mut targets: Vec<_> =
             trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).collect();

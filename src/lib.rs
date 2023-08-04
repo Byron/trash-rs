@@ -305,6 +305,7 @@ pub mod os_limited {
     //! Linux or other Freedesktop Trash compliant environment.
 
     use std::{
+        borrow::Borrow,
         collections::HashSet,
         hash::{Hash, Hasher},
     };
@@ -332,10 +333,13 @@ pub mod os_limited {
     ///
     /// # Example
     ///
+    /// Taking items' ownership:
+    ///
     /// ```
     /// use std::fs::File;
     /// use trash::{delete, os_limited::{list, purge_all}};
-    /// let filename = "trash-purge_all-example";
+    ///
+    /// let filename = "trash-purge_all-example-ownership";
     /// File::create(filename).unwrap();
     /// delete(filename).unwrap();
     /// // Collect the filtered list just so that we can make sure there's exactly one element.
@@ -344,9 +348,25 @@ pub mod os_limited {
     /// assert_eq!(selected.len(), 1);
     /// purge_all(selected).unwrap();
     /// ```
+    ///
+    /// Taking items' reference:
+    ///
+    /// ```
+    /// use std::fs::File;
+    /// use trash::{delete, os_limited::{list, purge_all}};
+    ///
+    /// let filename = "trash-purge_all-example-reference";
+    /// File::create(filename).unwrap();
+    /// delete(filename).unwrap();
+    /// let mut selected = list().unwrap();
+    /// selected.retain(|x| x.name == filename);
+    /// assert_eq!(selected.len(), 1);
+    /// purge_all(&selected).unwrap();
+    /// ```
     pub fn purge_all<I>(items: I) -> Result<(), Error>
     where
-        I: IntoIterator<Item = TrashItem>,
+        I: IntoIterator,
+        <I as IntoIterator>::Item: Borrow<TrashItem>,
     {
         platform::purge_all(items)
     }
