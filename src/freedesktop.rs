@@ -7,6 +7,7 @@
 //!
 
 use std::{
+    borrow::Borrow,
     collections::HashSet,
     fs::{create_dir_all, File, OpenOptions},
     io::{BufRead, BufReader, Write},
@@ -225,12 +226,13 @@ fn virtually_exists(path: &Path) -> std::io::Result<bool> {
 
 pub fn purge_all<I>(items: I) -> Result<(), Error>
 where
-    I: IntoIterator<Item = TrashItem>,
+    I: IntoIterator,
+    <I as IntoIterator>::Item: Borrow<TrashItem>,
 {
     for item in items.into_iter() {
         // When purging an item the "in-trash" filename must be parsed from the trashinfo filename
         // which is the filename in the `id` field.
-        let info_file = &item.id;
+        let info_file = &item.borrow().id;
 
         // A bunch of unwraps here. This is fine because if any of these fail that means
         // that either there's a bug in this code or the target system didn't follow

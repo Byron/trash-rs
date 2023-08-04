@@ -1,5 +1,6 @@
 use crate::{Error, TrashContext, TrashItem};
 use std::{
+    borrow::Borrow,
     ffi::{c_void, OsStr, OsString},
     fs,
     os::windows::{ffi::OsStrExt, prelude::*},
@@ -125,7 +126,8 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
 
 pub fn purge_all<I>(items: I) -> Result<(), Error>
 where
-    I: IntoIterator<Item = TrashItem>,
+    I: IntoIterator,
+    <I as IntoIterator>::Item: Borrow<TrashItem>,
 {
     ensure_com_initialized();
     unsafe {
@@ -134,7 +136,7 @@ where
         let mut at_least_one = false;
         for item in items {
             at_least_one = true;
-            let id_as_wide: Vec<u16> = item.id.encode_wide().chain(std::iter::once(0)).collect();
+            let id_as_wide: Vec<u16> = item.borrow().id.encode_wide().chain(std::iter::once(0)).collect();
             let parsing_name = PCWSTR(id_as_wide.as_ptr());
             let trash_item: IShellItem = SHCreateItemFromParsingName(parsing_name, None)?;
             pfo.DeleteItem(&trash_item, None)?;
