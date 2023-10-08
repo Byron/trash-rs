@@ -388,13 +388,30 @@ pub mod os_limited {
     ///
     /// # Example
     ///
+    /// Basic usage:
+    ///
     /// ```
     /// use std::fs::File;
     /// use trash::os_limited::{list, restore_all};
+    ///
     /// let filename = "trash-restore_all-example";
     /// File::create(filename).unwrap();
     /// restore_all(list().unwrap().into_iter().filter(|x| x.name == filename)).unwrap();
     /// std::fs::remove_file(filename).unwrap();
+    /// ```
+    ///
+    /// Retry restoring when encountering [`RestoreCollision`] error:
+    ///
+    /// ```no_run
+    /// use trash::os_limited::{list, restore_all};
+    /// use trash::Error::RestoreCollision;
+    ///
+    /// let items = list().unwrap();
+    /// if let Err(RestoreCollision { path, mut remaining_items }) = restore_all(items) {
+    ///     // keep all except the one(s) that couldn't be restored
+    ///     remaining_items.retain(|e| e.original_path() != path);
+    ///     restore_all(remaining_items).unwrap();
+    /// }
     /// ```
     ///
     /// [`RestoreCollision`]: Error::RestoreCollision
