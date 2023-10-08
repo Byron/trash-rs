@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.1.0 (2023-10-08)
+
+### New Features
+
+ - <csr-id-24e0cb6f9fe15a0db1609e04cda6446e3335f89b/> compatibility with OpenBSD and NetBSD
+ - <csr-id-0789b23c6c8e21bc1493455beaca75d46e0aa575/> allow passing in items' ownership or reference
+
+### Other
+
+ - <csr-id-554c2735c8dd924fd7cebe863b529d91bb0cac0d/> describe how to retry restoring when encountering `RestoreCollision` error
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release over the course of 65 calendar days.
+ - 88 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#84](https://github.com/Byron/trash-rs/issues/84)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#84](https://github.com/Byron/trash-rs/issues/84)**
+    - Compatibility with OpenBSD and NetBSD ([`24e0cb6`](https://github.com/Byron/trash-rs/commit/24e0cb6f9fe15a0db1609e04cda6446e3335f89b))
+ * **Uncategorized**
+    - Bump minor version to indicate a feature change ([`ddb9917`](https://github.com/Byron/trash-rs/commit/ddb99171715727a3339d4a9e2f07a517037b01db))
+    - Merge pull request #81 from TD-Sky/re-restore ([`c87a946`](https://github.com/Byron/trash-rs/commit/c87a9467235e6208e2268d392ac61f332b4d1d09))
+    - Test edition bump ([`b77bd6d`](https://github.com/Byron/trash-rs/commit/b77bd6d32f8d44f59b9fe53806248d0b0860aa18))
+    - Bump version ([`75cc270`](https://github.com/Byron/trash-rs/commit/75cc27093d01628fb79acb1432c8ccdd66d86b2f))
+    - Update dependencies ([`7d1e2bb`](https://github.com/Byron/trash-rs/commit/7d1e2bb0a51d88033428aad62bf87e400c2a334d))
+    - One step closer ([`aee3dce`](https://github.com/Byron/trash-rs/commit/aee3dceac5575e4a2a23633ec5f3da5da79d9e89))
+    - Allow passing in items' ownership or reference ([`0789b23`](https://github.com/Byron/trash-rs/commit/0789b23c6c8e21bc1493455beaca75d46e0aa575))
+    - Describe how to retry restoring when encountering `RestoreCollision` error ([`554c273`](https://github.com/Byron/trash-rs/commit/554c2735c8dd924fd7cebe863b529d91bb0cac0d))
+</details>
+
 ## 3.0.6 (2023-07-12)
 
 ### Bug Fixes
@@ -15,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 5 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v3.0.6 ([`450edc1`](https://github.com/Byron/trash-rs/commit/450edc1a0d372ae450daf3aec33aabedd3efde3d))
     - Merge branch 'fix-symlink-traversal' ([`43d44cb`](https://github.com/Byron/trash-rs/commit/43d44cbe0979c92cbc117723387d762ecd9d3191))
     - Don't recurse into symlink when trashing a directory on windows. ([`3f5e842`](https://github.com/Byron/trash-rs/commit/3f5e8427cbf299322d66b358ec3fa61ca4a5d66c))
     - Inform about reason for yanking v3.0.5 ([`112e99e`](https://github.com/Byron/trash-rs/commit/112e99ecfd485c5115323b185efc5979eae26edc))
