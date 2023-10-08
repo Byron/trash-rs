@@ -16,7 +16,7 @@ See more about the FreeDesktop Trash implementation in the `freedesktop.rs` file
 ```toml
 # In Cargo.toml
 [dependencies]
-trash = "2.0"
+trash = "3"
 ```
 
 ```rust
