@@ -9,7 +9,7 @@ readme = "README.md"
 description = "A library for moving files and folders to the Recycle Bin"
 keywords = ["remove", "trash", "rubbish", "recycle", "bin"]
 repository = "https://github.com/ArturKovacs/trash"
-edition = "2018"
+edition = "2021"
 include = ["src/**/*", "LICENSE.txt", "README.md", "CHANGELOG.md", "build.rs"]
 
 [features]
