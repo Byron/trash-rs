@@ -702,12 +702,12 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
             std::str::from_utf8(buf).ok()
         }
     }
-    let mut fs_infos: *mut libc::statfs = std::ptr::null_mut();
+    let mut fs_infos: *mut libc::statvfs = std::ptr::null_mut();
     let count = unsafe { libc::getmntinfo(&mut fs_infos, libc::MNT_WAIT) };
     if count < 1 {
         return Ok(Vec::new());
     }
-    let fs_infos: &[libc::statfs] = unsafe { std::slice::from_raw_parts(fs_infos as _, count as _) };
+    let fs_infos: &[libc::statvfs] = unsafe { std::slice::from_raw_parts(fs_infos as _, count as _) };
 
     let mut result = Vec::new();
     for fs_info in fs_infos {

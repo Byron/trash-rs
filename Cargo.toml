@@ -2,14 +2,14 @@
 
 [package]
 name = "trash"
-version = "3.0.6"
+version = "3.0.7"
 authors = ["Artur Kovacs <kovacs.artur.barnabas@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 description = "A library for moving files and folders to the Recycle Bin"
 keywords = ["remove", "trash", "rubbish", "recycle", "bin"]
 repository = "https://github.com/ArturKovacs/trash"
-edition = "2018"
+edition = "2021"
 include = ["src/**/*", "LICENSE.txt", "README.md", "CHANGELOG.md", "build.rs"]
 
 [features]
@@ -24,22 +24,22 @@ log = "0.4"
 
 [dev-dependencies]
 serial_test = { version = "2.0.0", default-features = false }
-chrono = { version = "0.4.9", default-features = false, features = ["clock"] }
-rand = "0.8.3"
-once_cell = "1.7.2"
+chrono = { version = "0.4.31", default-features = false, features = ["clock"] }
+rand = "0.8.5"
+once_cell = "1.18.0"
 env_logger = "0.10.0"
-tempfile = "3.6.0"
+tempfile = "3.8.0"
 
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.7"
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))'.dependencies]
-chrono = { version = "0.4.9", optional = true, default-features = false, features = ["clock"] }
-libc = "0.2.65"
-scopeguard = "1.0.0"
-url = "2.1.0"
-once_cell = "1.7.2"
+chrono = { version = "0.4.31", optional = true, default-features = false, features = ["clock"] }
+libc = "0.2.149"
+scopeguard = "1.2.0"
+url = "2.4.1"
+once_cell = "1.18.0"
 
 [target.'cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))'.dependencies]
 once_cell = "1.7.2"
@@ -50,4 +50,4 @@ windows = { version = "0.44.0", features = [
     "Win32_System_Com_StructuredStorage",
     "Win32_UI_Shell_PropertiesSystem",
 ] }
-scopeguard = "1.0.0"
+scopeguard = "1.2.0"
