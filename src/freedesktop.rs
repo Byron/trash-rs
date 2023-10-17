@@ -36,8 +36,8 @@ impl TrashContext {
 
         full_paths
             .iter()
-            .map(|path| {
-                let topdir = get_topdir_for_path(&path, &mount_points);
+            .try_for_each(|path| {
+                let topdir = get_topdir_for_path(path, &mount_points);
 
                 if topdir == home_topdir {
                     if path.starts_with(home_trash.as_path()) {
@@ -54,8 +54,7 @@ impl TrashContext {
                 }
 
                 Ok(())
-            })
-            .collect::<Result<(), _>>()?;
+            })?;
 
         for path in full_paths {
             debug!("Deleting {:?}", path);
