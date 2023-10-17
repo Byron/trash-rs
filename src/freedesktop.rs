@@ -678,7 +678,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     Ok(result)
 }
 
-#[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))]
+#[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
 fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     use once_cell::sync::Lazy;
     use std::sync::Mutex;
@@ -690,6 +690,55 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     // via get_mount_points a Mutex is used.
     // We understand that threads can still call `libc::getmntinfo(…)` directly
     // to bypass the lock and trigger UB.
+    static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+    let _lock = LOCK.lock().unwrap();
+
+    fn c_buf_to_str(buf: &[libc::c_char]) -> Option<&str> {
+        let buf: &[u8] = unsafe { std::slice::from_raw_parts(buf.as_ptr() as _, buf.len()) };
+        if let Some(pos) = buf.iter().position(|x| *x == 0) {
+            // Shrink buffer to omit the null bytes
+            std::str::from_utf8(&buf[..pos]).ok()
+        } else {
+            std::str::from_utf8(buf).ok()
+        }
+    }
+    let mut fs_infos: *mut libc::statfs = std::ptr::null_mut();
+    let count = unsafe { libc::getmntinfo(&mut fs_infos, libc::MNT_WAIT) };
+    if count < 1 {
+        return Ok(Vec::new());
+    }
+    let fs_infos: &[libc::statfs] = unsafe { std::slice::from_raw_parts(fs_infos as _, count as _) };
+
+    let mut result = Vec::new();
+    for fs_info in fs_infos {
+        if fs_info.f_mntfromname[0] == 0 || fs_info.f_mntonname[0] == 0 {
+            // If we have missing information, no need to look any further...
+            continue;
+        }
+        let fs_type = c_buf_to_str(&fs_info.f_fstypename).unwrap_or_default();
+        let mount_to = match c_buf_to_str(&fs_info.f_mntonname) {
+            Some(m) => m,
+            None => {
+                debug!("Cannot get disk mount point, ignoring it.");
+                continue;
+            }
+        };
+        let mount_from = c_buf_to_str(&fs_info.f_mntfromname).unwrap_or_default();
+
+        let mount_point =
+            MountPoint { mnt_dir: mount_to.into(), _mnt_fsname: mount_from.into(), _mnt_type: fs_type.into() };
+        result.push(mount_point);
+    }
+    Ok(result)
+}
+
+#[cfg(target_os = "netbsd")]
+fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
+    use once_cell::sync::Lazy;
+    use std::sync::Mutex;
+
+    // The same as above applies to getmntinfo() function.
+    // NetBSD does not support statfs since 2005, so we need to use statvfs.
     static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
     let _lock = LOCK.lock().unwrap();
 
