@@ -34,27 +34,25 @@ impl TrashContext {
         debug!("The home topdir is {:?}", home_topdir);
         let uid = unsafe { libc::getuid() };
 
-        full_paths
-            .iter()
-            .try_for_each(|path| {
-                let topdir = get_topdir_for_path(path, &mount_points);
+        full_paths.iter().try_for_each(|path| {
+            let topdir = get_topdir_for_path(path, &mount_points);
 
-                if topdir == home_topdir {
-                    if path.starts_with(home_trash.as_path()) {
-                        return Err(Error::TargetedTrash);
-                    }
-                } else {
-                    return execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
-                        if path.starts_with(trash_path.as_path()) {
-                            Err(Error::TargetedTrash)
-                        } else {
-                            Ok(())
-                        }
-                    });
+            if topdir == home_topdir {
+                if path.starts_with(home_trash.as_path()) {
+                    return Err(Error::TargetedTrash);
                 }
+            } else {
+                return execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
+                    if path.starts_with(trash_path.as_path()) {
+                        Err(Error::TargetedTrash)
+                    } else {
+                        Ok(())
+                    }
+                });
+            }
 
-                Ok(())
-            })?;
+            Ok(())
+        })?;
 
         for path in full_paths {
             debug!("Deleting {:?}", path);
