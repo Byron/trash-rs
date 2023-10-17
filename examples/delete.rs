@@ -2,6 +2,11 @@ use std::env;
 use std::path::PathBuf;
 use trash::{delete_all, Error};
 
+#[cfg(target_os = "macos")]
+fn main() {
+    println!("This example is not available on macOS");
+}
+
 #[cfg(any(
     target_os = "windows",
     all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))
