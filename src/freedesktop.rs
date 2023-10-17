@@ -33,6 +33,30 @@ impl TrashContext {
         let home_topdir = home_topdir(&mount_points)?;
         debug!("The home topdir is {:?}", home_topdir);
         let uid = unsafe { libc::getuid() };
+
+        full_paths
+            .iter()
+            .map(|path| {
+                let topdir = get_topdir_for_path(&path, &mount_points);
+
+                if topdir == home_topdir {
+                    if path.starts_with(home_trash.as_path()) {
+                        return Err(Error::TargetedTrash);
+                    }
+                } else {
+                    return execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
+                        if path.starts_with(trash_path.as_path()) {
+                            Err(Error::TargetedTrash)
+                        } else {
+                            Ok(())
+                        }
+                    });
+                }
+
+                Ok(())
+            })
+            .collect::<Result<(), _>>()?;
+
         for path in full_paths {
             debug!("Deleting {:?}", path);
             let topdir = get_topdir_for_path(&path, &mount_points);
