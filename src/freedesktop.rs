@@ -761,7 +761,7 @@ mod tests {
         env,
         ffi::OsString,
         fmt,
-        fs::File,
+        fs::{File, remove_dir_all},
         os::unix,
         path::{Path, PathBuf},
         process::Command,
@@ -859,6 +859,27 @@ mod tests {
             delete(symlink).unwrap();
             purge_all([item]).expect("The broken symbolic link should be purged successfully.");
         }
+    }
+
+    #[test]
+    #[serial]
+    fn test_delete_trash() {
+        crate::tests::init_logging();
+
+        // don't test in users HOME
+        env::set_var("HOME", env::current_dir().unwrap().canonicalize().unwrap());
+        let home_trash = PathBuf::from("./.local/share/Trash");
+
+        // delete file to generate Trash folder
+        let file_path = get_unique_name();
+        File::create(&file_path).unwrap();
+        delete(&file_path).unwrap();
+
+        // try to delete trash folder
+        assert!(delete(&home_trash) == Err(Error::TargetedTrash));
+
+        // cleanup
+        remove_dir_all(".local").unwrap();
     }
 
     //////////////////////////////////////////////////////////////////////////////////////
