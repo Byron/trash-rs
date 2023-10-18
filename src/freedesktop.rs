@@ -678,7 +678,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     Ok(result)
 }
 
-#[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
+#[cfg(any(target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd"))]
 fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     use once_cell::sync::Lazy;
     use std::sync::Mutex;
