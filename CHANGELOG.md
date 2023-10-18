@@ -5,7 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.1.1 (2023-10-18)
+
+### Bug Fixes
+
+ - <csr-id-1a5bc2de178ca76fe06631a09305e4f014764084/> compilation on FreeBSD should work now. #(86)
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release over the course of 9 calendar days.
+ - 9 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Compilation on FreeBSD should work now. #(86) ([`1a5bc2d`](https://github.com/Byron/trash-rs/commit/1a5bc2de178ca76fe06631a09305e4f014764084))
+    - Update freedesktop.rs ([`aa7b7fd`](https://github.com/Byron/trash-rs/commit/aa7b7fd66573631cf17b031b90e5e0139f0fdab6))
+    - Restore statfs for FreeBSD & OpenBSD ([`1562113`](https://github.com/Byron/trash-rs/commit/1562113e12f9020a9c3f866e5adf5e913f4040e6))
+    - Update version in README so it matches the latest published one ([`50e8030`](https://github.com/Byron/trash-rs/commit/50e80304845cbae953b4ecf370c715d728ea9958))
+</details>
+
 ## 3.1.0 (2023-10-08)
+
+<csr-id-554c2735c8dd924fd7cebe863b529d91bb0cac0d/>
 
 ### New Features
 
@@ -20,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 9 commits contributed to the release over the course of 65 calendar days.
+ - 10 commits contributed to the release over the course of 65 calendar days.
  - 88 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#84](https://github.com/Byron/trash-rs/issues/84)
@@ -34,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#84](https://github.com/Byron/trash-rs/issues/84)**
     - Compatibility with OpenBSD and NetBSD ([`24e0cb6`](https://github.com/Byron/trash-rs/commit/24e0cb6f9fe15a0db1609e04cda6446e3335f89b))
  * **Uncategorized**
+    - Release trash v3.1.0 ([`be17cd2`](https://github.com/Byron/trash-rs/commit/be17cd20bb32ab00ceb72cd9afc3ddaed01cacdb))
     - Bump minor version to indicate a feature change ([`ddb9917`](https://github.com/Byron/trash-rs/commit/ddb99171715727a3339d4a9e2f07a517037b01db))
     - Merge pull request #81 from TD-Sky/re-restore ([`c87a946`](https://github.com/Byron/trash-rs/commit/c87a9467235e6208e2268d392ac61f332b4d1d09))
     - Test edition bump ([`b77bd6d`](https://github.com/Byron/trash-rs/commit/b77bd6d32f8d44f59b9fe53806248d0b0860aa18))
