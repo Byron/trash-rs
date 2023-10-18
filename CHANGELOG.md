@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+This release fixes compile errors on DragonFly, a fork of FreeBSD.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Prepare changelog ([`654992e`](https://github.com/Byron/trash-rs/commit/654992e1eb26b3f17f75e67ec5cd9356577c8abc))
+    - Merge pull request #89 from jbeich/dragonfly ([`ad26100`](https://github.com/Byron/trash-rs/commit/ad261004b4fe350bf7963cc4354e4b5808c61156))
+    - Add DragonFly support via FreeBSD codepath ([`ed1984b`](https://github.com/Byron/trash-rs/commit/ed1984b923a7cdd7dbf03484d02b5da07e27779c))
+</details>
+
 ## 3.1.1 (2023-10-18)
 
 ### Bug Fixes
@@ -15,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release over the course of 9 calendar days.
+ - 5 commits contributed to the release over the course of 9 calendar days.
  - 9 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v3.1.1 ([`aa6fd20`](https://github.com/Byron/trash-rs/commit/aa6fd20ec75585f7cda5e8745a6cafd2c5b26e91))
     - Compilation on FreeBSD should work now. #(86) ([`1a5bc2d`](https://github.com/Byron/trash-rs/commit/1a5bc2de178ca76fe06631a09305e4f014764084))
     - Update freedesktop.rs ([`aa7b7fd`](https://github.com/Byron/trash-rs/commit/aa7b7fd66573631cf17b031b90e5e0139f0fdab6))
     - Restore statfs for FreeBSD & OpenBSD ([`1562113`](https://github.com/Byron/trash-rs/commit/1562113e12f9020a9c3f866e5adf5e913f4040e6))
