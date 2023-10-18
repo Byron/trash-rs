@@ -132,7 +132,7 @@ where
 }
 
 /// Provides information about an error.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Unknown {
         description: String,
