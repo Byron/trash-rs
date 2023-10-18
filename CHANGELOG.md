@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 3.1.2 (2023-10-18)
 
 This release fixes compile errors on DragonFly, a fork of FreeBSD.
 
@@ -24,7 +24,7 @@ This release fixes compile errors on DragonFly, a fork of FreeBSD.
 <details><summary>view details</summary>
 
  * **Uncategorized**
-    - Prepare changelog ([`654992e`](https://github.com/Byron/trash-rs/commit/654992e1eb26b3f17f75e67ec5cd9356577c8abc))
+    - Prepare changelog ([`c81d4dd`](https://github.com/Byron/trash-rs/commit/c81d4ddccc9bd30b5baecb9c69f01437b467a703))
     - Merge pull request #89 from jbeich/dragonfly ([`ad26100`](https://github.com/Byron/trash-rs/commit/ad261004b4fe350bf7963cc4354e4b5808c61156))
     - Add DragonFly support via FreeBSD codepath ([`ed1984b`](https://github.com/Byron/trash-rs/commit/ed1984b923a7cdd7dbf03484d02b5da07e27779c))
 </details>
