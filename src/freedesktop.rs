@@ -761,7 +761,7 @@ mod tests {
         env,
         ffi::OsString,
         fmt,
-        fs::{File, remove_dir_all},
+        fs::{remove_dir_all, File},
         os::unix,
         path::{Path, PathBuf},
         process::Command,
