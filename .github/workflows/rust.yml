@@ -11,42 +11,72 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        rust:
-          - stable
-          # - nightly
+        build: [linux, macos, windows, netbsd]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - build: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - build: netbsd
+            os: ubuntu-22.04
+            target: x86_64-unknown-netbsd
 
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: ${{ matrix.rust }}
-        override: true
-        components: rustfmt, clippy
-    - uses: Swatinem/rust-cache@v1
-    - name: cargo build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --verbose
-    - name: cargo test
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --verbose
-    - name: cargo test (without chrono)
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --verbose --no-default-features --features coinit_apartmentthreaded
-    - name: cargo fmt
-      uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: --all -- --check
-    - name: cargo clippy
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: -- -D warnings
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: Use Cross
+        shell: bash
+        run: |
+          cargo install cross
+          echo "CARGO=cross" >> $GITHUB_ENV
+          echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
+
+      - name: Show command used for Cargo
+        run: |
+          echo "cargo command is: ${{ env.CARGO }}"
+          echo "target flag is: ${{ env.TARGET_FLAGS }}"
+          echo "target dir is: ${{ env.TARGET_DIR }}"
+
+      - name: cargo test
+        if: ${{ !startsWith(matrix.build, 'netbsd') }}
+        run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }}
+
+      - name: cargo test (without chrono)
+        if: ${{ !startsWith(matrix.build, 'netbsd') }}
+        run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
+
+      - name: cargo build
+        if: ${{ startsWith(matrix.build, 'netbsd') }}
+        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }}
+
+      - name: cargo build (without chrono)
+        if: ${{ startsWith(matrix.build, 'netbsd') }}
+        run: ${{ env.CARGO }} build --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
+
+      - name: cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
