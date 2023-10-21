@@ -51,7 +51,9 @@ jobs:
         run: |
           echo "cargo command is: ${{ env.CARGO }}"
           echo "target flag is: ${{ env.TARGET_FLAGS }}"
-          echo "target dir is: ${{ env.TARGET_DIR }}"
+
+      - name: cargo build
+        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }}
 
       - name: cargo test
         run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }}
