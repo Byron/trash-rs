@@ -54,20 +54,10 @@ jobs:
           echo "target dir is: ${{ env.TARGET_DIR }}"
 
       - name: cargo test
-        if: ${{ !startsWith(matrix.build, 'netbsd') }}
         run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }}
 
       - name: cargo test (without chrono)
-        if: ${{ !startsWith(matrix.build, 'netbsd') }}
         run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
-
-      - name: cargo build
-        if: ${{ startsWith(matrix.build, 'netbsd') }}
-        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }}
-
-      - name: cargo build (without chrono)
-        if: ${{ startsWith(matrix.build, 'netbsd') }}
-        run: ${{ env.CARGO }} build --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
 
       - name: cargo fmt
         uses: actions-rs/cargo@v1
