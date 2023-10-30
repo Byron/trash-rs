@@ -43,11 +43,12 @@ impl TrashContext {
                 debug!("The topdir was identical to the home topdir, so moving to the home trash.");
                 // Note that the following function creates the trash folder
                 // and its required subfolders in case they don't exist.
-                move_to_trash(path, &home_trash, topdir)?;
+                move_to_trash(path, &home_trash, topdir).map_err(|(p, e)| fs_error(p, e))?;
             } else {
                 execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
                     move_to_trash(&path, trash_path, topdir)
-                })?;
+                })
+                .map_err(|(p, e)| fs_error(p, e))?;
             }
         }
         Ok(())
@@ -85,7 +86,8 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         execute_on_mounted_trash_folders(uid, &mount.mnt_dir, false, false, |trash_path| {
             trash_folders.insert(trash_path);
             Ok(())
-        })?;
+        })
+        .map_err(|(p, e)| fs_error(p, e))?;
     }
     if trash_folders.is_empty() {
         warn!("No trash folder was found. The error when looking for the 'home trash' was: {:?}", home_error);
@@ -240,14 +242,14 @@ where
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
         let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(virtually_exists(&file).map_err(|e| (&file, e))?);
+        assert!(virtually_exists(&file).map_err(|e| fs_error(&file, e))?);
         if file.is_dir() {
-            fs::remove_dir_all(&file).map_err(|e| (&file, e))?;
+            fs::remove_dir_all(&file).map_err(|e| fs_error(&file, e))?;
         // TODO Update directory size cache if there's one.
         } else {
-            fs::remove_file(&file).map_err(|e| (&file, e))?;
+            fs::remove_file(&file).map_err(|e| fs_error(&file, e))?;
         }
-        fs::remove_file(info_file).map_err(|e| (info_file, e))?;
+        fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
     }
 
     Ok(())
@@ -277,12 +279,12 @@ where
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
         let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(virtually_exists(&file).map_err(|e| (&file, e))?);
+        assert!(virtually_exists(&file).map_err(|e| fs_error(&file, e))?);
         // TODO add option to forcefully replace any target at the restore location
         // if it already exists.
         let original_path = item.original_path();
         // Make sure the parent exists so that `create_dir` doesn't faile due to that.
-        fs::create_dir_all(&item.original_parent).map_err(|e| (&item.original_parent, e))?;
+        fs::create_dir_all(&item.original_parent).map_err(|e| fs_error(&item.original_parent, e))?;
         let mut collision = false;
         if file.is_dir() {
             // NOTE create_dir_all succeeds when the path already exist but create_dir
@@ -291,7 +293,7 @@ where
                 if e.kind() == io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
-                    return Err((&original_path, e).into());
+                    return Err(fs_error(&original_path, e));
                 }
             }
         } else {
@@ -300,7 +302,7 @@ where
                 if e.kind() == io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
-                    return Err((&original_path, e).into());
+                    return Err(fs_error(&original_path, e));
                 }
             }
         }
@@ -308,8 +310,8 @@ where
             let remaining: Vec<_> = std::iter::once(item).chain(iter).collect();
             return Err(Error::RestoreCollision { path: original_path, remaining_items: remaining });
         }
-        fs::rename(&file, &original_path).map_err(|e| (&file, e))?;
-        fs::remove_file(info_file).map_err(|e| (info_file, e))?;
+        fs::rename(&file, &original_path).map_err(|e| fs_error(&file, e))?;
+        fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
     }
     Ok(())
 }
@@ -1085,8 +1087,6 @@ mod tests {
     }
 }
 
-impl<P: Into<PathBuf>> From<(P, io::Error)> for Error {
-    fn from((path, source): (P, io::Error)) -> Self {
-        Self::FileSystem { path: path.into(), source }
-    }
+fn fs_error(path: impl Into<PathBuf>, source: io::Error) -> Error {
+    Error::FileSystem { path: path.into(), source }
 }
