@@ -207,7 +207,15 @@ impl fmt::Display for Error {
         write!(f, "Error during a `trash` operation: {self:?}")
     }
 }
-impl error::Error for Error {}
+impl error::Error for Error {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+            Self::FileSystem { path: _, source: e } => e.source(),
+            _ => None,
+        }
+    }
+}
 pub fn into_unknown<E: std::fmt::Display>(err: E) -> Error {
     Error::Unknown { description: format!("{err}") }
 }

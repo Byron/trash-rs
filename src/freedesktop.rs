@@ -9,8 +9,8 @@
 use std::{
     borrow::Borrow,
     collections::HashSet,
-    fs::{self, File, OpenOptions},
-    io::{self, BufRead, BufReader, Write},
+    fs::{File, OpenOptions},
+    io::{BufRead, BufReader, Write},
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
@@ -19,7 +19,7 @@ use log::{debug, warn};
 
 use crate::{Error, TrashContext, TrashItem};
 
-type FsError = (PathBuf, io::Error);
+type FsError = (PathBuf, std::io::Error);
 
 #[derive(Clone, Default, Debug)]
 pub struct PlatformTrashContext;
@@ -103,7 +103,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             warn!("The path {:?} did not point to a directory, skipping this trash folder.", info_folder);
             continue;
         }
-        let read_dir = match fs::read_dir(&info_folder) {
+        let read_dir = match std::fs::read_dir(&info_folder) {
             Ok(d) => d,
             Err(e) => {
                 // After all the earlier checks, it's still possible that the directory does not exist at this point (or is not readable)
@@ -224,7 +224,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
 /// - nothing => Ok(false)
 /// - I/O Error => Err(Io)
 #[inline]
-fn virtually_exists(path: &Path) -> io::Result<bool> {
+fn virtually_exists(path: &Path) -> std::io::Result<bool> {
     Ok(path.try_exists()? || path.is_symlink())
 }
 
@@ -244,12 +244,12 @@ where
         let file = restorable_file_in_trash_from_info_file(info_file);
         assert!(virtually_exists(&file).map_err(|e| fs_error(&file, e))?);
         if file.is_dir() {
-            fs::remove_dir_all(&file).map_err(|e| fs_error(&file, e))?;
+            std::fs::remove_dir_all(&file).map_err(|e| fs_error(&file, e))?;
         // TODO Update directory size cache if there's one.
         } else {
-            fs::remove_file(&file).map_err(|e| fs_error(&file, e))?;
+            std::fs::remove_file(&file).map_err(|e| fs_error(&file, e))?;
         }
-        fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
+        std::fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
     }
 
     Ok(())
@@ -284,13 +284,13 @@ where
         // if it already exists.
         let original_path = item.original_path();
         // Make sure the parent exists so that `create_dir` doesn't faile due to that.
-        fs::create_dir_all(&item.original_parent).map_err(|e| fs_error(&item.original_parent, e))?;
+        std::fs::create_dir_all(&item.original_parent).map_err(|e| fs_error(&item.original_parent, e))?;
         let mut collision = false;
         if file.is_dir() {
             // NOTE create_dir_all succeeds when the path already exist but create_dir
             // fails with `std::io::ErrorKind::AlreadyExists`.
-            if let Err(e) = fs::create_dir(&original_path) {
-                if e.kind() == io::ErrorKind::AlreadyExists {
+            if let Err(e) = std::fs::create_dir(&original_path) {
+                if e.kind() == std::io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
                     return Err(fs_error(&original_path, e));
@@ -299,7 +299,7 @@ where
         } else {
             // File or symlink
             if let Err(e) = OpenOptions::new().create_new(true).write(true).open(&original_path) {
-                if e.kind() == io::ErrorKind::AlreadyExists {
+                if e.kind() == std::io::ErrorKind::AlreadyExists {
                     collision = true;
                 } else {
                     return Err(fs_error(&original_path, e));
@@ -310,8 +310,8 @@ where
             let remaining: Vec<_> = std::iter::once(item).chain(iter).collect();
             return Err(Error::RestoreCollision { path: original_path, remaining_items: remaining });
         }
-        fs::rename(&file, &original_path).map_err(|e| fs_error(&file, e))?;
-        fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
+        std::fs::rename(&file, &original_path).map_err(|e| fs_error(&file, e))?;
+        std::fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
     }
     Ok(())
 }
@@ -355,7 +355,7 @@ where
     let should_execute;
     if !trash_path.exists() || !trash_path.is_dir() {
         if create_folder {
-            fs::create_dir(&trash_path).map_err(|e| (trash_path.to_owned(), e))?;
+            std::fs::create_dir(&trash_path).map_err(|e| (trash_path.to_owned(), e))?;
             should_execute = true;
         } else {
             should_execute = false;
@@ -380,8 +380,8 @@ fn move_to_trash(
     let info_folder = trash_folder.join("info");
 
     // Ensure the `files` and `info` folders exist
-    fs::create_dir_all(&files_folder).map_err(|e| (files_folder.to_owned(), e))?;
-    fs::create_dir_all(&info_folder).map_err(|e| (info_folder.to_owned(), e))?;
+    std::fs::create_dir_all(&files_folder).map_err(|e| (files_folder.to_owned(), e))?;
+    std::fs::create_dir_all(&info_folder).map_err(|e| (info_folder.to_owned(), e))?;
 
     // This kind of validity must only apply ot administrator style trash folders
     // See Trash directories, (1) at https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html
@@ -411,7 +411,7 @@ fn move_to_trash(
         let info_result = OpenOptions::new().create_new(true).write(true).open(&info_file_path);
         match info_result {
             Err(error) => {
-                if error.kind() == io::ErrorKind::AlreadyExists {
+                if error.kind() == std::io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
                     debug!("Failed to create the new file {:?}", info_file_path);
@@ -444,10 +444,10 @@ fn move_to_trash(
             Err((path, error)) => {
                 debug!("Failed moving item to the trash (this is usually OK). {:?}", error);
                 // Try to delete the info file
-                if let Err(info_err) = fs::remove_file(info_file_path) {
+                if let Err(info_err) = std::fs::remove_file(info_file_path) {
                     warn!("Created the trash info file, then failed to move the item to the trash. So far it's OK, but then failed remove the initial info file. There's either a bug in this program or another faulty program is manupulating the Trash. The error was: {:?}", info_err);
                 }
-                if error.kind() == io::ErrorKind::AlreadyExists {
+                if error.kind() == std::io::ErrorKind::AlreadyExists {
                     continue;
                 } else {
                     return Err((path, error));
@@ -475,7 +475,7 @@ fn execute_src_to_dst_operation(
     let metadata = src.symlink_metadata().map_err(|e| (src.to_owned(), e))?;
     if metadata.is_dir() {
         dir(dst)?;
-        let dir_entries = fs::read_dir(src).map_err(|e| (src.to_owned(), e))?;
+        let dir_entries = std::fs::read_dir(src).map_err(|e| (src.to_owned(), e))?;
         for entry in dir_entries {
             // Forward the error because it's not okay if something is happening
             // to the files while we are trying to move them.
@@ -498,16 +498,16 @@ fn move_items_no_replace(src: &Path, dst: &Path) -> Result<(), FsError> {
     // All placeholders are in place. LET'S OVERWRITE
     execute_src_to_dst_operation(src, dst, &|_| Ok(()), &|src, dst| {
         if let Some(parent) = dst.parent() {
-            if let Err(err) = fs::create_dir_all(parent) {
+            if let Err(err) = std::fs::create_dir_all(parent) {
                 warn!("Failed to create destination directory. It probably already exists. {:?}", err);
             }
         }
-        fs::rename(src, dst).map_err(|e| (src.to_owned(), e))
+        std::fs::rename(src, dst).map_err(|e| (src.to_owned(), e))
     })?;
 
     // Once everything is moved, lets recursively remove the directory
     if src.is_dir() {
-        fs::remove_dir_all(src).map_err(|e| (src.to_owned(), e))?;
+        std::fs::remove_dir_all(src).map_err(|e| (src.to_owned(), e))?;
     }
     Ok(())
 }
@@ -516,7 +516,7 @@ fn try_creating_placeholders(src: &Path, dst: &Path) -> Result<(), FsError> {
     let metadata = src.symlink_metadata().map_err(|e| (src.to_owned(), e))?;
     if metadata.is_dir() {
         // NOTE create_dir fails if the directory already exists
-        fs::create_dir(dst).map_err(|e| (dst.to_owned(), e))?;
+        std::fs::create_dir(dst).map_err(|e| (dst.to_owned(), e))?;
     } else {
         // Symlink or file
         OpenOptions::new().create_new(true).write(true).open(dst).map_err(|e| (dst.to_owned(), e))?;
@@ -1087,6 +1087,6 @@ mod tests {
     }
 }
 
-fn fs_error(path: impl Into<PathBuf>, source: io::Error) -> Error {
+fn fs_error(path: impl Into<PathBuf>, source: std::io::Error) -> Error {
     Error::FileSystem { path: path.into(), source }
 }
