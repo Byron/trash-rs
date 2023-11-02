@@ -324,17 +324,15 @@ where
 /// This function executes `op` providing it with a
 /// trash-folder path that's associated with the partition mounted at `topdir`.
 ///
-fn execute_on_mounted_trash_folders<F>(
+fn execute_on_mounted_trash_folders<F: FnMut(PathBuf) -> Result<(), FsError>>(
     uid: u32,
-    topdir: &Path,
+    topdir: impl AsRef<Path>,
     first_only: bool,
     create_folder: bool,
     mut op: F,
-) -> Result<(), FsError>
-where
-    F: FnMut(PathBuf) -> Result<(), FsError>,
-{
+) -> Result<(), FsError> {
     // See if there's a ".Trash" directory at the mounted location
+    let topdir = topdir.as_ref();
     let trash_path = topdir.join(".Trash");
     if trash_path.is_dir() {
         let validity = folder_validity(&trash_path)?;
@@ -463,12 +461,16 @@ fn move_to_trash(
     Ok(())
 }
 
-fn execute_src_to_dst_operation(
-    src: impl AsRef<Path>,
-    dst: impl AsRef<Path>,
+fn execute_src_to_dst_operation<S1, D1>(
+    src: S1,
+    dst: D1,
     dir: &'static dyn Fn(&Path) -> Result<(), FsError>,
     file: &'static dyn Fn(&Path, &Path) -> Result<(), FsError>,
-) -> Result<(), FsError> {
+) -> Result<(), FsError>
+where
+    S1: AsRef<Path>,
+    D1: AsRef<Path>,
+{
     let src = src.as_ref();
     let dst = dst.as_ref();
 
@@ -492,7 +494,10 @@ fn execute_src_to_dst_operation(
 }
 
 /// An error may mean that a collision was found.
-fn move_items_no_replace(src: &Path, dst: &Path) -> Result<(), FsError> {
+fn move_items_no_replace(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), FsError> {
+    let src = src.as_ref();
+    let dst = dst.as_ref();
+
     try_creating_placeholders(src, dst)?;
 
     // All placeholders are in place. LET'S OVERWRITE
@@ -512,7 +517,9 @@ fn move_items_no_replace(src: &Path, dst: &Path) -> Result<(), FsError> {
     Ok(())
 }
 
-fn try_creating_placeholders(src: &Path, dst: &Path) -> Result<(), FsError> {
+fn try_creating_placeholders(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), FsError> {
+    let src = src.as_ref();
+    let dst = dst.as_ref();
     let metadata = src.symlink_metadata().map_err(|e| (src.to_owned(), e))?;
     if metadata.is_dir() {
         // NOTE create_dir fails if the directory already exists
@@ -542,11 +549,12 @@ enum TrashValidity {
     InvalidNotSticky,
 }
 
-fn folder_validity(path: &Path) -> Result<TrashValidity, FsError> {
+fn folder_validity(path: impl AsRef<Path>) -> Result<TrashValidity, FsError> {
     /// Mask for the sticky bit
     /// Taken from: http://man7.org/linux/man-pages/man7/inode.7.html
     const S_ISVTX: u32 = 0x1000;
 
+    let path = path.as_ref();
     let metadata = path.symlink_metadata().map_err(|e| (path.to_owned(), e))?;
     if metadata.file_type().is_symlink() {
         return Ok(TrashValidity::InvalidSymlink);
