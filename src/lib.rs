@@ -304,6 +304,15 @@ impl Hash for TrashItem {
     }
 }
 
+/// Metadata about a [`TrashItem`]
+#[derive(Debug, Clone)]
+pub struct TrashItemMetadata {
+    /// True if the [`TrashItem`] is a directory, false if it is a file
+    pub is_dir: bool,
+    /// Number of entries for directories, number of bytes for files
+    pub size: u64,
+}
+
 #[cfg(any(
     target_os = "windows",
     all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))
@@ -318,7 +327,7 @@ pub mod os_limited {
         hash::{Hash, Hasher},
     };
 
-    use super::{platform, Error, TrashItem};
+    use super::{platform, Error, TrashItem, TrashItemMetadata};
 
     /// Returns all [`TrashItem`]s that are currently in the trash.
     ///
@@ -333,6 +342,21 @@ pub mod os_limited {
     /// ```
     pub fn list() -> Result<Vec<TrashItem>, Error> {
         platform::list()
+    }
+
+    /// Returns the [`TrashItemMetadata`] for a [`TrashItem`]
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use trash::os_limited::{list, metadata};
+    /// let trash_items = list().unwrap();
+    /// for item in trash_items {
+    ///     println!("{:#?}", metadata(&item).unwrap());
+    /// }
+    /// ```
+    pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
+        platform::metadata(item)
     }
 
     /// Deletes all the provided [`TrashItem`]s permanently.
