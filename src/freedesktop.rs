@@ -808,6 +808,18 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     Ok(result)
 }
 
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd"
+)))]
+fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
+    // On platforms that don't have support yet, simply return no mount points
+    Ok(Vec::new())
+}
+
 #[cfg(test)]
 mod tests {
     use serial_test::serial;
