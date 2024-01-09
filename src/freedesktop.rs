@@ -17,7 +17,7 @@ use std::{
 
 use log::{debug, warn};
 
-use crate::{Error, TrashContext, TrashItem, TrashItemMetadata};
+use crate::{Error, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
 
 type FsError = (PathBuf, std::io::Error);
 
@@ -223,15 +223,15 @@ pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
     // which is the filename in the `id` field.
     let info_file = &item.id;
 
-    // A bunch of unwraps here. This is fine because if any of these fail that means
-    // that either there's a bug in this code or the target system didn't follow
-    // the specification.
     let file = restorable_file_in_trash_from_info_file(info_file);
     assert!(virtually_exists(&file).map_err(|e| fs_error(&file, e))?);
     let metadata = fs::symlink_metadata(&file).map_err(|e| fs_error(&file, e))?;
     let is_dir = metadata.is_dir();
-    let size =
-        if is_dir { fs::read_dir(&file).map_err(|e| fs_error(&file, e))?.count() as u64 } else { metadata.len() };
+    let size = if is_dir {
+        TrashItemSize::Entries(fs::read_dir(&file).map_err(|e| fs_error(&file, e))?.count())
+    } else {
+        TrashItemSize::Bytes(metadata.len())
+    };
     Ok(TrashItemMetadata { is_dir, size })
 }
 
@@ -259,7 +259,6 @@ where
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
         let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(virtually_exists(&file).map_err(|e| fs_error(&file, e))?);
         if file.is_dir() {
             std::fs::remove_dir_all(&file).map_err(|e| fs_error(&file, e))?;
         // TODO Update directory size cache if there's one.
@@ -816,8 +815,8 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     target_os = "netbsd"
 )))]
 fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
-    // On platforms that don't have support yet, simply return no mount points
-    Ok(Vec::new())
+    // On platforms that don't have support yet, return an error
+    Err(Error::Unknown { description: "Mount points cannot be determined on this operating system".into() })
 }
 
 #[cfg(test)]

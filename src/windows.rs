@@ -1,4 +1,4 @@
-use crate::{Error, TrashContext, TrashItem, TrashItemMetadata};
+use crate::{Error, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
 use std::{
     borrow::Borrow,
     ffi::{c_void, OsStr, OsString},
@@ -129,39 +129,37 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
 
 pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
     ensure_com_initialized();
-    unsafe {
-        let id_as_wide: Vec<u16> = item.id.encode_wide().chain(std::iter::once(0)).collect();
-        let parsing_name = PCWSTR(id_as_wide.as_ptr());
-        let item: IShellItem = SHCreateItemFromParsingName(parsing_name, None)?;
-        let is_dir = item.GetAttributes(SFGAO_FOLDER)? == SFGAO_FOLDER;
-        let size = if is_dir {
-            let pesi: IEnumShellItems = item.BindToHandler(None, &BHID_EnumItems)?;
-            let mut size = 0;
-            loop {
-                let mut fetched_count: u32 = 0;
-                let mut arr = [None];
-                pesi.Next(&mut arr, Some(&mut fetched_count as *mut u32))?;
+    let id_as_wide: Vec<u16> = item.id.encode_wide().chain(std::iter::once(0)).collect();
+    let parsing_name = PCWSTR(id_as_wide.as_ptr());
+    let item: IShellItem = unsafe { SHCreateItemFromParsingName(parsing_name, None)? };
+    let is_dir = unsafe { item.GetAttributes(SFGAO_FOLDER)? } == SFGAO_FOLDER;
+    let size = if is_dir {
+        let pesi: IEnumShellItems = unsafe { item.BindToHandler(None, &BHID_EnumItems)? };
+        let mut size = 0;
+        loop {
+            let mut fetched_count: u32 = 0;
+            let mut arr = [None];
+            unsafe { pesi.Next(&mut arr, Some(&mut fetched_count as *mut u32))? };
 
-                if fetched_count == 0 {
+            if fetched_count == 0 {
+                break;
+            }
+
+            match &arr[0] {
+                Some(_item) => {
+                    size += 1;
+                }
+                None => {
                     break;
                 }
-
-                match &arr[0] {
-                    Some(_item) => {
-                        size += 1;
-                    }
-                    None => {
-                        break;
-                    }
-                }
             }
-            size
-        } else {
-            let item2: IShellItem2 = item.cast()?;
-            item2.GetUInt64(&PKEY_Size)?
-        };
-        Ok(TrashItemMetadata { is_dir, size })
-    }
+        }
+        TrashItemSize::Entries(size)
+    } else {
+        let item2: IShellItem2 = item.cast()?;
+        TrashItemSize::Bytes(unsafe { item2.GetUInt64(&PKEY_Size)? })
+    };
+    Ok(TrashItemMetadata { is_dir, size })
 }
 
 pub fn purge_all<I>(items: I) -> Result<(), Error>

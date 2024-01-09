@@ -304,13 +304,22 @@ impl Hash for TrashItem {
     }
 }
 
+/// Size of a [`TrashItem`] in bytes or entries
+#[derive(Debug, Clone)]
+pub enum TrashItemSize {
+    /// Number of bytes in a file
+    Bytes(u64),
+    /// Number of entries in a directory, non-recursive
+    Entries(usize),
+}
+
 /// Metadata about a [`TrashItem`]
 #[derive(Debug, Clone)]
 pub struct TrashItemMetadata {
     /// True if the [`TrashItem`] is a directory, false if it is a file
     pub is_dir: bool,
-    /// Number of entries for directories, number of bytes for files
-    pub size: u64,
+    /// The size of the item, as a [`TrashItemSize`] enum
+    pub size: TrashItemSize,
 }
 
 #[cfg(any(
