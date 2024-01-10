@@ -304,6 +304,40 @@ impl Hash for TrashItem {
     }
 }
 
+/// Size of a [`TrashItem`] in bytes or entries
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub enum TrashItemSize {
+    /// Number of bytes in a file
+    Bytes(u64),
+    /// Number of entries in a directory, non-recursive
+    Entries(usize),
+}
+
+impl TrashItemSize {
+    /// The size of a file in bytes, if this item is a file.
+    pub fn size(&self) -> Option<u64> {
+        match self {
+            TrashItemSize::Bytes(s) => Some(*s),
+            TrashItemSize::Entries(_) => None,
+        }
+    }
+
+    /// The amount of entries in the directory, if this is a directory.
+    pub fn entries(&self) -> Option<usize> {
+        match self {
+            TrashItemSize::Bytes(_) => None,
+            TrashItemSize::Entries(e) => Some(*e),
+        }
+    }
+}
+
+/// Metadata about a [`TrashItem`]
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub struct TrashItemMetadata {
+    /// The size of the item, depending on whether or not it is a directory.
+    pub size: TrashItemSize,
+}
+
 #[cfg(any(
     target_os = "windows",
     all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))
@@ -318,7 +352,7 @@ pub mod os_limited {
         hash::{Hash, Hasher},
     };
 
-    use super::{platform, Error, TrashItem};
+    use super::{platform, Error, TrashItem, TrashItemMetadata};
 
     /// Returns all [`TrashItem`]s that are currently in the trash.
     ///
@@ -333,6 +367,21 @@ pub mod os_limited {
     /// ```
     pub fn list() -> Result<Vec<TrashItem>, Error> {
         platform::list()
+    }
+
+    /// Returns the [`TrashItemMetadata`] for a [`TrashItem`]
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use trash::os_limited::{list, metadata};
+    /// let trash_items = list().unwrap();
+    /// for item in trash_items {
+    ///     println!("{:#?}", metadata(&item).unwrap());
+    /// }
+    /// ```
+    pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
+        platform::metadata(item)
     }
 
     /// Deletes all the provided [`TrashItem`]s permanently.

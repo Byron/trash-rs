@@ -9,7 +9,7 @@
 use std::{
     borrow::Borrow,
     collections::HashSet,
-    fs::{File, OpenOptions},
+    fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Write},
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
@@ -17,7 +17,7 @@ use std::{
 
 use log::{debug, warn};
 
-use crate::{Error, TrashContext, TrashItem};
+use crate::{Error, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
 
 type FsError = (PathBuf, std::io::Error);
 
@@ -218,6 +218,23 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     Ok(result)
 }
 
+pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
+    // When purging an item the "in-trash" filename must be parsed from the trashinfo filename
+    // which is the filename in the `id` field.
+    let info_file = &item.id;
+
+    let file = restorable_file_in_trash_from_info_file(info_file);
+    assert!(virtually_exists(&file).map_err(|e| fs_error(&file, e))?);
+    let metadata = fs::symlink_metadata(&file).map_err(|e| fs_error(&file, e))?;
+    let is_dir = metadata.is_dir();
+    let size = if is_dir {
+        TrashItemSize::Entries(fs::read_dir(&file).map_err(|e| fs_error(&file, e))?.count())
+    } else {
+        TrashItemSize::Bytes(metadata.len())
+    };
+    Ok(TrashItemMetadata { size })
+}
+
 /// The path points to:
 /// - existing file | directory | symlink => Ok(true)
 /// - broken symlink => Ok(true)
@@ -242,7 +259,6 @@ where
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
         let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(virtually_exists(&file).map_err(|e| fs_error(&file, e))?);
         if file.is_dir() {
             std::fs::remove_dir_all(&file).map_err(|e| fs_error(&file, e))?;
         // TODO Update directory size cache if there's one.
@@ -789,6 +805,18 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
         result.push(mount_point);
     }
     Ok(result)
+}
+
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd"
+)))]
+fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
+    // On platforms that don't have support yet, return an error
+    Err(Error::Unknown { description: "Mount points cannot be determined on this operating system".into() })
 }
 
 #[cfg(test)]

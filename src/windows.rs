@@ -1,4 +1,4 @@
-use crate::{Error, TrashContext, TrashItem};
+use crate::{Error, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
 use std::{
     borrow::Borrow,
     ffi::{c_void, OsStr, OsString},
@@ -7,7 +7,10 @@ use std::{
     path::PathBuf,
 };
 use windows::core::{Interface, GUID, PCWSTR, PWSTR};
-use windows::Win32::{Foundation::*, System::Com::*, UI::Shell::PropertiesSystem::*, UI::Shell::*};
+use windows::Win32::{
+    Foundation::*, Storage::EnhancedStorage::*, System::Com::*, System::SystemServices::*,
+    UI::Shell::PropertiesSystem::*, UI::Shell::*,
+};
 
 ///////////////////////////////////////////////////////////////////////////
 // These don't have bindings in windows-rs for some reason
@@ -35,6 +38,10 @@ impl From<windows::core::Error> for Error {
     }
 }
 
+fn to_wide_path(path: impl AsRef<OsStr>) -> Vec<u16> {
+    path.as_ref().encode_wide().chain(std::iter::once(0)).collect()
+}
+
 #[derive(Clone, Default, Debug)]
 pub struct PlatformTrashContext;
 impl PlatformTrashContext {
@@ -53,8 +60,7 @@ impl TrashContext {
 
             for full_path in full_paths.iter() {
                 let path_prefix = ['\\' as u16, '\\' as u16, '?' as u16, '\\' as u16];
-                let wide_path_container: Vec<_> =
-                    full_path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+                let wide_path_container = to_wide_path(full_path);
                 let wide_path_slice = if wide_path_container.starts_with(&path_prefix) {
                     &wide_path_container[path_prefix.len()..]
                 } else {
@@ -70,7 +76,7 @@ impl TrashContext {
         }
     }
 
-    /// Removes all files and folder paths recursively.  
+    /// Removes all files and folder paths recursively.
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         let mut collection = Vec::new();
         traverse_paths_recursively(full_paths, &mut collection)?;
@@ -124,6 +130,41 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     }
 }
 
+pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
+    ensure_com_initialized();
+    let id_as_wide = to_wide_path(&item.id);
+    let parsing_name = PCWSTR(id_as_wide.as_ptr());
+    let item: IShellItem = unsafe { SHCreateItemFromParsingName(parsing_name, None)? };
+    let is_dir = unsafe { item.GetAttributes(SFGAO_FOLDER)? } == SFGAO_FOLDER;
+    let size = if is_dir {
+        let pesi: IEnumShellItems = unsafe { item.BindToHandler(None, &BHID_EnumItems)? };
+        let mut size = 0;
+        loop {
+            let mut fetched_count: u32 = 0;
+            let mut arr = [None];
+            unsafe { pesi.Next(&mut arr, Some(&mut fetched_count as *mut u32))? };
+
+            if fetched_count == 0 {
+                break;
+            }
+
+            match &arr[0] {
+                Some(_item) => {
+                    size += 1;
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+        TrashItemSize::Entries(size)
+    } else {
+        let item2: IShellItem2 = item.cast()?;
+        TrashItemSize::Bytes(unsafe { item2.GetUInt64(&PKEY_Size)? })
+    };
+    Ok(TrashItemMetadata { size })
+}
+
 pub fn purge_all<I>(items: I) -> Result<(), Error>
 where
     I: IntoIterator,
@@ -136,7 +177,7 @@ where
         let mut at_least_one = false;
         for item in items {
             at_least_one = true;
-            let id_as_wide: Vec<u16> = item.borrow().id.encode_wide().chain(std::iter::once(0)).collect();
+            let id_as_wide = to_wide_path(&item.borrow().id);
             let parsing_name = PCWSTR(id_as_wide.as_ptr());
             let trash_item: IShellItem = SHCreateItemFromParsingName(parsing_name, None)?;
             pfo.DeleteItem(&trash_item, None)?;
@@ -172,14 +213,12 @@ where
         let pfo: IFileOperation = CoCreateInstance(&FileOperation as *const _, None, CLSCTX_ALL)?;
         pfo.SetOperationFlags(FOF_NO_UI | FOFX_EARLYFAILURE)?;
         for item in items.iter() {
-            let id_as_wide: Vec<u16> = item.id.encode_wide().chain(std::iter::once(0)).collect();
+            let id_as_wide = to_wide_path(&item.id);
             let parsing_name = PCWSTR(id_as_wide.as_ptr());
             let trash_item: IShellItem = SHCreateItemFromParsingName(parsing_name, None)?;
-            let parent_path_wide: Vec<_> =
-                item.original_parent.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+            let parent_path_wide = to_wide_path(&item.original_parent);
             let orig_folder_shi: IShellItem = SHCreateItemFromParsingName(PCWSTR(parent_path_wide.as_ptr()), None)?;
-            let name_wstr: Vec<_> =
-                AsRef::<OsStr>::as_ref(&item.name).encode_wide().chain(std::iter::once(0)).collect();
+            let name_wstr = to_wide_path(&item.name);
 
             pfo.MoveItem(&trash_item, &orig_folder_shi, PCWSTR(name_wstr.as_ptr()), None)?;
         }
