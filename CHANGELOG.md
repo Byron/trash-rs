@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.2.0 (2024-01-10)
+
+### New Features
+
+ - <csr-id-aa8e5043e285d31644e697aa264f8a11e5dfa2e8/> provide `os_limited::metadata()`.
+   Metadata is currently limited to the amount of things, like bytes or entries,
+   in the metadata item, but there is potential for adding more later.
+
+### Other
+
+ - <csr-id-be43b098c6c4db66f19c90471cd6ff0c066832ef/> update ci job to use cargo-cross
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 13 commits contributed to the release over the course of 82 calendar days.
+ - 83 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Provide `os_limited::metadata()`. ([`aa8e504`](https://github.com/Byron/trash-rs/commit/aa8e5043e285d31644e697aa264f8a11e5dfa2e8))
+    - Refactor ([`8dad3df`](https://github.com/Byron/trash-rs/commit/8dad3dfc45657962a57a932c40bc37ea1ebe0d7f))
+    - Address review comments ([`63639c3`](https://github.com/Byron/trash-rs/commit/63639c3337cc282a1aaa69ef5afd00f8516e3dcd))
+    - Stub for get_mount_points on unsupported targets ([`fd89ea5`](https://github.com/Byron/trash-rs/commit/fd89ea5d780fa111d12fbe6644dc4153a78565c5))
+    - Windows implementation ([`1a1f75e`](https://github.com/Byron/trash-rs/commit/1a1f75e59b4c18abdf6bc8790a4e54b53dff50df))
+    - Add metadata function, implement for freedesktop ([`3bea3e2`](https://github.com/Byron/trash-rs/commit/3bea3e2f11d5def136455e7bc2377cb05b80147e))
+    - Merge pull request #92 from TD-Sky/unknown-to-fs-error ([`916d769`](https://github.com/Byron/trash-rs/commit/916d7698ebceb0529fa3c43f6baddbd4c39d55f2))
+    - Accepting generic type instead of `&Path` ([`17411be`](https://github.com/Byron/trash-rs/commit/17411be41b96f4a81df8a9cc6fa558d0d250c749))
+    - Be consistent with the style of the project ([`7ee2617`](https://github.com/Byron/trash-rs/commit/7ee26179e59c4920b83fffed20a049e9171e4878))
+    - Keep error converter function and rename it `fs_error` ([`a08118c`](https://github.com/Byron/trash-rs/commit/a08118cf2a924a3224b05d76dd5b012036ef5e05))
+    - More precise file system error ([`c51aa78`](https://github.com/Byron/trash-rs/commit/c51aa7820c70e6d5fc4d408f5c01cd4c8701c59d))
+    - Merge pull request #90 from fujiapple852/build-add-cargo-cross-ci ([`695af32`](https://github.com/Byron/trash-rs/commit/695af324e6ddaee00ea0ee5e44c7d815fd1158ec))
+    - Update ci job to use cargo-cross ([`be43b09`](https://github.com/Byron/trash-rs/commit/be43b098c6c4db66f19c90471cd6ff0c066832ef))
+</details>
+
 ## 3.1.2 (2023-10-18)
 
 This release fixes compile errors on DragonFly, a fork of FreeBSD.
@@ -13,7 +56,7 @@ This release fixes compile errors on DragonFly, a fork of FreeBSD.
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -24,6 +67,7 @@ This release fixes compile errors on DragonFly, a fork of FreeBSD.
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v3.1.2 ([`609f6b3`](https://github.com/Byron/trash-rs/commit/609f6b39f6a743e1cbd9226c873b0463730e10ed))
     - Prepare changelog ([`c81d4dd`](https://github.com/Byron/trash-rs/commit/c81d4ddccc9bd30b5baecb9c69f01437b467a703))
     - Merge pull request #89 from jbeich/dragonfly ([`ad26100`](https://github.com/Byron/trash-rs/commit/ad261004b4fe350bf7963cc4354e4b5808c61156))
     - Add DragonFly support via FreeBSD codepath ([`ed1984b`](https://github.com/Byron/trash-rs/commit/ed1984b923a7cdd7dbf03484d02b5da07e27779c))
