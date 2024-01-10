@@ -305,7 +305,7 @@ impl Hash for TrashItem {
 }
 
 /// Size of a [`TrashItem`] in bytes or entries
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum TrashItemSize {
     /// Number of bytes in a file
     Bytes(u64),
@@ -313,12 +313,28 @@ pub enum TrashItemSize {
     Entries(usize),
 }
 
+impl TrashItemSize {
+    /// The size of a file in bytes, if this item is a file.
+    pub fn size(&self) -> Option<u64> {
+        match self {
+            TrashItemSize::Bytes(s) => Some(*s),
+            TrashItemSize::Entries(_) => None,
+        }
+    }
+
+    /// The amount of entries in the directory, if this is a directory.
+    pub fn entries(&self) -> Option<usize> {
+        match self {
+            TrashItemSize::Bytes(_) => None,
+            TrashItemSize::Entries(e) => Some(*e),
+        }
+    }
+}
+
 /// Metadata about a [`TrashItem`]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct TrashItemMetadata {
-    /// True if the [`TrashItem`] is a directory, false if it is a file
-    pub is_dir: bool,
-    /// The size of the item, as a [`TrashItemSize`] enum
+    /// The size of the item, depending on whether or not it is a directory.
     pub size: TrashItemSize,
 }
 

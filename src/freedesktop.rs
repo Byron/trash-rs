@@ -232,7 +232,7 @@ pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
     } else {
         TrashItemSize::Bytes(metadata.len())
     };
-    Ok(TrashItemMetadata { is_dir, size })
+    Ok(TrashItemMetadata { size })
 }
 
 /// The path points to:
