@@ -31,13 +31,14 @@ impl PlatformTrashContext {
 impl TrashContext {
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         let home_trash = home_trash()?;
-        let mount_points = get_mount_points()?;
-        let home_topdir = home_topdir(&mount_points)?;
+        // Sorted by longest first
+        let sorted_mount_points = get_sorted_mount_points()?;
+        let home_topdir = home_topdir(&sorted_mount_points)?;
         debug!("The home topdir is {:?}", home_topdir);
         let uid = unsafe { libc::getuid() };
         for path in full_paths {
             debug!("Deleting {:?}", path);
-            let topdir = get_longest_topdir_containing_path(&path, &mount_points);
+            let topdir = get_first_topdir_containing_path(&path, &sorted_mount_points);
             debug!("The topdir of this file is {:?}", topdir);
             if topdir == home_topdir {
                 debug!("The topdir was identical to the home topdir, so moving to the home trash.");
@@ -81,7 +82,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     // Get all mount-points and attempt to find a trash folder in each adding them to the SET of
     // trash folders when found one.
     let uid = unsafe { libc::getuid() };
-    let mount_points = get_mount_points()?;
+    let mount_points = get_sorted_mount_points()?;
     for mount in &mount_points {
         execute_on_mounted_trash_folders(uid, &mount.mnt_dir, false, false, |trash_path| {
             trash_folders.insert(trash_path);
@@ -97,7 +98,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     let mut result = Vec::new();
     for folder in &trash_folders {
         // Read the info files for every file
-        let top_dir = get_longest_topdir_containing_path(folder, &mount_points);
+        let top_dir = get_first_topdir_containing_path(folder, &mount_points);
         let info_folder = folder.join("info");
         if !info_folder.is_dir() {
             warn!("The path {:?} did not point to a directory, skipping this trash folder.", info_folder);
@@ -605,34 +606,28 @@ fn home_topdir(mnt_points: &[MountPoint]) -> Result<PathBuf, Error> {
     if let Some(data_home) = std::env::var_os("XDG_DATA_HOME") {
         if data_home.len() > 0 {
             let data_home_path = AsRef::<Path>::as_ref(data_home.as_os_str());
-            return Ok(get_longest_topdir_containing_path(data_home_path, mnt_points).to_owned());
+            return Ok(get_first_topdir_containing_path(data_home_path, mnt_points).to_owned());
         }
     }
     if let Some(home) = std::env::var_os("HOME") {
         if home.len() > 0 {
             let home_path = AsRef::<Path>::as_ref(home.as_os_str());
-            return Ok(get_longest_topdir_containing_path(home_path, mnt_points).to_owned());
+            return Ok(get_first_topdir_containing_path(home_path, mnt_points).to_owned());
         }
     }
     Err(Error::Unknown { description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into() })
 }
 
-fn get_longest_topdir_containing_path<'a>(path: &Path, mnt_points: &'a [MountPoint]) -> &'a Path {
+fn get_first_topdir_containing_path<'a>(path: &Path, mnt_points: &'a [MountPoint]) -> &'a Path {
     let root: &'static Path = Path::new("/");
     let mut topdir: Option<&Path> = None;
-    let mut longest_mount_len = 0;
     for mount_point in mnt_points {
         if mount_point.mnt_dir == root {
             continue;
         }
         if path.starts_with(&mount_point.mnt_dir) {
-            // If there is a /run mount and a /run/media/user mount,
-            // we want to prioritize the longest
-            let mount_len = mount_point.mnt_dir.as_os_str().as_bytes().len();
-            if topdir.is_none() || mount_len > longest_mount_len {
-                longest_mount_len = mount_len;
-                topdir = Some(&mount_point.mnt_dir);
-            }
+            topdir = Some(&mount_point.mnt_dir);
+            break;
         }
     }
     topdir.unwrap_or(root)
@@ -642,6 +637,14 @@ struct MountPoint {
     mnt_dir: PathBuf,
     _mnt_type: String,
     _mnt_fsname: String,
+}
+
+#[cfg(target_os = "linux")]
+fn get_sorted_mount_points() -> Result<Vec<MountPoint>, Error> {
+    // Returns longest mount points first
+    let mut mount_points = get_mount_points()?;
+    mount_points.sort_by(|a, b| b.mnt_dir.as_os_str().as_bytes().len().cmp(&a.mnt_dir.as_os_str().as_bytes().len()));
+    Ok(mount_points)
 }
 
 #[cfg(target_os = "linux")]
