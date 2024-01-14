@@ -11,7 +11,7 @@ use std::{
     collections::HashSet,
     fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Write},
-    os::unix::fs::PermissionsExt,
+    os::unix::{ffi::OsStrExt, fs::PermissionsExt},
     path::{Path, PathBuf},
 };
 
@@ -37,7 +37,7 @@ impl TrashContext {
         let uid = unsafe { libc::getuid() };
         for path in full_paths {
             debug!("Deleting {:?}", path);
-            let topdir = get_topdir_for_path(&path, &mount_points);
+            let topdir = get_longest_topdir_containing_path(&path, &mount_points);
             debug!("The topdir of this file is {:?}", topdir);
             if topdir == home_topdir {
                 debug!("The topdir was identical to the home topdir, so moving to the home trash.");
@@ -97,7 +97,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     let mut result = Vec::new();
     for folder in &trash_folders {
         // Read the info files for every file
-        let top_dir = get_topdir_for_path(folder, &mount_points);
+        let top_dir = get_longest_topdir_containing_path(folder, &mount_points);
         let info_folder = folder.join("info");
         if !info_folder.is_dir() {
             warn!("The path {:?} did not point to a directory, skipping this trash folder.", info_folder);
@@ -605,41 +605,37 @@ fn home_topdir(mnt_points: &[MountPoint]) -> Result<PathBuf, Error> {
     if let Some(data_home) = std::env::var_os("XDG_DATA_HOME") {
         if data_home.len() > 0 {
             let data_home_path = AsRef::<Path>::as_ref(data_home.as_os_str());
-            return Ok(get_topdir_for_path(data_home_path, mnt_points).to_owned());
+            return Ok(get_longest_topdir_containing_path(data_home_path, mnt_points).to_owned());
         }
     }
     if let Some(home) = std::env::var_os("HOME") {
         if home.len() > 0 {
             let home_path = AsRef::<Path>::as_ref(home.as_os_str());
-            return Ok(get_topdir_for_path(home_path, mnt_points).to_owned());
+            return Ok(get_longest_topdir_containing_path(home_path, mnt_points).to_owned());
         }
     }
     Err(Error::Unknown { description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into() })
 }
 
-fn get_topdir_for_path<'a>(path: &Path, mnt_points: &'a [MountPoint]) -> &'a Path {
+fn get_longest_topdir_containing_path<'a>(path: &Path, mnt_points: &'a [MountPoint]) -> &'a Path {
     let root: &'static Path = Path::new("/");
-    let mut topdir: Option<&PathBuf> = None;
-    let mut path_length = 0;
+    let mut topdir: Option<&Path> = None;
+    let mut longest_mount_len = 0;
     for mount_point in mnt_points {
         if mount_point.mnt_dir == root {
             continue;
         }
         if path.starts_with(&mount_point.mnt_dir) {
-            // If there is a /run mount and a /run/media/user mount, we want to prioritize the
-            // longest
-            let mount_length = &mount_point.mnt_dir.to_str().unwrap().len();
-            if topdir.is_none() || mount_length > &path_length {
-                path_length = *mount_length;
+            // If there is a /run mount and a /run/media/user mount,
+            // we want to prioritize the longest
+            let mount_len = mount_point.mnt_dir.as_os_str().as_bytes().len();
+            if topdir.is_none() || mount_len > longest_mount_len {
+                longest_mount_len = mount_len;
                 topdir = Some(&mount_point.mnt_dir);
             }
         }
     }
-    if let Some(t) = topdir {
-        t
-    } else {
-        root
-    }
+    topdir.unwrap_or(root)
 }
 
 struct MountPoint {
