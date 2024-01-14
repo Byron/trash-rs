@@ -629,7 +629,7 @@ fn get_topdir_for_path<'a>(path: &Path, mnt_points: &'a [MountPoint]) -> &'a Pat
             // If there is a /run mount and a /run/media/user mount, we want to prioritize the
             // longest
             let mount_length = &mount_point.mnt_dir.to_str().unwrap().len();
-            if topdir == None || mount_length > &path_length {
+            if topdir.is_none() || mount_length > &path_length {
                 path_length = *mount_length;
                 topdir = Some(&mount_point.mnt_dir);
             }
