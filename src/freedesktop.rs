@@ -82,8 +82,8 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     // Get all mount-points and attempt to find a trash folder in each adding them to the SET of
     // trash folders when found one.
     let uid = unsafe { libc::getuid() };
-    let mount_points = get_sorted_mount_points()?;
-    for mount in &mount_points {
+    let sorted_mount_points = get_sorted_mount_points()?;
+    for mount in &sorted_mount_points {
         execute_on_mounted_trash_folders(uid, &mount.mnt_dir, false, false, |trash_path| {
             trash_folders.insert(trash_path);
             Ok(())
@@ -98,7 +98,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     let mut result = Vec::new();
     for folder in &trash_folders {
         // Read the info files for every file
-        let top_dir = get_first_topdir_containing_path(folder, &mount_points);
+        let top_dir = get_first_topdir_containing_path(folder, &sorted_mount_points);
         let info_folder = folder.join("info");
         if !info_folder.is_dir() {
             warn!("The path {:?} did not point to a directory, skipping this trash folder.", info_folder);
@@ -639,7 +639,6 @@ struct MountPoint {
     _mnt_fsname: String,
 }
 
-#[cfg(target_os = "linux")]
 fn get_sorted_mount_points() -> Result<Vec<MountPoint>, Error> {
     // Returns longest mount points first
     let mut mount_points = get_mount_points()?;
