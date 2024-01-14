@@ -619,14 +619,20 @@ fn home_topdir(mnt_points: &[MountPoint]) -> Result<PathBuf, Error> {
 
 fn get_topdir_for_path<'a>(path: &Path, mnt_points: &'a [MountPoint]) -> &'a Path {
     let root: &'static Path = Path::new("/");
-    let mut topdir = None;
+    let mut topdir: Option<&PathBuf> = None;
+    let mut path_length = 0;
     for mount_point in mnt_points {
         if mount_point.mnt_dir == root {
             continue;
         }
         if path.starts_with(&mount_point.mnt_dir) {
-            topdir = Some(&mount_point.mnt_dir);
-            break;
+            // If there is a /run mount and a /run/media/user mount, we want to prioritize the
+            // longest
+            let mount_length = &mount_point.mnt_dir.to_str().unwrap().len();
+            if topdir == None || mount_length > &path_length {
+                path_length = *mount_length;
+                topdir = Some(&mount_point.mnt_dir);
+            }
         }
     }
     if let Some(t) = topdir {
