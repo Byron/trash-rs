@@ -642,7 +642,7 @@ struct MountPoint {
 fn get_sorted_mount_points() -> Result<Vec<MountPoint>, Error> {
     // Returns longest mount points first
     let mut mount_points = get_mount_points()?;
-    mount_points.sort_by(|a, b| b.mnt_dir.as_os_str().as_bytes().len().cmp(&a.mnt_dir.as_os_str().as_bytes().len()));
+    mount_points.sort_unstable_by(|a, b| b.mnt_dir.as_os_str().as_bytes().len().cmp(&a.mnt_dir.as_os_str().as_bytes().len()));
     Ok(mount_points)
 }
 
