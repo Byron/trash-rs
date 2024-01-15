@@ -5,7 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.2.1 (2024-01-15)
+
+### Bug Fixes
+
+ - <csr-id-bb868d6812988b56082c2faea083617402e1a259/> find best-possible trash dir, e.g. use `/run/foo/.trash` instead of`/run/.trash` when deleting `/run/foo/bar`.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release over the course of 1 calendar day.
+ - 5 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Find best-possible trash dir, e.g. use `/run/foo/.trash` instead of`/run/.trash` when deleting `/run/foo/bar`. ([`bb868d6`](https://github.com/Byron/trash-rs/commit/bb868d6812988b56082c2faea083617402e1a259))
+    - Refactor ([`8cb3f75`](https://github.com/Byron/trash-rs/commit/8cb3f7519b1294fe8b2e03c0f51fd129bb9f4cf4))
+    - Cargo fmt ([`0b42fc0`](https://github.com/Byron/trash-rs/commit/0b42fc06b44e076aa7aebaee6f8730bc762ee5ed))
+    - Use unstable sort ([`18dadef`](https://github.com/Byron/trash-rs/commit/18dadef0dd39bf3e57450fbf4a7098688fb81df0))
+    - Fixing method os ([`8ba855e`](https://github.com/Byron/trash-rs/commit/8ba855e4bf9982e8b4be993d8df59739b88d72c6))
+    - Sort mount points first ([`b2e4cf2`](https://github.com/Byron/trash-rs/commit/b2e4cf202e108bb419d7a7e5959b45408dac836c))
+    - Refactor ([`da8ce63`](https://github.com/Byron/trash-rs/commit/da8ce63afd331b4e41455be0587a2736c42815bd))
+    - Fix clippy error ([`8f74b17`](https://github.com/Byron/trash-rs/commit/8f74b1789a2257ba5a7acda560f1811df8f5f1ea))
+    - Fixing sometimes choosing incorrect mount point if substring of each other ([`1e9df03`](https://github.com/Byron/trash-rs/commit/1e9df0347cd1298844222a43a6424400e7dc787b))
+</details>
+
 ## 3.2.0 (2024-01-10)
+
+<csr-id-be43b098c6c4db66f19c90471cd6ff0c066832ef/>
 
 ### New Features
 
@@ -21,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 13 commits contributed to the release over the course of 82 calendar days.
+ - 14 commits contributed to the release over the course of 82 calendar days.
  - 83 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -33,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v3.2.0 ([`03aa7ac`](https://github.com/Byron/trash-rs/commit/03aa7ac1fc279d1cb598c451d8ef342d13232489))
     - Provide `os_limited::metadata()`. ([`aa8e504`](https://github.com/Byron/trash-rs/commit/aa8e5043e285d31644e697aa264f8a11e5dfa2e8))
     - Refactor ([`8dad3df`](https://github.com/Byron/trash-rs/commit/8dad3dfc45657962a57a932c40bc37ea1ebe0d7f))
     - Address review comments ([`63639c3`](https://github.com/Byron/trash-rs/commit/63639c3337cc282a1aaa69ef5afd00f8516e3dcd))
