@@ -31,7 +31,6 @@ impl PlatformTrashContext {
 impl TrashContext {
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         let home_trash = home_trash()?;
-        // Sorted by longest first
         let sorted_mount_points = get_sorted_mount_points()?;
         let home_topdir = home_topdir(&sorted_mount_points)?;
         debug!("The home topdir is {:?}", home_topdir);
@@ -620,17 +619,7 @@ fn home_topdir(mnt_points: &[MountPoint]) -> Result<PathBuf, Error> {
 
 fn get_first_topdir_containing_path<'a>(path: &Path, mnt_points: &'a [MountPoint]) -> &'a Path {
     let root: &'static Path = Path::new("/");
-    let mut topdir: Option<&Path> = None;
-    for mount_point in mnt_points {
-        if mount_point.mnt_dir == root {
-            continue;
-        }
-        if path.starts_with(&mount_point.mnt_dir) {
-            topdir = Some(&mount_point.mnt_dir);
-            break;
-        }
-    }
-    topdir.unwrap_or(root)
+    mnt_points.iter().map(|mp| mp.mnt_dir.as_path()).find(|mount_path| path.starts_with(mount_path)).unwrap_or(root)
 }
 
 struct MountPoint {
@@ -639,11 +628,14 @@ struct MountPoint {
     _mnt_fsname: String,
 }
 
+/// Sorted by longest path first
 fn get_sorted_mount_points() -> Result<Vec<MountPoint>, Error> {
-    // Returns longest mount points first
     let mut mount_points = get_mount_points()?;
-    mount_points
-        .sort_unstable_by(|a, b| b.mnt_dir.as_os_str().as_bytes().len().cmp(&a.mnt_dir.as_os_str().as_bytes().len()));
+    mount_points.sort_unstable_by(|a, b| {
+        let a = a.mnt_dir.as_os_str().as_bytes().len();
+        let b = b.mnt_dir.as_os_str().as_bytes().len();
+        a.cmp(&b).reverse()
+    });
     Ok(mount_points)
 }
 
