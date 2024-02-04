@@ -2,7 +2,7 @@ use crate::{Error, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
 use std::{
     borrow::Borrow,
     ffi::{c_void, OsStr, OsString},
-    fs,
+    fs, io,
     os::windows::{ffi::OsStrExt, prelude::*},
     path::PathBuf,
 };
@@ -34,7 +34,7 @@ const FOFX_EARLYFAILURE: u32 = 0x00100000;
 
 impl From<windows::core::Error> for Error {
     fn from(err: windows::core::Error) -> Error {
-        Error::Unknown { description: format!("windows error: {err}") }
+        Error::Os { code: err.code().0, description: format!("windows error: {err}") }
     }
 }
 
@@ -79,7 +79,9 @@ impl TrashContext {
     /// Removes all files and folder paths recursively.
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         let mut collection = Vec::new();
+        log::trace!("Starting traverse_paths_recursively");
         traverse_paths_recursively(full_paths, &mut collection)?;
+        log::trace!("Finished traverse_paths_recursively");
         self.delete_specified_canonicalized(collection)
     }
 }
@@ -316,7 +318,21 @@ fn traverse_paths_recursively(
             continue;
         }
 
-        for entry in fs::read_dir(&base_path).map_err(|err| Error::Unknown { description: err.to_string() })? {
+        let entries = match fs::read_dir(&base_path) {
+            Ok(entries) => entries,
+            Err(err) => {
+                let err = match err.kind() {
+                    io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied => {
+                        Error::CouldNotAccess { target: base_path.to_string_lossy().to_string() }
+                    }
+                    _ => Error::Unknown { description: err.to_string() },
+                };
+
+                return Err(err);
+            }
+        };
+
+        for entry in entries {
             let entry = entry.map_err(|err| Error::Unknown { description: err.to_string() })?;
             traverse_paths_recursively(Some(entry.path()), collection)?;
         }
