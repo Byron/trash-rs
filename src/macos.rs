@@ -162,7 +162,7 @@ fn delete_using_finder(full_paths: Vec<String>) -> Result<(), Error> {
 
             Some(code) => {
                 return Err(Error::Os {
-                    code: result.status.code(),
+                    code,
                     description: format!("The AppleScript exited with error. stderr: {}", stderr),
                 })
             }
