@@ -153,13 +153,20 @@ fn delete_using_finder(full_paths: Vec<String>) -> Result<(), Error> {
     let result = command.output().map_err(into_unknown)?;
     if !result.status.success() {
         let stderr = String::from_utf8_lossy(&result.stderr);
-        return Err(Error::Unknown {
-            description: format!(
-                "The AppleScript exited with error. Error code: {:?}, stderr: {}",
-                result.status.code(),
-                stderr
-            ),
-        });
+        match result.status.code() {
+            None => {
+                return Err(Error::Unknown {
+                    description: format!("The AppleScript exited with error. stderr: {}", stderr),
+                })
+            }
+
+            Some(code) => {
+                return Err(Error::Os {
+                    code,
+                    description: format!("The AppleScript exited with error. stderr: {}", stderr),
+                })
+            }
+        };
     }
     Ok(())
 }

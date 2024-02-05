@@ -138,6 +138,11 @@ pub enum Error {
         description: String,
     },
 
+    Os {
+        code: i32,
+        description: String,
+    },
+
     /// **freedesktop only**
     ///
     /// Error coming from file system
