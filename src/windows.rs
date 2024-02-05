@@ -79,9 +79,7 @@ impl TrashContext {
     /// Removes all files and folder paths recursively.
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         let mut collection = Vec::new();
-        log::trace!("Starting traverse_paths_recursively");
         traverse_paths_recursively(full_paths, &mut collection)?;
-        log::trace!("Finished traverse_paths_recursively");
         self.delete_specified_canonicalized(collection)
     }
 }
