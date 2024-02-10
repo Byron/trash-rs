@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.3.0 (2024-02-10)
+
+### New Features
+
+ - <csr-id-452be8303c797f44409b487c0cf1e6ffb2899110/> improved error granularity
+   Inform about operating-system specific errors more clearly, thus avoid degenerating error information.
+
+### Bug Fixes
+
+ - <csr-id-920ff0c69f6d0309e73f86aaa437aec9508cc873/> Use `AtomicI32` in tests for compatibility with `armel` platform
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 5 calendar days.
+ - 25 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#99](https://github.com/Byron/trash-rs/issues/99)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#99](https://github.com/Byron/trash-rs/issues/99)**
+    - Use `AtomicI32` in tests for compatibility with `armel` platform ([`920ff0c`](https://github.com/Byron/trash-rs/commit/920ff0c69f6d0309e73f86aaa437aec9508cc873))
+ * **Uncategorized**
+    - Improved error granularity ([`452be83`](https://github.com/Byron/trash-rs/commit/452be8303c797f44409b487c0cf1e6ffb2899110))
+    - Removed tracing. ([`2b1c9fa`](https://github.com/Byron/trash-rs/commit/2b1c9fa2a9743c1d5477bf5512ba0f260cfdacb5))
+    - Bug fix for macOS. ([`b238938`](https://github.com/Byron/trash-rs/commit/b238938d7d6387d7340f9c6a30025c9255973180))
+    - Enhanced error reporting. ([`671cef9`](https://github.com/Byron/trash-rs/commit/671cef91f4e3c216f84683e07c82c5849d641b3b))
+</details>
+
 ## 3.2.1 (2024-01-15)
 
 ### Bug Fixes
@@ -15,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 9 commits contributed to the release over the course of 1 calendar day.
+ - 10 commits contributed to the release over the course of 1 calendar day.
  - 5 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v3.2.1 ([`d7abb5b`](https://github.com/Byron/trash-rs/commit/d7abb5bb735827b88479fc4879dcfcdcae6e08df))
     - Find best-possible trash dir, e.g. use `/run/foo/.trash` instead of`/run/.trash` when deleting `/run/foo/bar`. ([`bb868d6`](https://github.com/Byron/trash-rs/commit/bb868d6812988b56082c2faea083617402e1a259))
     - Refactor ([`8cb3f75`](https://github.com/Byron/trash-rs/commit/8cb3f7519b1294fe8b2e03c0f51fd129bb9f4cf4))
     - Cargo fmt ([`0b42fc0`](https://github.com/Byron/trash-rs/commit/0b42fc06b44e076aa7aebaee6f8730bc762ee5ed))
