@@ -1,13 +1,13 @@
 mod utils {
 
-    use std::sync::atomic::{AtomicI64, Ordering};
+    use std::sync::atomic::{AtomicI32, Ordering};
 
     use once_cell::sync::Lazy;
 
     // WARNING Expecting that `cargo test` won't be invoked on the same computer more than once within
     // a single millisecond
     static INSTANCE_ID: Lazy<i64> = Lazy::new(|| chrono::Local::now().timestamp_millis());
-    static ID_OFFSET: AtomicI64 = AtomicI64::new(0);
+    static ID_OFFSET: AtomicI32 = AtomicI32::new(0);
 
     pub fn get_unique_name() -> String {
         let id = ID_OFFSET.fetch_add(1, Ordering::SeqCst);
