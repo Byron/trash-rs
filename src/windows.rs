@@ -51,25 +51,26 @@ impl PlatformTrashContext {
 }
 impl TrashContext {
     /// See https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
-    pub(crate) fn delete_specified_canonicalized(&self, full_path: PathBuf) -> Result<(), Error> {
+    pub(crate) fn delete_specified_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         ensure_com_initialized();
         unsafe {
             let pfo: IFileOperation = CoCreateInstance(&FileOperation as *const _, None, CLSCTX_ALL).unwrap();
 
             pfo.SetOperationFlags(FOF_NO_UI | FOF_ALLOWUNDO | FOF_WANTNUKEWARNING)?;
 
-            let path_prefix = ['\\' as u16, '\\' as u16, '?' as u16, '\\' as u16];
-            let wide_path_container = to_wide_path(full_path);
-            let wide_path_slice = if wide_path_container.starts_with(&path_prefix) {
-                &wide_path_container[path_prefix.len()..]
-            } else {
-                &wide_path_container[0..]
-            };
+            for full_path in full_paths.iter() {
+                let path_prefix = ['\\' as u16, '\\' as u16, '?' as u16, '\\' as u16];
+                let wide_path_container = to_wide_path(full_path);
+                let wide_path_slice = if wide_path_container.starts_with(&path_prefix) {
+                    &wide_path_container[path_prefix.len()..]
+                } else {
+                    &wide_path_container[0..]
+                };
 
-            let shi: IShellItem = SHCreateItemFromParsingName(PCWSTR(wide_path_slice.as_ptr()), None)?;
+                let shi: IShellItem = SHCreateItemFromParsingName(PCWSTR(wide_path_slice.as_ptr()), None)?;
 
-            pfo.DeleteItem(&shi, None)?;
-
+                pfo.DeleteItem(&shi, None)?;
+            }
             pfo.PerformOperations()?;
             Ok(())
         }
@@ -77,9 +78,7 @@ impl TrashContext {
 
     /// Removes all files and folder paths recursively.
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
-        for path in full_paths {
-            self.delete_specified_canonicalized(path)?;
-        }
+        self.delete_specified_canonicalized(full_paths)?;
         Ok(())
     }
 }
