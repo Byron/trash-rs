@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 4.0.0 (2024-03-12)
+
+### Bug Fixes (BREAKING)
+
+ - <csr-id-146ea03fe1c1c168b8a6fd135d9dc5c5c93f35d5/> Assure directory deletions on Windows don't put the entire contents into the trash.
+   Instead, like on other platforms, on Windows it will now put the folder into the trash instead.
+   
+   Please note that this is not a breaking change in terms of API, but a *potentially* breaking change with older Windows versions. It's unknown if there are side-effects, as it's unknown why Windows had special behaviour previously.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release.
+ - 28 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Assure directory deletions on Windows don't put the entire contents into the trash. ([`146ea03`](https://github.com/Byron/trash-rs/commit/146ea03fe1c1c168b8a6fd135d9dc5c5c93f35d5))
+    - Fix lint by removing unused code ([`d03934f`](https://github.com/Byron/trash-rs/commit/d03934f668d1d405c2030685c318ba19b825c74e))
+    - Attempt to fix second argument issue ([`1435c3d`](https://github.com/Byron/trash-rs/commit/1435c3d566970f5366e990cdea512e1d0a6c738d))
+    - Make delete_all not recursive ([`03ae59d`](https://github.com/Byron/trash-rs/commit/03ae59d7473746e2d704aabab0d1065d3b9a6f58))
+</details>
+
 ## 3.3.1 (2024-02-12)
 
 ### Bug Fixes
@@ -15,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 2 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#99](https://github.com/Byron/trash-rs/issues/99)
@@ -28,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **[#99](https://github.com/Byron/trash-rs/issues/99)**
     - Use `AtomicI32` instead of I64 for compatibility with `armel` ([`98049f1`](https://github.com/Byron/trash-rs/commit/98049f1316e3902f2c9d5cd51f8de14b86ec5828))
+ * **Uncategorized**
+    - Release trash v3.3.1 ([`b6e2d6c`](https://github.com/Byron/trash-rs/commit/b6e2d6c57f499a1851e8b2e4a724b1e0ef5ae54d))
 </details>
 
 ## 3.3.0 (2024-02-10)
