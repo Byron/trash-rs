@@ -2,7 +2,6 @@ use crate::{Error, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
 use std::{
     borrow::Borrow,
     ffi::{c_void, OsStr, OsString},
-    fs, io,
     os::windows::{ffi::OsStrExt, prelude::*},
     path::PathBuf,
 };
@@ -303,37 +302,4 @@ thread_local! {
 }
 fn ensure_com_initialized() {
     CO_INITIALIZER.with(|_| {});
-}
-
-fn traverse_paths_recursively(
-    paths: impl IntoIterator<Item = PathBuf>,
-    collection: &mut Vec<PathBuf>,
-) -> Result<(), Error> {
-    for base_path in paths {
-        if base_path.is_file() || base_path.is_symlink() {
-            collection.push(base_path);
-            continue;
-        }
-
-        let entries = match fs::read_dir(&base_path) {
-            Ok(entries) => entries,
-            Err(err) => {
-                let err = match err.kind() {
-                    io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied => {
-                        Error::CouldNotAccess { target: base_path.to_string_lossy().to_string() }
-                    }
-                    _ => Error::Unknown { description: err.to_string() },
-                };
-
-                return Err(err);
-            }
-        };
-
-        for entry in entries {
-            let entry = entry.map_err(|err| Error::Unknown { description: err.to_string() })?;
-            traverse_paths_recursively(Some(entry.path()), collection)?;
-        }
-        collection.push(base_path);
-    }
-    Ok(())
 }
