@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 4.1.0 (2024-03-19)
+
+### New Features
+
+ - <csr-id-eb659cb0ef5401c7ac1fb514c5d639c10464b730/> add `os_limited::trash_folders()` for use on many unixes.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release.
+ - 7 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Add `os_limited::trash_folders()` for use on many unixes. ([`eb659cb`](https://github.com/Byron/trash-rs/commit/eb659cb0ef5401c7ac1fb514c5d639c10464b730))
+    - Fix lint on Windows ([`daad5b7`](https://github.com/Byron/trash-rs/commit/daad5b7ad04192c7fac48b697e90ca40fb0cb94c))
+    - `trash_folders()` is invalid on Windows ([`32719fb`](https://github.com/Byron/trash-rs/commit/32719fbc82b572b77cd80d4f3645bb44ebca4640))
+    - List valid trash bin paths ([`3eba5c3`](https://github.com/Byron/trash-rs/commit/3eba5c36354eb246e74e31cab655d361313ff3e5))
+</details>
+
 ## 4.0.0 (2024-03-12)
 
 ### Bug Fixes (BREAKING)
@@ -18,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 28 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -30,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v4.0.0 ([`b6acac9`](https://github.com/Byron/trash-rs/commit/b6acac9ef574649e381d10e3930348b4385ff551))
     - Assure directory deletions on Windows don't put the entire contents into the trash. ([`146ea03`](https://github.com/Byron/trash-rs/commit/146ea03fe1c1c168b8a6fd135d9dc5c5c93f35d5))
     - Fix lint by removing unused code ([`d03934f`](https://github.com/Byron/trash-rs/commit/d03934f668d1d405c2030685c318ba19b825c74e))
     - Attempt to fix second argument issue ([`1435c3d`](https://github.com/Byron/trash-rs/commit/1435c3d566970f5366e990cdea512e1d0a6c738d))
