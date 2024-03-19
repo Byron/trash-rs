@@ -374,6 +374,26 @@ pub mod os_limited {
         platform::list()
     }
 
+    /// Returns all valid trash bins on supported Unix platforms.
+    ///
+    /// Valid trash folders include the user's personal "home trash" as well as designated trash
+    /// bins across mount points. Some, or all of these, may not exist or be invalid in some way.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))] {
+    /// use trash::os_limited::trash_folders;
+    /// let trash_bins = trash_folders()?;
+    /// println!("{trash_bins:#?}");
+    /// # }
+    /// # Ok::<(), trash::Error>(())
+    /// ```
+    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+    pub fn trash_folders() -> Result<HashSet<std::path::PathBuf>, Error> {
+        platform::trash_folders()
+    }
+
     /// Returns the [`TrashItemMetadata`] for a [`TrashItem`]
     ///
     /// # Example
