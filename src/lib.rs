@@ -355,6 +355,7 @@ pub mod os_limited {
         borrow::Borrow,
         collections::HashSet,
         hash::{Hash, Hasher},
+        path::PathBuf,
     };
 
     use super::{platform, Error, TrashItem, TrashItemMetadata};
@@ -372,6 +373,23 @@ pub mod os_limited {
     /// ```
     pub fn list() -> Result<Vec<TrashItem>, Error> {
         platform::list()
+    }
+
+    /// Returns all valid trash bins.
+    ///
+    /// Valid trash folders include the user's personal "home trash" as well as designated trash
+    /// bins across mount points. Some, or all of these, may not exist or be invalid in some way.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use trash::os_limited::trash_folders;
+    /// let trash_bins = trash_folders()?;
+    /// println!("{trash_bins:#?}");
+    /// # Ok::<(), trash::Error>(())
+    /// ```
+    pub fn trash_folders() -> Result<HashSet<PathBuf>, Error> {
+        platform::trash_folders()
     }
 
     /// Returns the [`TrashItemMetadata`] for a [`TrashItem`]

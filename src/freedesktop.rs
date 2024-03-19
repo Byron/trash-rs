@@ -56,39 +56,8 @@ impl TrashContext {
 }
 
 pub fn list() -> Result<Vec<TrashItem>, Error> {
-    let mut trash_folders = HashSet::new();
-    // Get home trash folder and add it to the set of trash folders.
-    // It may not exist and that's completely fine as long as there are other trash folders.
-    let home_error;
-    match home_trash() {
-        Ok(home_trash) => {
-            if !home_trash.is_dir() {
-                home_error = Some(Error::Unknown {
-                    description:
-                        "The 'home trash' either does not exist or is not a directory (or a link pointing to a dir)"
-                            .into(),
-                });
-            } else {
-                trash_folders.insert(home_trash);
-                home_error = None;
-            }
-        }
-        Err(e) => {
-            home_error = Some(e);
-        }
-    }
+    let EvaluatedTrashFolders { trash_folders, home_error, sorted_mount_points } = eval_trash_folders()?;
 
-    // Get all mount-points and attempt to find a trash folder in each adding them to the SET of
-    // trash folders when found one.
-    let uid = unsafe { libc::getuid() };
-    let sorted_mount_points = get_sorted_mount_points()?;
-    for mount in &sorted_mount_points {
-        execute_on_mounted_trash_folders(uid, &mount.mnt_dir, false, false, |trash_path| {
-            trash_folders.insert(trash_path);
-            Ok(())
-        })
-        .map_err(|(p, e)| fs_error(p, e))?;
-    }
     if trash_folders.is_empty() {
         warn!("No trash folder was found. The error when looking for the 'home trash' was: {:?}", home_error);
         return Ok(vec![]);
@@ -218,6 +187,64 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     Ok(result)
 }
 
+pub fn trash_folders() -> Result<HashSet<PathBuf>, Error> {
+    let EvaluatedTrashFolders { trash_folders, home_error, .. } = eval_trash_folders()?;
+
+    if trash_folders.is_empty() {
+        return match home_error {
+            Some(e) => Err(e),
+            None => Err(Error::Unknown {
+                description: "Could not find a valid 'home trash' nor valid trashes on other mount points".into(),
+            }),
+        };
+    }
+
+    Ok(trash_folders)
+}
+
+struct EvaluatedTrashFolders {
+    trash_folders: HashSet<PathBuf>,
+    home_error: Option<Error>,
+    sorted_mount_points: Vec<MountPoint>,
+}
+
+fn eval_trash_folders() -> Result<EvaluatedTrashFolders, Error> {
+    let mut trash_folders = HashSet::new();
+    // Get home trash folder and add it to the set of trash folders.
+    // It may not exist and that's completely fine as long as there are other trash folders.
+    let home_error;
+    match home_trash() {
+        Ok(home_trash) => {
+            if !home_trash.is_dir() {
+                home_error = Some(Error::Unknown {
+                    description:
+                        "The 'home trash' either does not exist or is not a directory (or a link pointing to a dir)"
+                            .into(),
+                });
+            } else {
+                trash_folders.insert(home_trash);
+                home_error = None;
+            }
+        }
+        Err(e) => {
+            home_error = Some(e);
+        }
+    }
+
+    // Get all mount-points and attempt to find a trash folder in each adding them to the SET of
+    // trash folders when found one.
+    let uid = unsafe { libc::getuid() };
+    let sorted_mount_points = get_sorted_mount_points()?;
+    for mount in &sorted_mount_points {
+        execute_on_mounted_trash_folders(uid, &mount.mnt_dir, false, false, |trash_path| {
+            trash_folders.insert(trash_path);
+            Ok(())
+        })
+        .map_err(|(p, e)| fs_error(p, e))?;
+    }
+
+    Ok(EvaluatedTrashFolders { trash_folders, home_error, sorted_mount_points })
+}
 pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
     // When purging an item the "in-trash" filename must be parsed from the trashinfo filename
     // which is the filename in the `id` field.
