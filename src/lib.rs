@@ -355,7 +355,6 @@ pub mod os_limited {
         borrow::Borrow,
         collections::HashSet,
         hash::{Hash, Hasher},
-        path::PathBuf,
     };
 
     use super::{platform, Error, TrashItem, TrashItemMetadata};
@@ -391,7 +390,7 @@ pub mod os_limited {
     /// # Ok::<(), trash::Error>(())
     /// ```
     #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
-    pub fn trash_folders() -> Result<HashSet<PathBuf>, Error> {
+    pub fn trash_folders() -> Result<HashSet<std::path::PathBuf>, Error> {
         platform::trash_folders()
     }
 
