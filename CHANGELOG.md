@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 4.1.1 (2024-05-01)
 
 This release updates the `windows` dependency (on Windows) to v0.56.
 
@@ -13,7 +13,7 @@ This release updates the `windows` dependency (on Windows) to v0.56.
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 43 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -25,6 +25,7 @@ This release updates the `windows` dependency (on Windows) to v0.56.
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Update changelog prior to release. ([`47baa0e`](https://github.com/Byron/trash-rs/commit/47baa0ed3aaefa4167b1a972db54223ac710cb8d))
     - Merge pull request #106 from YizhePKU/bump-windows ([`02f1e6c`](https://github.com/Byron/trash-rs/commit/02f1e6c5620f9a0bbeae68246cb2b180f946a1be))
     - Bump windows crate to 0.56.0 ([`c0e0f7a`](https://github.com/Byron/trash-rs/commit/c0e0f7a6397bdb65de013ca8e2b58c6ea7ab73af))
 </details>
