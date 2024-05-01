@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+This release updates the `windows` dependency (on Windows) to v0.56.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 43 days passed between releases.
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Merge pull request #106 from YizhePKU/bump-windows ([`02f1e6c`](https://github.com/Byron/trash-rs/commit/02f1e6c5620f9a0bbeae68246cb2b180f946a1be))
+    - Bump windows crate to 0.56.0 ([`c0e0f7a`](https://github.com/Byron/trash-rs/commit/c0e0f7a6397bdb65de013ca8e2b58c6ea7ab73af))
+</details>
+
 ## 4.1.0 (2024-03-19)
 
 ### New Features
@@ -15,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 7 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v4.1.0 ([`35b549f`](https://github.com/Byron/trash-rs/commit/35b549f158428f0016a26c23249c76c6795ba9c3))
     - Add `os_limited::trash_folders()` for use on many unixes. ([`eb659cb`](https://github.com/Byron/trash-rs/commit/eb659cb0ef5401c7ac1fb514c5d639c10464b730))
     - Fix lint on Windows ([`daad5b7`](https://github.com/Byron/trash-rs/commit/daad5b7ad04192c7fac48b697e90ca40fb0cb94c))
     - `trash_folders()` is invalid on Windows ([`32719fb`](https://github.com/Byron/trash-rs/commit/32719fbc82b572b77cd80d4f3645bb44ebca4640))
