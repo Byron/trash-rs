@@ -5,31 +5,17 @@ use std::{
     os::windows::{ffi::OsStrExt, prelude::*},
     path::PathBuf,
 };
-use windows::core::{Interface, GUID, PCWSTR, PWSTR};
 use windows::Win32::{
     Foundation::*, Storage::EnhancedStorage::*, System::Com::*, System::SystemServices::*,
     UI::Shell::PropertiesSystem::*, UI::Shell::*,
 };
+use windows::{
+    core::{Interface, PCWSTR, PWSTR},
+    Win32::System::Com::StructuredStorage::PropVariantToBSTR,
+};
 
-///////////////////////////////////////////////////////////////////////////
-// These don't have bindings in windows-rs for some reason
-///////////////////////////////////////////////////////////////////////////
-const PSGUID_DISPLACED: GUID =
-    GUID::from_values(0x9b174b33, 0x40ff, 0x11d2, [0xa2, 0x7e, 0x00, 0xc0, 0x4f, 0xc3, 0x8, 0x71]);
-const PID_DISPLACED_FROM: u32 = 2;
-const PID_DISPLACED_DATE: u32 = 3;
 const SCID_ORIGINAL_LOCATION: PROPERTYKEY = PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_FROM };
 const SCID_DATE_DELETED: PROPERTYKEY = PROPERTYKEY { fmtid: PSGUID_DISPLACED, pid: PID_DISPLACED_DATE };
-
-const FOF_SILENT: u32 = 0x0004;
-const FOF_NOCONFIRMATION: u32 = 0x0010;
-const FOF_ALLOWUNDO: u32 = 0x0040;
-const FOF_NOCONFIRMMKDIR: u32 = 0x0200;
-const FOF_NOERRORUI: u32 = 0x0400;
-const FOF_WANTNUKEWARNING: u32 = 0x4000;
-const FOF_NO_UI: u32 = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOCONFIRMMKDIR;
-const FOFX_EARLYFAILURE: u32 = 0x00100000;
-///////////////////////////////////////////////////////////////////////////
 
 impl From<windows::core::Error> for Error {
     fn from(err: windows::core::Error) -> Error {
