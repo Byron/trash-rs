@@ -32,10 +32,18 @@ tempfile = "3.8.0"
 
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc = "0.2.7"
+objc2 = "0.5.1"
+objc2-foundation = { version = "0.2.0", features = [
+    "NSError",
+    "NSFileManager",
+    "NSString",
+    "NSURL",
+] }
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))'.dependencies]
-chrono = { version = "0.4.31", optional = true, default-features = false, features = ["clock"] }
+chrono = { version = "0.4.31", optional = true, default-features = false, features = [
+    "clock",
+] }
 libc = "0.2.149"
 scopeguard = "1.2.0"
 url = "2.4.1"
