@@ -132,7 +132,7 @@ where
 }
 
 /// Provides information about an error.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Unknown {
         description: String,
@@ -156,6 +156,11 @@ pub enum Error {
     /// If a list of items are requested to be removed by a single function call (e.g. `delete_all`)
     /// and this error is returned, then it's guaranteed that none of the items is removed.
     TargetedRoot,
+
+    /// One of the target items was a trash folder or inside a trash folder.
+    /// If a list of items are requested to be removed by a single function call (e.g. `delete_all`)
+    /// and this error is returned, then it's guaranteed that none of the items is removed.
+    TargetedTrash,
 
     /// The `target` does not exist or the process has insufficient permissions to access it.
     CouldNotAccess {

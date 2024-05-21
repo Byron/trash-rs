@@ -35,6 +35,27 @@ impl TrashContext {
         let home_topdir = home_topdir(&sorted_mount_points)?;
         debug!("The home topdir is {:?}", home_topdir);
         let uid = unsafe { libc::getuid() };
+
+        full_paths.iter().try_for_each(|path| {
+            let topdir = get_topdir_for_path(path, &mount_points);
+
+            if topdir == home_topdir {
+                if path.starts_with(home_trash.as_path()) {
+                    return Err(Error::TargetedTrash);
+                }
+            } else {
+                return execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
+                    if path.starts_with(trash_path.as_path()) {
+                        Err(Error::TargetedTrash)
+                    } else {
+                        Ok(())
+                    }
+                });
+            }
+
+            Ok(())
+        })?;
+
         for path in full_paths {
             debug!("Deleting {:?}", path);
             let topdir = get_first_topdir_containing_path(&path, &sorted_mount_points);
@@ -851,7 +872,7 @@ mod tests {
         env,
         ffi::OsString,
         fmt,
-        fs::File,
+        fs::{remove_dir_all, File},
         os::unix,
         path::{Path, PathBuf},
         process::Command,
@@ -949,6 +970,27 @@ mod tests {
             delete(symlink).unwrap();
             purge_all([item]).expect("The broken symbolic link should be purged successfully.");
         }
+    }
+
+    #[test]
+    #[serial]
+    fn test_delete_trash() {
+        crate::tests::init_logging();
+
+        // don't test in users HOME
+        env::set_var("HOME", env::current_dir().unwrap().canonicalize().unwrap());
+        let home_trash = PathBuf::from("./.local/share/Trash");
+
+        // delete file to generate Trash folder
+        let file_path = get_unique_name();
+        File::create(&file_path).unwrap();
+        delete(&file_path).unwrap();
+
+        // try to delete trash folder
+        assert!(delete(&home_trash) == Err(Error::TargetedTrash));
+
+        // cleanup
+        remove_dir_all(".local").unwrap();
     }
 
     //////////////////////////////////////////////////////////////////////////////////////
