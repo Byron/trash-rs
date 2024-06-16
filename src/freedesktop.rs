@@ -16,7 +16,7 @@ use std::{
         ffi::{OsStrExt, OsStringExt},
         fs::PermissionsExt,
     },
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 use log::{debug, warn};
@@ -595,13 +595,28 @@ fn decode_uri_path(path: impl AsRef<Path>) -> PathBuf {
     // passed into the `url` functions.
     // Simply parsing the path doesn't work because of the possibility of invalid Unicode.
     // URL encoding the entire path doesn't work because back slashes will be encoded too
-    // Thus, the easiest way is to manually encode each segment of the path and recombine
+    // Thus, the easiest way is to manually decode each segment of the path and recombine
     path.as_ref().iter().map(|part| OsString::from_vec(urlencoding::decode_binary(part.as_bytes()).to_vec())).collect()
 }
 
-fn encode_uri_path(absolute_file_path: impl AsRef<Path>) -> String {
-    let url = url::Url::from_file_path(absolute_file_path.as_ref()).unwrap();
-    url.path().to_owned()
+fn encode_uri_path(path: impl AsRef<Path>) -> String {
+    // `iter()` cannot be used here because it yields '/' in certain situations, such as
+    // for root directories.
+    // Slashes would be encoded and thus mess up the path
+    let path: PathBuf = path
+        .as_ref()
+        .components()
+        .map(|component| {
+            // Only encode names and not '/', 'C:\', et cetera
+            if let Component::Normal(part) = component {
+                urlencoding::encode_binary(part.as_bytes()).to_string()
+            } else {
+                component.as_os_str().to_str().expect("Path components such as '/' are valid Unicode").to_owned()
+            }
+        })
+        .collect();
+
+    path.to_str().expect("URL encoded bytes is valid Unicode").to_owned()
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -868,7 +883,7 @@ mod tests {
     use std::{
         collections::{hash_map::Entry, HashMap},
         env,
-        ffi::{OsString, OsStr},
+        ffi::{OsStr, OsString},
         fmt,
         fs::File,
         os::unix,
@@ -993,9 +1008,9 @@ mod tests {
         // Add invalid UTF-8 byte
         let mut bytes = base.into_encoded_bytes();
         bytes.push(168);
-        
+
         // SAFETY:
-        // * OsString is produced in part from a valid OsStr 
+        // * OsString is produced in part from a valid OsStr
         // * OsString does not have to be valid Unicode
         // * The string isn't written to disk or transferred anywhere where it may be read by a
         // different Rust version than produced it
@@ -1008,7 +1023,7 @@ mod tests {
         assert_eq!(fake.as_encoded_bytes(), path.as_os_str().as_encoded_bytes());
 
         // Shouldn't panic
-        encode_uri_path(&path);        
+        encode_uri_path(&path);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////
