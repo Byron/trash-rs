@@ -7,11 +7,15 @@
 //!
 
 use std::{
-    borrow::Borrow,
+    borrow::{Borrow, Cow},
     collections::HashSet,
+    ffi::{OsStr, OsString},
     fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Write},
-    os::unix::{ffi::OsStrExt, fs::PermissionsExt},
+    os::unix::{
+        ffi::{OsStrExt, OsStringExt},
+        fs::PermissionsExt,
+    },
     path::{Path, PathBuf},
 };
 
@@ -136,13 +140,16 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 let value = split.next().unwrap().trim();
 
                 if key == "Path" {
-                    let mut value_path = Path::new(value).to_owned();
-                    if value_path.is_relative() {
-                        value_path = top_dir.join(value_path);
-                    }
-                    let full_path_utf8 = PathBuf::from(parse_uri_path(&value_path));
-                    name = Some(full_path_utf8.file_name().unwrap().to_str().unwrap().to_owned());
-                    let parent = full_path_utf8.parent().unwrap();
+                    let value_path = {
+                        let path = Path::new(value);
+                        if path.is_relative() {
+                            decode_uri_path(top_dir.join(path))
+                        } else {
+                            decode_uri_path(path)
+                        }
+                    };
+                    name = value_path.file_name().map(|name| name.to_owned());
+                    let parent = value_path.parent().expect("Absolute path to trashed item should have a parent");
                     original_parent = Some(parent.into());
                 } else if key == "DeletionDate" {
                     #[cfg(feature = "chrono")]
@@ -439,15 +446,23 @@ fn move_to_trash(
     // already exist. This newly created empty file can then be safely overwritten by the src file
     // using the `rename` function.
     let filename = src.file_name().unwrap();
-    let mut appendage = 0;
+    let mut appendage = 0usize;
     loop {
         appendage += 1;
-        let in_trash_name = if appendage > 1 {
-            format!("{}.{}", filename.to_str().unwrap(), appendage)
+        let in_trash_name: Cow<'_, OsStr> = if appendage > 1 {
+            // Length of the digits plus the dot
+            let appen_len: usize = appendage.checked_ilog10().unwrap_or_default() as usize + 1;
+            let mut trash_name = OsString::with_capacity(filename.len() + appen_len);
+            trash_name.push(filename);
+            trash_name.push(".");
+            trash_name.push(appendage.to_string());
+            trash_name.into()
         } else {
-            filename.to_str().unwrap().into()
+            filename.into()
         };
-        let info_name = format!("{in_trash_name}.trashinfo");
+        let mut info_name = OsString::with_capacity(in_trash_name.len() + 10);
+        info_name.push(&in_trash_name);
+        info_name.push(".trashinfo");
         let info_file_path = info_folder.join(&info_name);
         let info_result = OpenOptions::new().create_new(true).write(true).open(&info_file_path);
         match info_result {
@@ -574,10 +589,14 @@ fn try_creating_placeholders(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Re
     Ok(())
 }
 
-fn parse_uri_path(absolute_file_path: impl AsRef<Path>) -> String {
-    let file_path_chars = absolute_file_path.as_ref().to_str().unwrap().chars();
-    let url: String = "file://".chars().chain(file_path_chars).collect();
-    return url::Url::parse(&url).unwrap().to_file_path().unwrap().to_str().unwrap().into();
+fn decode_uri_path(path: impl AsRef<Path>) -> PathBuf {
+    // Paths may be invalid Unicode so they should be treated as byte strings
+    // The `url` crate takes valid Rust Strings, so paths must be URL encoded so that they may be
+    // passed into the `url` functions.
+    // Simply parsing the path doesn't work because of the possibility of invalid Unicode.
+    // URL encoding the entire path doesn't work because back slashes will be encoded too
+    // Thus, the easiest way is to manually encode each segment of the path and recombine
+    path.as_ref().iter().map(|part| OsString::from_vec(urlencoding::decode_binary(part.as_bytes()).to_vec())).collect()
 }
 
 fn encode_uri_path(absolute_file_path: impl AsRef<Path>) -> String {
@@ -849,7 +868,7 @@ mod tests {
     use std::{
         collections::{hash_map::Entry, HashMap},
         env,
-        ffi::OsString,
+        ffi::{OsString, OsStr},
         fmt,
         fs::File,
         os::unix,
@@ -862,9 +881,12 @@ mod tests {
     use crate::{
         canonicalize_paths, delete, delete_all,
         os_limited::{list, purge_all, restore_all},
+        platform::encode_uri_path,
         tests::get_unique_name,
         Error,
     };
+
+    use super::decode_uri_path;
 
     #[test]
     #[serial]
@@ -874,7 +896,7 @@ mod tests {
         let file_name_prefix = get_unique_name();
         let batches: usize = 2;
         let files_per_batch: usize = 3;
-        let names: Vec<_> = (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        let names: Vec<OsString> = (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i).into()).collect();
         for _ in 0..batches {
             for path in &names {
                 File::create(path).unwrap();
@@ -890,8 +912,10 @@ mod tests {
             }
         }
         let items = list().unwrap();
-        let items: HashMap<_, Vec<_>> =
-            items.into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).fold(HashMap::new(), |mut map, x| {
+        let items: HashMap<_, Vec<_>> = items
+            .into_iter()
+            .filter(|x| x.name.as_encoded_bytes().starts_with(file_name_prefix.as_bytes()))
+            .fold(HashMap::new(), |mut map, x| {
                 match map.entry(x.name.clone()) {
                     Entry::Occupied(mut entry) => {
                         entry.get_mut().push(x);
@@ -905,7 +929,7 @@ mod tests {
         for name in names {
             match items.get(&name) {
                 Some(items) => assert_eq!(items.len(), batches),
-                None => panic!("ERROR Could not find '{}' in {:#?}", name, items),
+                None => panic!("ERROR Could not find '{:?}' in {:#?}", name, items),
             }
         }
 
@@ -921,8 +945,8 @@ mod tests {
 
         let file_name_prefix = get_unique_name();
         let file_count = 2;
-        let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
-        let symlink_names: Vec<_> = names.iter().map(|name| format!("{}-symlink", name)).collect();
+        let names: Vec<OsString> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i).into()).collect();
+        let symlink_names: Vec<OsString> = names.iter().map(|name| format!("{:?}-symlink", name).into()).collect();
 
         // Test file symbolic link and directory symbolic link
         File::create(&names[0]).unwrap();
@@ -949,6 +973,42 @@ mod tests {
             delete(symlink).unwrap();
             purge_all([item]).expect("The broken symbolic link should be purged successfully.");
         }
+    }
+
+    #[test]
+    fn uri_enc_dec_roundtrip() {
+        let fake = format!("/tmp/{}", get_unique_name());
+        let path = decode_uri_path(&fake);
+
+        assert_eq!(fake, path.to_str().expect("Path is valid Unicode"), "Decoded path shouldn't be different");
+
+        let encoded = encode_uri_path(&path);
+        assert_eq!(fake, encoded, "URL encoded alphanumeric String shouldn't change");
+    }
+
+    #[test]
+    fn uri_enc_dec_roundtrip_invalid_unicode() {
+        let base = OsStr::new(&format!("/tmp/{}/", get_unique_name())).to_os_string();
+
+        // Add invalid UTF-8 byte
+        let mut bytes = base.into_encoded_bytes();
+        bytes.push(168);
+        
+        // SAFETY:
+        // * OsString is produced in part from a valid OsStr 
+        // * OsString does not have to be valid Unicode
+        // * The string isn't written to disk or transferred anywhere where it may be read by a
+        // different Rust version than produced it
+        //
+        // This looks a bit convoluted because [`OsString::from_vec`] is only defined on Unix
+        let fake = unsafe { OsString::from_encoded_bytes_unchecked(bytes) };
+        assert!(fake.to_str().is_none(), "Invalid Unicode cannot be a Rust String");
+
+        let path = decode_uri_path(&fake);
+        assert_eq!(fake.as_encoded_bytes(), path.as_os_str().as_encoded_bytes());
+
+        // Shouldn't panic
+        encode_uri_path(&path);        
     }
 
     //////////////////////////////////////////////////////////////////////////////////////

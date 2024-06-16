@@ -274,7 +274,7 @@ pub struct TrashItem {
 
     /// The name of the item. For example if the folder '/home/user/New Folder'
     /// was deleted, its `name` is 'New Folder'
-    pub name: String,
+    pub name: OsString,
 
     /// The path to the parent folder of this item before it was put inside the
     /// trash. For example if the folder '/home/user/New Folder' is in the

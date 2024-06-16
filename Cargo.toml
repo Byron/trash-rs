@@ -21,6 +21,7 @@ coinit_speed_over_memory = []
 
 [dependencies]
 log = "0.4"
+urlencoding = "2.1.3"
 
 [dev-dependencies]
 serial_test = { version = "2.0.0", default-features = false }
