@@ -450,16 +450,13 @@ fn move_to_trash(
     loop {
         appendage += 1;
         let in_trash_name: Cow<'_, OsStr> = if appendage > 1 {
-            // Length of the digits plus the dot
-            let appen_len: usize = appendage.checked_ilog10().unwrap_or_default() as usize + 1;
-            let mut trash_name = OsString::with_capacity(filename.len() + appen_len);
-            trash_name.push(filename);
-            trash_name.push(".");
-            trash_name.push(appendage.to_string());
+            let mut trash_name = filename.to_owned();
+            trash_name.push(format!(".{appendage}"));
             trash_name.into()
         } else {
             filename.into()
         };
+        // Length of name + length of '.trashinfo'
         let mut info_name = OsString::with_capacity(in_trash_name.len() + 10);
         info_name.push(&in_trash_name);
         info_name.push(".trashinfo");
@@ -995,10 +992,10 @@ mod tests {
         let fake = format!("/tmp/{}", get_unique_name());
         let path = decode_uri_path(&fake);
 
-        assert_eq!(fake, path.to_str().expect("Path is valid Unicode"), "Decoded path shouldn't be different");
+        assert_eq!(path.to_str().expect("Path is valid Unicode"), fake, "Decoded path shouldn't be different");
 
         let encoded = encode_uri_path(&path);
-        assert_eq!(fake, encoded, "URL encoded alphanumeric String shouldn't change");
+        assert_eq!(encoded, fake, "URL encoded alphanumeric String shouldn't change");
     }
 
     #[test]
@@ -1020,7 +1017,7 @@ mod tests {
         assert!(fake.to_str().is_none(), "Invalid Unicode cannot be a Rust String");
 
         let path = decode_uri_path(&fake);
-        assert_eq!(fake.as_encoded_bytes(), path.as_os_str().as_encoded_bytes());
+        assert_eq!(path.as_os_str().as_encoded_bytes(), fake.as_encoded_bytes());
 
         // Shouldn't panic
         encode_uri_path(&path);
