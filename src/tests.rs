@@ -29,8 +29,9 @@ mod os_limited {
     use super::{get_unique_name, init_logging};
     use serial_test::serial;
     use std::collections::{hash_map::Entry, HashMap};
-    use std::ffi::OsString;
+    use std::ffi::{OsStr, OsString};
     use std::fs::File;
+    use std::os::unix::ffi::OsStringExt;
 
     use crate as trash;
 
@@ -92,6 +93,22 @@ mod os_limited {
         // Let's try to purge all the items we just created but ignore any errors
         // as this test should succeed as long as `list` works properly.
         let _ = trash::os_limited::purge_all(items.iter().flat_map(|(_name, item)| item));
+    }
+
+    #[test]
+    #[serial]
+    fn list_invalid_utf8() {
+        let mut name = OsStr::new(&get_unique_name()).to_os_string().into_encoded_bytes();
+        name.push(168);
+        let name = OsString::from_vec(name);
+        File::create(&name).unwrap();
+
+        // Delete, list, and remove file with an invalid UTF8 name
+        // Listing items is already exhaustively checked above, so this test is mainly concerned
+        // with checking that listing non-Unicode names does not panic
+        trash::delete(&name).unwrap();
+        let item = trash::os_limited::list().unwrap().into_iter().find(|item| item.name == name).unwrap();
+        let _ = trash::os_limited::purge_all([item]);
     }
 
     #[test]

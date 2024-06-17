@@ -139,6 +139,7 @@ fn create_remove_single_file() {
     assert!(File::open(&name).is_err());
 }
 
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
 #[test]
 #[serial]
 fn create_remove_single_file_invalid_utf8() {
