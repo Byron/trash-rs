@@ -587,12 +587,9 @@ fn try_creating_placeholders(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Re
 }
 
 fn decode_uri_path(path: impl AsRef<Path>) -> PathBuf {
-    // Paths may be invalid Unicode so they should be treated as byte strings
-    // The `url` crate takes valid Rust Strings, so paths must be URL encoded so that they may be
-    // passed into the `url` functions.
-    // Simply parsing the path doesn't work because of the possibility of invalid Unicode.
-    // URL encoding the entire path doesn't work because back slashes will be encoded too
-    // Thus, the easiest way is to manually decode each segment of the path and recombine
+    // Paths may be invalid Unicode on most Unixes so they should be treated as byte strings
+    // A higher level crate, such as `url`, can't be used directly since its API intakes valid Rust
+    // strings. Thus, the easiest way is to manually decode each segment of the path and recombine.
     path.as_ref().iter().map(|part| OsString::from_vec(urlencoding::decode_binary(part.as_bytes()).to_vec())).collect()
 }
 
@@ -883,7 +880,7 @@ mod tests {
         ffi::{OsStr, OsString},
         fmt,
         fs::File,
-        os::unix,
+        os::unix::{self, ffi::OsStringExt},
         path::{Path, PathBuf},
         process::Command,
     };
@@ -1005,15 +1002,7 @@ mod tests {
         // Add invalid UTF-8 byte
         let mut bytes = base.into_encoded_bytes();
         bytes.push(168);
-
-        // SAFETY:
-        // * OsString is produced in part from a valid OsStr
-        // * OsString does not have to be valid Unicode
-        // * The string isn't written to disk or transferred anywhere where it may be read by a
-        // different Rust version than produced it
-        //
-        // This looks a bit convoluted because [`OsString::from_vec`] is only defined on Unix
-        let fake = unsafe { OsString::from_encoded_bytes_unchecked(bytes) };
+        let fake = OsString::from_vec(bytes);
         assert!(fake.to_str().is_none(), "Invalid Unicode cannot be a Rust String");
 
         let path = decode_uri_path(&fake);
