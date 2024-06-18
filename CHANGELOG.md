@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 5.0.0 (2024-06-18)
+
+<csr-id-58b99ef34a0dc6cce11fdc46c9fa18ffb013e33e/>
 
 To support non-UTF8 encoding in paths, the `name` field changed from `String` 
 to `OsString` in the `TrashItem` struct. As it's a return value, one won't see
@@ -39,7 +41,7 @@ code break unless `name` is actually used.
 
 <csr-read-only-do-not-edit/>
 
- - 9 commits contributed to the release over the course of 34 calendar days.
+ - 10 commits contributed to the release over the course of 34 calendar days.
  - 47 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -51,6 +53,7 @@ code break unless `name` is actually used.
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Prepare changelog prior to release ([`02d1a8d`](https://github.com/Byron/trash-rs/commit/02d1a8d2494f26b79b907d516c0444df16d3e55a))
     - Support non-UTF8 paths. ([`0971b8f`](https://github.com/Byron/trash-rs/commit/0971b8f7f0f1e20ee4356a40ae6b2ba41900c4b3))
     - Update Windows code to account for API change ([`e4b7119`](https://github.com/Byron/trash-rs/commit/e4b7119fcc369c5594e9e2b5dad8f1a6616593f7))
     - Simplify Linux/BSD only tests for non-UTF8 paths ([`559b57b`](https://github.com/Byron/trash-rs/commit/559b57bc1497d2a49ca4f463cc27f6c94697939c))
