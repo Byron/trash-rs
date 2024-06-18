@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+To support non-UTF8 encoding in paths, the `name` field changed from `String` 
+to `OsString` in the `TrashItem` struct. As it's a return value, one won't see
+code break unless `name` is actually used.
+
+### Bug Fixes
+
+ - <csr-id-15a15f8ad10791318c6d9de95d4fbaefa345fb56/> Support non-Unicode paths
+   There are several spots where paths are assumed to be Unicode. However,
+   some (all?) operating systems support non-Unicode paths which causes
+   `trash-rs` to panic if encountered. I switched some of those code to use
+   `OsString`s instead of `String`s. Unfortunately, I had to add a new
+   dependency, `urlencoding`, in order to properly handle decoding non-UTF8
+   byte slices.
+   
+   As of this commit, the test suite passes and code should be ready, but I
+   will try to remove the `url` crate and use `urlencoding` in its place
+   in the next commit.
+
+### Other
+
+ - <csr-id-58b99ef34a0dc6cce11fdc46c9fa18ffb013e33e/> Use objc2-foundation
+
+### Bug Fixes (BREAKING)
+
+ - <csr-id-0971b8f7f0f1e20ee4356a40ae6b2ba41900c4b3/> Support non-UTF8 paths.
+   Note that this changes the type of returned paths to `OsString` from String,
+   hence the breaking change.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release over the course of 34 calendar days.
+ - 47 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Support non-UTF8 paths. ([`0971b8f`](https://github.com/Byron/trash-rs/commit/0971b8f7f0f1e20ee4356a40ae6b2ba41900c4b3))
+    - Update Windows code to account for API change ([`e4b7119`](https://github.com/Byron/trash-rs/commit/e4b7119fcc369c5594e9e2b5dad8f1a6616593f7))
+    - Simplify Linux/BSD only tests for non-UTF8 paths ([`559b57b`](https://github.com/Byron/trash-rs/commit/559b57bc1497d2a49ca4f463cc27f6c94697939c))
+    - Impl test for listing invalid UTF8 trash items ([`209db9d`](https://github.com/Byron/trash-rs/commit/209db9d76de1f233b05b10f5f3f008b5968b0232))
+    - Cleanup non-Unicode support for readability ([`2f31116`](https://github.com/Byron/trash-rs/commit/2f311164ff44077dc5450ebc0f14c29f70fe57d7))
+    - Remove `url` and replace with `urlencoding` ([`67fb256`](https://github.com/Byron/trash-rs/commit/67fb2568384b7ebd96acba54e40236d9f3e9eb07))
+    - Support non-Unicode paths ([`15a15f8`](https://github.com/Byron/trash-rs/commit/15a15f8ad10791318c6d9de95d4fbaefa345fb56))
+    - Merge pull request #107 from madsmtm/objc2 ([`46585ce`](https://github.com/Byron/trash-rs/commit/46585ceacc3799f74ce9793e6d0669eb4e48b3f8))
+    - Use objc2-foundation ([`58b99ef`](https://github.com/Byron/trash-rs/commit/58b99ef34a0dc6cce11fdc46c9fa18ffb013e33e))
+</details>
+
 ## 4.1.1 (2024-05-01)
 
 This release updates the `windows` dependency (on Windows) to v0.56.
@@ -13,7 +70,7 @@ This release updates the `windows` dependency (on Windows) to v0.56.
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 43 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -25,6 +82,7 @@ This release updates the `windows` dependency (on Windows) to v0.56.
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v4.1.1 ([`c14d904`](https://github.com/Byron/trash-rs/commit/c14d904864b4c030cc8ce9d8d394c719f40c5a5b))
     - Update changelog prior to release. ([`47baa0e`](https://github.com/Byron/trash-rs/commit/47baa0ed3aaefa4167b1a972db54223ac710cb8d))
     - Merge pull request #106 from YizhePKU/bump-windows ([`02f1e6c`](https://github.com/Byron/trash-rs/commit/02f1e6c5620f9a0bbeae68246cb2b180f946a1be))
     - Bump windows crate to 0.56.0 ([`c0e0f7a`](https://github.com/Byron/trash-rs/commit/c0e0f7a6397bdb65de013ca8e2b58c6ea7ab73af))
