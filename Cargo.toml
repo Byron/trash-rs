@@ -46,7 +46,7 @@ chrono = { version = "0.4.31", optional = true, default-features = false, featur
 ] }
 libc = "0.2.149"
 scopeguard = "1.2.0"
-url = "2.4.1"
+urlencoding = "2.1.3"
 once_cell = "1.18.0"
 
 [target.'cfg(any(target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))'.dependencies]

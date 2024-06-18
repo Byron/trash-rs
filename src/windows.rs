@@ -97,9 +97,12 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     let original_location = OsString::from_wide(original_location_bstr.as_wide());
                     let date_deleted = get_date_deleted_unix(&item2)?;
 
+                    // NTFS paths are valid Unicode according to this chart:
+                    // https://en.wikipedia.org/wiki/Filename#Comparison_of_filename_limitations
+                    // Converting a String back to OsString doesn't do extra work
                     item_vec.push(TrashItem {
                         id,
-                        name: name.into_string().map_err(|original| Error::ConvertOsString { original })?,
+                        name: name.into_string().map_err(|original| Error::ConvertOsString { original })?.into(),
                         original_parent: PathBuf::from(original_location),
                         time_deleted: date_deleted,
                     });

@@ -29,7 +29,11 @@ mod os_limited {
     use super::{get_unique_name, init_logging};
     use serial_test::serial;
     use std::collections::{hash_map::Entry, HashMap};
+    use std::ffi::{OsStr, OsString};
     use std::fs::File;
+
+    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+    use std::os::unix::ffi::OsStringExt;
 
     use crate as trash;
 
@@ -45,7 +49,7 @@ mod os_limited {
         let file_name_prefix = get_unique_name();
         let batches: usize = 2;
         let files_per_batch: usize = 3;
-        let names: Vec<_> = (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
+        let names: Vec<OsString> = (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i).into()).collect();
         for _ in 0..batches {
             for path in names.iter() {
                 File::create(path).unwrap();
@@ -53,8 +57,10 @@ mod os_limited {
             trash::delete_all(&names).unwrap();
         }
         let items = trash::os_limited::list().unwrap();
-        let items: HashMap<_, Vec<_>> =
-            items.into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).fold(HashMap::new(), |mut map, x| {
+        let items: HashMap<_, Vec<_>> = items
+            .into_iter()
+            .filter(|x| x.name.as_encoded_bytes().starts_with(file_name_prefix.as_bytes()))
+            .fold(HashMap::new(), |mut map, x| {
                 match map.entry(x.name.clone()) {
                     Entry::Occupied(mut entry) => {
                         entry.get_mut().push(x);
@@ -82,13 +88,30 @@ mod os_limited {
                         }
                     }
                 }
-                None => panic!("ERROR Could not find '{}' in {:#?}", name, items),
+                None => panic!("ERROR Could not find '{:?}' in {:#?}", name, items),
             }
         }
 
         // Let's try to purge all the items we just created but ignore any errors
         // as this test should succeed as long as `list` works properly.
         let _ = trash::os_limited::purge_all(items.iter().flat_map(|(_name, item)| item));
+    }
+
+    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+    #[test]
+    #[serial]
+    fn list_invalid_utf8() {
+        let mut name = OsStr::new(&get_unique_name()).to_os_string().into_encoded_bytes();
+        name.push(168);
+        let name = OsString::from_vec(name);
+        File::create(&name).unwrap();
+
+        // Delete, list, and remove file with an invalid UTF8 name
+        // Listing items is already exhaustively checked above, so this test is mainly concerned
+        // with checking that listing non-Unicode names does not panic
+        trash::delete(&name).unwrap();
+        let item = trash::os_limited::list().unwrap().into_iter().find(|item| item.name == name).unwrap();
+        let _ = trash::os_limited::purge_all([item]);
     }
 
     #[test]
@@ -119,12 +142,18 @@ mod os_limited {
         }
 
         // Collect it because we need the exact number of items gathered.
-        let targets: Vec<_> =
-            trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).collect();
+        let targets: Vec<_> = trash::os_limited::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.as_encoded_bytes().starts_with(file_name_prefix.as_bytes()))
+            .collect();
         assert_eq!(targets.len(), batches * files_per_batch);
         trash::os_limited::purge_all(targets).unwrap();
-        let remaining =
-            trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).count();
+        let remaining = trash::os_limited::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.as_encoded_bytes().starts_with(file_name_prefix.as_bytes()))
+            .count();
         assert_eq!(remaining, 0);
     }
 
@@ -141,12 +170,18 @@ mod os_limited {
         trash::delete_all(&names).unwrap();
 
         // Collect it because we need the exact number of items gathered.
-        let targets: Vec<_> =
-            trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).collect();
+        let targets: Vec<_> = trash::os_limited::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.as_encoded_bytes().starts_with(file_name_prefix.as_bytes()))
+            .collect();
         assert_eq!(targets.len(), file_count);
         trash::os_limited::restore_all(targets).unwrap();
-        let remaining =
-            trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).count();
+        let remaining = trash::os_limited::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.as_encoded_bytes().starts_with(file_name_prefix.as_bytes()))
+            .count();
         assert_eq!(remaining, 0);
 
         // They are not in the trash anymore but they should be at their original location
@@ -178,15 +213,18 @@ mod os_limited {
         for path in names.iter().skip(file_count - collision_remaining) {
             File::create(path).unwrap();
         }
-        let mut targets: Vec<_> =
-            trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).collect();
+        let mut targets: Vec<_> = trash::os_limited::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.as_encoded_bytes().starts_with(file_name_prefix.as_bytes()))
+            .collect();
         targets.sort_by(|a, b| a.name.cmp(&b.name));
         assert_eq!(targets.len(), file_count);
         let remaining_count = match trash::os_limited::restore_all(targets) {
             Err(trash::Error::RestoreCollision { remaining_items, .. }) => {
                 let contains = |v: &Vec<trash::TrashItem>, name: &String| {
                     for curr in v.iter() {
-                        if *curr.name == *name {
+                        if curr.name.as_encoded_bytes() == name.as_bytes() {
                             return true;
                         }
                     }
@@ -208,7 +246,7 @@ mod os_limited {
         let remaining = trash::os_limited::list()
             .unwrap()
             .into_iter()
-            .filter(|x| x.name.starts_with(&file_name_prefix))
+            .filter(|x| x.name.as_encoded_bytes().starts_with(file_name_prefix.as_bytes()))
             .collect::<Vec<_>>();
         assert_eq!(remaining.len(), remaining_count);
         trash::os_limited::purge_all(remaining).unwrap();
@@ -234,8 +272,11 @@ mod os_limited {
         File::create(twin_name).unwrap();
         trash::delete(twin_name).unwrap();
 
-        let mut targets: Vec<_> =
-            trash::os_limited::list().unwrap().into_iter().filter(|x| x.name.starts_with(&file_name_prefix)).collect();
+        let mut targets: Vec<_> = trash::os_limited::list()
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.name.as_encoded_bytes().starts_with(file_name_prefix.as_bytes()))
+            .collect();
         targets.sort_by(|a, b| a.name.cmp(&b.name));
         assert_eq!(targets.len(), file_count + 1); // plus one for one of the twins
         match trash::os_limited::restore_all(targets) {
