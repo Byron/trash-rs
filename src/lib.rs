@@ -81,7 +81,7 @@ impl TrashContext {
     /// trash::delete("delete_me").unwrap();
     /// assert!(File::open("delete_me").is_err());
     /// ```
-    pub fn delete<T: AsRef<Path>>(&self, path: T) -> Result<(), Error> {
+    pub fn delete<T: AsRef<Path>>(&self, path: T) -> Result<Option<Vec<TrashItem>>, Error> {
         self.delete_all(&[path])
     }
 
@@ -101,7 +101,7 @@ impl TrashContext {
     /// assert!(File::open("delete_me_1").is_err());
     /// assert!(File::open("delete_me_2").is_err());
     /// ```
-    pub fn delete_all<I, T>(&self, paths: I) -> Result<(), Error>
+    pub fn delete_all<I, T>(&self, paths: I) -> Result<Option<Vec<TrashItem>>, Error>
     where
         I: IntoIterator<Item = T>,
         T: AsRef<Path>,
@@ -116,14 +116,14 @@ impl TrashContext {
 /// Convenience method for `DEFAULT_TRASH_CTX.delete()`.
 ///
 /// See: [`TrashContext::delete`](TrashContext::delete)
-pub fn delete<T: AsRef<Path>>(path: T) -> Result<(), Error> {
+pub fn delete<T: AsRef<Path>>(path: T) -> Result<Option<Vec<TrashItem>>, Error> {
     DEFAULT_TRASH_CTX.delete(path)
 }
 
 /// Convenience method for `DEFAULT_TRASH_CTX.delete_all()`.
 ///
 /// See: [`TrashContext::delete_all`](TrashContext::delete_all)
-pub fn delete_all<I, T>(paths: I) -> Result<(), Error>
+pub fn delete_all<I, T>(paths: I) -> Result<Option<Vec<TrashItem>>, Error>
 where
     I: IntoIterator<Item = T>,
     T: AsRef<Path>,
