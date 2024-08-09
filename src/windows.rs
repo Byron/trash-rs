@@ -57,6 +57,15 @@ impl TrashContext {
                 pfo.DeleteItem(&shi, None)?;
             }
             pfo.PerformOperations()?;
+
+            // https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-performoperations
+            // this method can still return a success code. Use the GetAnyOperationsAborted method to determine if this was the case.
+            if pfo.GetAnyOperationsAborted()?.as_bool() {
+                // TODO: return the reason why the operation was aborted.
+                // We may retrieve reason from the IFileOperationProgressSink but
+                // the list of HRESULT codes is not documented.
+                return Err(Error::Unknown { description: "Some operations were aborted".into() });
+            }
             Ok(())
         }
     }
