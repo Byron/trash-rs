@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.1.0 (2024-08-09)
+
+### New Features
+
+ - <csr-id-791917843a988396935ceff1eb5c982da6655d80/> check for operation abort
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 52 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Merge pull request #113 from anatawa12/master ([`ca6d598`](https://github.com/Byron/trash-rs/commit/ca6d5980216eb9f2e4d709a08e0454502655e454))
+    - Check for operation abort ([`7919178`](https://github.com/Byron/trash-rs/commit/791917843a988396935ceff1eb5c982da6655d80))
+</details>
+
 ## 5.0.0 (2024-06-18)
 
 <csr-id-58b99ef34a0dc6cce11fdc46c9fa18ffb013e33e/>
@@ -41,7 +67,7 @@ code break unless `name` is actually used.
 
 <csr-read-only-do-not-edit/>
 
- - 10 commits contributed to the release over the course of 34 calendar days.
+ - 11 commits contributed to the release over the course of 34 calendar days.
  - 47 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -53,6 +79,7 @@ code break unless `name` is actually used.
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v5.0.0 ([`a754f4a`](https://github.com/Byron/trash-rs/commit/a754f4a8c62737085c31982c1025544f3f36f5e8))
     - Prepare changelog prior to release ([`02d1a8d`](https://github.com/Byron/trash-rs/commit/02d1a8d2494f26b79b907d516c0444df16d3e55a))
     - Support non-UTF8 paths. ([`0971b8f`](https://github.com/Byron/trash-rs/commit/0971b8f7f0f1e20ee4356a40ae6b2ba41900c4b3))
     - Update Windows code to account for API change ([`e4b7119`](https://github.com/Byron/trash-rs/commit/e4b7119fcc369c5594e9e2b5dad8f1a6616593f7))
