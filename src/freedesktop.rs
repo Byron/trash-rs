@@ -48,6 +48,9 @@ impl TrashContext {
                 // Note that the following function creates the trash folder
                 // and its required subfolders in case they don't exist.
                 move_to_trash(path, &home_trash, topdir).map_err(|(p, e)| fs_error(p, e))?;
+            } else if topdir.to_str() == Some("/var/home") && home_topdir.to_str() == Some("/") {
+                debug!("The topdir is '/var/home' but the home_topdir is '/', moving to the home trash anyway.");
+                move_to_trash(path, &home_trash, topdir).map_err(|(p, e)| fs_error(p, e))?;
             } else {
                 execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
                     move_to_trash(&path, trash_path, topdir)
