@@ -519,54 +519,13 @@ fn move_to_trash(
     Ok(())
 }
 
-fn execute_src_to_dst_operation<S1, D1>(
-    src: S1,
-    dst: D1,
-    dir: &'static dyn Fn(&Path) -> Result<(), FsError>,
-    file: &'static dyn Fn(&Path, &Path) -> Result<(), FsError>,
-) -> Result<(), FsError>
-where
-    S1: AsRef<Path>,
-    D1: AsRef<Path>,
-{
-    let src = src.as_ref();
-    let dst = dst.as_ref();
-
-    let metadata = src.symlink_metadata().map_err(|e| (src.to_owned(), e))?;
-    if metadata.is_dir() {
-        dir(dst)?;
-        let dir_entries = std::fs::read_dir(src).map_err(|e| (src.to_owned(), e))?;
-        for entry in dir_entries {
-            // Forward the error because it's not okay if something is happening
-            // to the files while we are trying to move them.
-            let entry = entry.map_err(|e| (src.to_owned(), e))?;
-            let entry_src = entry.path();
-            let entry_dst = dst.join(entry.file_name());
-            execute_src_to_dst_operation(entry_src, entry_dst, dir, file)?;
-        }
-    } else {
-        // Symlink or file
-        file(src, dst)?;
-    }
-    Ok(())
-}
-
 /// An error may mean that a collision was found.
 fn move_items_no_replace(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), FsError> {
     let src = src.as_ref();
     let dst = dst.as_ref();
 
     try_creating_placeholders(src, dst)?;
-
-    // All placeholders are in place. LET'S OVERWRITE
-    execute_src_to_dst_operation(src, dst, &|_| Ok(()), &|src, dst| {
-        if let Some(parent) = dst.parent() {
-            if let Err(err) = std::fs::create_dir_all(parent) {
-                warn!("Failed to create destination directory. It probably already exists. {:?}", err);
-            }
-        }
-        std::fs::rename(src, dst).map_err(|e| (src.to_owned(), e))
-    })?;
+    std::fs::rename(src, dst).map_err(|e| (src.to_owned(), e))?;
 
     // Once everything is moved, lets recursively remove the directory
     if src.is_dir() {
