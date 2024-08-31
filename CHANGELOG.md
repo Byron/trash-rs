@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 5.1.1 (2024-08-31)
 
 This release accelerates removing large folders by removing an unnecessary recursive check.
 
@@ -13,7 +13,7 @@ This release accelerates removing large folders by removing an unnecessary recur
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#114](https://github.com/Byron/trash-rs/issues/114)
 
@@ -26,6 +26,7 @@ This release accelerates removing large folders by removing an unnecessary recur
  * **[#114](https://github.com/Byron/trash-rs/issues/114)**
     - Merge pull request #114 from sungsphinx/fix-fedora-atomic ([`3d95173`](https://github.com/Byron/trash-rs/commit/3d95173d19bedf18d8b5b687567707bd99871e19))
  * **Uncategorized**
+    - Adjust changelog prior to release ([`bc3e9c1`](https://github.com/Byron/trash-rs/commit/bc3e9c11426df512e3b056111863f8b410eaf043))
     - Merge pull request #115 from NeumoNeumo/NeumoNeumo-patch-1 ([`df6f3b9`](https://github.com/Byron/trash-rs/commit/df6f3b99728a469f06027b2df486adc631ebc4ba))
     - Accelerate by removing recursive renaming ([`8f8f5c0`](https://github.com/Byron/trash-rs/commit/8f8f5c06b2ce43d30c373311c643f184b7176d9f))
     - Fix trashing files on Fedora Atomic variants ([`4d22ee4`](https://github.com/Byron/trash-rs/commit/4d22ee4852ba9b300489d332c210b920d01db8d9))
