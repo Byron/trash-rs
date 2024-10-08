@@ -374,6 +374,24 @@ pub mod os_limited {
         platform::list()
     }
 
+    /// Returns whether the trash is empty or has at least one item.
+    ///
+    /// Unlike calling [`list`], this function short circuits without evaluating every item.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use trash::os_limited::is_empty;
+    /// if is_empty().unwrap_or(true) {
+    ///     println!("Trash is empty");
+    /// } else {
+    ///     println!("Trash contains at least one item");
+    /// }
+    /// ```
+    pub fn is_empty() -> Result<bool, Error> {
+        platform::is_empty()
+    }
+
     /// Returns all valid trash bins on supported Unix platforms.
     ///
     /// Valid trash folders include the user's personal "home trash" as well as designated trash

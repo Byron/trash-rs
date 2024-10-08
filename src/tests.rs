@@ -287,4 +287,14 @@ mod os_limited {
             _ => panic!("restore_all was expected to return `trash::ErrorKind::RestoreTwins` but did not."),
         }
     }
+
+    #[test]
+    #[serial]
+    fn is_empty_matches_list() {
+        init_logging();
+
+        let is_empty_list = trash::os_limited::list().unwrap().is_empty();
+        let is_empty = trash::os_limited::is_empty().unwrap();
+        assert_eq!(is_empty, is_empty_list, "is_empty() should match empty status from list()");
+    }
 }
