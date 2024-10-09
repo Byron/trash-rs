@@ -197,6 +197,32 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     Ok(result)
 }
 
+pub fn is_empty() -> Result<bool, Error> {
+    let trash_folders = trash_folders()?;
+
+    if trash_folders.is_empty() {
+        return Ok(true);
+    }
+
+    for folder in trash_folders {
+        // We're only concerned if the trash contains any files
+        // Therefore, we only need to check if the bin itself is empty
+        let bin = folder.join("files");
+        match bin.read_dir() {
+            Ok(mut entries) => {
+                if let Some(Ok(_)) = entries.next() {
+                    return Ok(false);
+                }
+            }
+            Err(e) => {
+                warn!("The trash files folder {:?} could not be read. Error was {:?}", bin, e);
+            }
+        }
+    }
+
+    Ok(true)
+}
+
 pub fn trash_folders() -> Result<HashSet<PathBuf>, Error> {
     let EvaluatedTrashFolders { trash_folders, home_error, .. } = eval_trash_folders()?;
 

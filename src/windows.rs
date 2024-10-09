@@ -126,6 +126,21 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     }
 }
 
+pub fn is_empty() -> Result<bool, Error> {
+    ensure_com_initialized();
+    unsafe {
+        let recycle_bin: IShellItem =
+            SHGetKnownFolderItem(&FOLDERID_RecycleBinFolder, KF_FLAG_DEFAULT, HANDLE::default())?;
+        let pesi: IEnumShellItems = recycle_bin.BindToHandler(None, &BHID_EnumItems)?;
+
+        let mut count = 0u32;
+        let mut items = [None];
+        pesi.Next(&mut items, Some(&mut count as *mut u32))?;
+
+        Ok(count == 0)
+    }
+}
+
 pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
     ensure_com_initialized();
     let id_as_wide = to_wide_path(&item.id);
