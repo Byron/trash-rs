@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.2.0 (2024-10-26)
+
+### New Features
+
+ - <csr-id-6d59fa939429d2eede8b7cf22b2e084bc3c546f4/> Short circuiting check for empty trash
+   `is_empty()` is a short circuiting function that checks if the trash is
+   empty on Freedesktop compatible systems and Windows.
+   
+   The main purpose of `is_empty()` is to avoid evaluating the entire trash
+   context when the caller is only interested in whether the trash is empty
+   or not. This is especially useful for full trashes with many items.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 56 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Merge pull request #120 from joshuamegnauth54/feat-short-circuiting-is-empty ([`0120bbe`](https://github.com/Byron/trash-rs/commit/0120bbe66889e3659b9f09598f3567dd6c00d4b6))
+    - Short circuiting check for empty trash ([`6d59fa9`](https://github.com/Byron/trash-rs/commit/6d59fa939429d2eede8b7cf22b2e084bc3c546f4))
+</details>
+
 ## 5.1.1 (2024-08-31)
 
 This release accelerates removing large folders by removing an unnecessary recursive check.
@@ -13,7 +45,8 @@ This release accelerates removing large folders by removing an unnecessary recur
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release.
+ - 6 commits contributed to the release.
+ - 22 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#114](https://github.com/Byron/trash-rs/issues/114)
 
@@ -26,6 +59,7 @@ This release accelerates removing large folders by removing an unnecessary recur
  * **[#114](https://github.com/Byron/trash-rs/issues/114)**
     - Merge pull request #114 from sungsphinx/fix-fedora-atomic ([`3d95173`](https://github.com/Byron/trash-rs/commit/3d95173d19bedf18d8b5b687567707bd99871e19))
  * **Uncategorized**
+    - Release trash v5.1.1 ([`a2920fa`](https://github.com/Byron/trash-rs/commit/a2920fa50ad6dec4fc430c48b9837df2f17cd2f4))
     - Adjust changelog prior to release ([`bc3e9c1`](https://github.com/Byron/trash-rs/commit/bc3e9c11426df512e3b056111863f8b410eaf043))
     - Merge pull request #115 from NeumoNeumo/NeumoNeumo-patch-1 ([`df6f3b9`](https://github.com/Byron/trash-rs/commit/df6f3b99728a469f06027b2df486adc631ebc4ba))
     - Accelerate by removing recursive renaming ([`8f8f5c0`](https://github.com/Byron/trash-rs/commit/8f8f5c06b2ce43d30c373311c643f184b7176d9f))
@@ -43,6 +77,7 @@ This release accelerates removing large folders by removing an unnecessary recur
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 52 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -94,7 +129,8 @@ code break unless `name` is actually used.
 
 <csr-read-only-do-not-edit/>
 
- - 11 commits contributed to the release.
+ - 11 commits contributed to the release over the course of 34 calendar days.
+ - 47 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -154,6 +190,7 @@ This release updates the `windows` dependency (on Windows) to v0.56.
 <csr-read-only-do-not-edit/>
 
  - 5 commits contributed to the release.
+ - 7 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -185,6 +222,7 @@ This release updates the `windows` dependency (on Windows) to v0.56.
 <csr-read-only-do-not-edit/>
 
  - 5 commits contributed to the release.
+ - 28 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -213,6 +251,7 @@ This release updates the `windows` dependency (on Windows) to v0.56.
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 2 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#99](https://github.com/Byron/trash-rs/issues/99)
 
@@ -243,7 +282,8 @@ This release updates the `windows` dependency (on Windows) to v0.56.
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release.
+ - 6 commits contributed to the release over the course of 5 calendar days.
+ - 25 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#99](https://github.com/Byron/trash-rs/issues/99)
 
@@ -274,6 +314,7 @@ This release updates the `windows` dependency (on Windows) to v0.56.
 <csr-read-only-do-not-edit/>
 
  - 10 commits contributed to the release.
+ - 5 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -376,7 +417,8 @@ This release fixes compile errors on DragonFly, a fork of FreeBSD.
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release.
+ - 5 commits contributed to the release over the course of 9 calendar days.
+ - 9 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -412,6 +454,7 @@ This release fixes compile errors on DragonFly, a fork of FreeBSD.
 <csr-read-only-do-not-edit/>
 
  - 10 commits contributed to the release.
+ - 88 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#84](https://github.com/Byron/trash-rs/issues/84)
 
@@ -446,6 +489,7 @@ This release fixes compile errors on DragonFly, a fork of FreeBSD.
 <csr-read-only-do-not-edit/>
 
  - 4 commits contributed to the release.
+ - 5 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -476,7 +520,8 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 
 <csr-read-only-do-not-edit/>
 
- - 9 commits contributed to the release.
+ - 9 commits contributed to the release over the course of 1 calendar day.
+ - 4 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -511,6 +556,7 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 19 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#75](https://github.com/Byron/trash-rs/issues/75)
 
@@ -539,7 +585,8 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 3 commits contributed to the release over the course of 11 calendar days.
+ - 25 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#73](https://github.com/Byron/trash-rs/issues/73)
 
@@ -596,7 +643,8 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release.
+ - 5 commits contributed to the release over the course of 61 calendar days.
+ - 64 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -666,6 +714,7 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 <csr-read-only-do-not-edit/>
 
  - 5 commits contributed to the release.
+ - 40 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#39](https://github.com/Byron/trash-rs/issues/39)
 
@@ -696,6 +745,7 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 8 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#39](https://github.com/Byron/trash-rs/issues/39), [#51](https://github.com/Byron/trash-rs/issues/51)
 
@@ -724,6 +774,7 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 <csr-read-only-do-not-edit/>
 
  - 5 commits contributed to the release.
+ - 3 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#5050505050](https://github.com/Byron/trash-rs/issues/5050505050)
 
@@ -760,6 +811,7 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 2 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#39](https://github.com/Byron/trash-rs/issues/39)
 
@@ -796,7 +848,8 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 
 <csr-read-only-do-not-edit/>
 
- - 7 commits contributed to the release.
+ - 7 commits contributed to the release over the course of 2 calendar days.
+ - 3 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#47](https://github.com/Byron/trash-rs/issues/47)
 
@@ -828,6 +881,7 @@ YANKED: It was discovered that symlinks aren't handled correctly, which can lead
 <csr-read-only-do-not-edit/>
 
  - 8 commits contributed to the release.
+ - 103 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#45](https://github.com/Byron/trash-rs/issues/45), [#47](https://github.com/Byron/trash-rs/issues/47)
 
@@ -869,7 +923,8 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
 <csr-read-only-do-not-edit/>
 
- - 10 commits contributed to the release.
+ - 10 commits contributed to the release over the course of 30 calendar days.
+ - 30 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -936,7 +991,8 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
 <csr-read-only-do-not-edit/>
 
- - 10 commits contributed to the release.
+ - 10 commits contributed to the release over the course of 104 calendar days.
+ - 108 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#34](https://github.com/Byron/trash-rs/issues/34), [#35](https://github.com/Byron/trash-rs/issues/35), [#36](https://github.com/Byron/trash-rs/issues/36)
 
@@ -973,6 +1029,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
 <csr-read-only-do-not-edit/>
 
  - 4 commits contributed to the release.
+ - 11 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -1003,7 +1060,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
 <csr-read-only-do-not-edit/>
 
- - 32 commits contributed to the release.
+ - 32 commits contributed to the release over the course of 4 calendar days.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -1092,6 +1149,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 87 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#17](https://github.com/Byron/trash-rs/issues/17)
 
@@ -1126,6 +1184,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
 <csr-read-only-do-not-edit/>
 
  - 59 commits contributed to the release.
+ - 218 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -1221,7 +1280,7 @@ All previous 2.0.* releases which contained this function were yanked from crate
 
 <csr-read-only-do-not-edit/>
 
- - 19 commits contributed to the release.
+ - 19 commits contributed to the release over the course of 99 calendar days.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
