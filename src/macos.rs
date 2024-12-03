@@ -160,12 +160,16 @@ fn from_utf8_lossy_pc(v:&[u8]) -> Cow<'_, str> { // std's from_utf8_lossy, but n
 #[cfg(test)]
 mod tests {
     use crate::{
-        macos::{DeleteMethod, TrashContextExtMacos},
+        macos::{DeleteMethod, TrashContextExtMacos, from_utf8_lossy_pc},
         tests::{get_unique_name, init_logging},
         TrashContext,
     };
     use serial_test::serial;
     use std::fs::File;
+    use std::path::PathBuf;
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+    use std::borrow::Cow;
 
     #[test]
     #[serial]
@@ -178,5 +182,24 @@ mod tests {
         File::create_new(&path).unwrap();
         trash_ctx.delete(&path).unwrap();
         assert!(File::open(&path).is_err());
+    }
+
+    #[test]
+    fn test_path_byte() {
+        let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
+        let pcvalid_utf8 =   "%80"; // valid macOS path in a %-escaped encoding
+
+        let mut p = PathBuf::new(); p.push(get_unique_name()); //trash-test-111-0
+        let mut path_pcvalid_utf8 = p.clone();
+        let mut path_invalid      = p.clone();
+
+        path_invalid.push(OsStr::from_bytes(invalid_utf8)); //      trash-test-111-0/\x80
+        path_pcvalid_utf8.push(pcvalid_utf8); //                    trash-test-111-0/%80
+
+        let path_invalid_byte = path_invalid.as_os_str().as_encoded_bytes();
+        let pc_encode: Cow<'_, str> = from_utf8_lossy_pc(&path_invalid_byte);
+        let path_invalid_pc = PathBuf::from(pc_encode.as_ref()); // trash-test-111-0/%80
+
+        assert_eq!(path_pcvalid_utf8, path_invalid_pc);
     }
 }
