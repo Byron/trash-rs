@@ -16,6 +16,7 @@ use crate::{into_unknown, Error, TrashContext, TrashItem};
 ///   | <br>Feature            |≝<br>Finder     |<br>NsFileManager |
 ///   |:-----------------------|:--------------:|:----------------:|
 ///   |Undo via "Put back"     | ✓              | ✗                |
+///   |Get trashed paths       | ✗              | ✓                |
 ///   |Speed                   | ✗<br>Slower    | ✓<br>Faster      |
 ///   |No sound                | ✗              | ✓                |
 ///   |No extra permissions    | ✗              | ✓                |
@@ -40,6 +41,7 @@ pub enum DeleteMethod {
     ///   at:
     ///   - <https://github.com/sindresorhus/macos-trash/issues/4>
     ///   - <https://github.com/ArturKovacs/trash-rs/issues/14>
+    /// - Allows getting the paths to the trashed items
     NsFileManager,
 }
 impl DeleteMethod {
