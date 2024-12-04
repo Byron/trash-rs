@@ -522,13 +522,13 @@ pub mod os_limited {
     {
         // Check for twins here cause that's pretty platform independent.
         struct ItemWrapper<'a>(&'a TrashItem);
-        impl<'a> PartialEq for ItemWrapper<'a> {
+        impl PartialEq for ItemWrapper<'_> {
             fn eq(&self, other: &Self) -> bool {
                 self.0.original_path() == other.0.original_path()
             }
         }
-        impl<'a> Eq for ItemWrapper<'a> {}
-        impl<'a> Hash for ItemWrapper<'a> {
+        impl Eq for ItemWrapper<'_> {}
+        impl Hash for ItemWrapper<'_> {
             fn hash<H: Hasher>(&self, state: &mut H) {
                 self.0.original_path().hash(state);
             }
