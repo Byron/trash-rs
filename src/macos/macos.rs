@@ -112,6 +112,7 @@ fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P]) -> Result<Option<Vec<
             });
         } else {
             if let Some(out_nsurl) = out_res_nsurl {
+                #[allow(unused_assignments)]
                 let mut time_deleted = -1;
                 #[cfg(    feature = "chrono") ] {let now = chrono::Local::now(); time_deleted = now.timestamp();}
                 #[cfg(not(feature = "chrono"))] {                                time_deleted = -1;}
