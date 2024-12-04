@@ -178,6 +178,29 @@ mod tests {
         assert!(File::open(&path).is_err());
     }
 
+    // DISABLED: test only works on file systems that support binary paths (not APFS), not sure what CI has
+    // successfully tested on a local HFS usb flash drive
+    #[test]
+    #[serial]
+    fn test_delete_binary_path_with_ns_file_manager() {
+        let parent_fs_supports_binary = "/Volumes/Untitled"; // USB drive that supports non-utf8 paths
+
+        init_logging();
+        let mut trash_ctx = TrashContext::default();
+        trash_ctx.set_delete_method(DeleteMethod::NsFileManager);
+
+        let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
+        let mut p = PathBuf::new();
+        p.push(parent_fs_supports_binary); // /Volumes/Untitled
+        p.push(get_unique_name());         // /Volumes/Untitled/trash-test-111-0
+        let mut path_invalid = p.clone();
+        path_invalid.set_extension(OsStr::from_bytes(invalid_utf8)); //...trash-test-111-0.\x80 (not push to avoid fail unexisting dir)
+
+        // File::create_new(&path_invalid).unwrap();
+        // trash_ctx.delete(&path_invalid).unwrap();
+        // assert!(File::open(&path_invalid).is_err());
+    }
+
     #[test]
     fn test_path_byte() {
         let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
