@@ -1,4 +1,8 @@
-use std::{ffi::OsString, path::{Path, PathBuf}, process::Command};
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use log::trace;
 use objc2_foundation::{NSFileManager, NSString, NSURL};
@@ -69,14 +73,14 @@ impl TrashContext {
     }
 }
 
-fn delete_using_file_mgr<P:AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
+fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
     trace!("Starting delete_using_file_mgr");
     let file_mgr = unsafe { NSFileManager::defaultManager() };
     for path in full_paths {
         let path_b = path.as_ref().as_os_str().as_encoded_bytes();
         let string = match simdutf8::basic::from_utf8(path_b) {
             Ok(path_utf8) => NSString::from_str(path_utf8), // utf-8 path, use as is
-            Err(_) => NSString::from_str(&from_utf8_lossy_pc(path_b)) // binary path, %-encode it
+            Err(_) => NSString::from_str(&from_utf8_lossy_pc(path_b)), // binary path, %-encode it
         };
 
         trace!("Starting fileURLWithPath");
@@ -89,19 +93,20 @@ fn delete_using_file_mgr<P:AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
 
         if let Err(err) = res {
             return Err(Error::Unknown {
-                description: format!("While deleting '{:?}', `trashItemAtURL` failed: {err}",path.as_ref()),
+                description: format!("While deleting '{:?}', `trashItemAtURL` failed: {err}", path.as_ref()),
             });
         }
     }
     Ok(())
 }
 
-fn delete_using_finder<P:AsRef<Path> + std::fmt::Debug>(full_paths: &[P]) -> Result<(), Error> {
+fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(full_paths: &[P]) -> Result<(), Error> {
     // AppleScript command to move files (or directories) to Trash looks like
     //   osascript -e 'tell application "Finder" to delete { POSIX file "file1", POSIX "file2" }'
     // The `-e` flag is used to execute only one line of AppleScript.
     let mut command = Command::new("osascript");
-    let posix_files = full_paths.into_iter().map(|p| format!("POSIX file \"{p:?}\"")).collect::<Vec<String>>().join(", ");
+    let posix_files =
+        full_paths.into_iter().map(|p| format!("POSIX file \"{p:?}\"")).collect::<Vec<String>>().join(", ");
     let script = format!("tell application \"Finder\" to delete {{ {posix_files} }}");
 
     let argv: Vec<OsString> = vec!["-e".into(), script.into()];
@@ -129,41 +134,53 @@ fn delete_using_finder<P:AsRef<Path> + std::fmt::Debug>(full_paths: &[P]) -> Res
     Ok(())
 }
 
-use std::borrow::Cow;
 use percent_encoding::percent_encode_byte as b2pc;
-fn from_utf8_lossy_pc(v:&[u8]) -> Cow<'_, str> { // std's from_utf8_lossy, but non-utf8 byte sequences are %-encoded instead of being replaced by an special symbol. Valid utf8, including `%`, are not escaped, so this is still lossy. Useful for macOS file paths.
-  let mut iter = v.utf8_chunks();
-  let (first_valid,first_invalid) = if let Some(chunk) = iter.next() {
-    let valid   = chunk.valid();
-    let invalid = chunk.invalid();
-    if  invalid.is_empty() {debug_assert_eq!(valid.len(), v.len()); // invalid=empty → last chunk
-      return     Cow::Borrowed(valid);}
-    (valid,invalid)
-  } else {return Cow::Borrowed(""   );};
+use std::borrow::Cow;
+fn from_utf8_lossy_pc(v: &[u8]) -> Cow<'_, str> {
+    // std's from_utf8_lossy, but non-utf8 byte sequences are %-encoded instead of being replaced by an special symbol. Valid utf8, including `%`, are not escaped, so this is still lossy. Useful for macOS file paths.
+    let mut iter = v.utf8_chunks();
+    let (first_valid, first_invalid) = if let Some(chunk) = iter.next() {
+        let valid = chunk.valid();
+        let invalid = chunk.invalid();
+        if invalid.is_empty() {
+            debug_assert_eq!(valid.len(), v.len()); // invalid=empty → last chunk
+            return Cow::Borrowed(valid);
+        }
+        (valid, invalid)
+    } else {
+        return Cow::Borrowed("");
+    };
 
-  let mut res = String::with_capacity(v.len()); res.push_str(first_valid);
-  first_invalid.iter().for_each(|b|            {res.push_str(b2pc(*b));});
-  for chunk in iter                            {res.push_str(chunk.valid());
-    let invalid = chunk.invalid();
-    if !invalid.is_empty() {
-      invalid  .iter().for_each(|b|            {res.push_str(b2pc(*b));});}
-  }
-  Cow::Owned(res)
+    let mut res = String::with_capacity(v.len());
+    res.push_str(first_valid);
+    first_invalid.iter().for_each(|b| {
+        res.push_str(b2pc(*b));
+    });
+    for chunk in iter {
+        res.push_str(chunk.valid());
+        let invalid = chunk.invalid();
+        if !invalid.is_empty() {
+            invalid.iter().for_each(|b| {
+                res.push_str(b2pc(*b));
+            });
+        }
+    }
+    Cow::Owned(res)
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        macos::{DeleteMethod, TrashContextExtMacos, from_utf8_lossy_pc},
+        macos::{from_utf8_lossy_pc, DeleteMethod, TrashContextExtMacos},
         tests::{get_unique_name, init_logging},
         TrashContext,
     };
     use serial_test::serial;
-    use std::fs::File;
-    use std::path::PathBuf;
-    use std::ffi::OsStr;
-    use std::os::unix::ffi::OsStrExt;
     use std::borrow::Cow;
+    use std::ffi::OsStr;
+    use std::fs::File;
+    use std::os::unix::ffi::OsStrExt;
+    use std::path::PathBuf;
 
     #[test]
     #[serial]
@@ -192,7 +209,7 @@ mod tests {
         let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
         let mut p = PathBuf::new();
         p.push(parent_fs_supports_binary); // /Volumes/Untitled
-        p.push(get_unique_name());         // /Volumes/Untitled/trash-test-111-0
+        p.push(get_unique_name()); // /Volumes/Untitled/trash-test-111-0
         let mut path_invalid = p.clone();
         path_invalid.set_extension(OsStr::from_bytes(invalid_utf8)); //...trash-test-111-0.\x80 (not push to avoid fail unexisting dir)
 
@@ -204,11 +221,12 @@ mod tests {
     #[test]
     fn test_path_byte() {
         let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
-        let pcvalid_utf8 =   "%80"; // valid macOS path in a %-escaped encoding
+        let pcvalid_utf8 = "%80"; // valid macOS path in a %-escaped encoding
 
-        let mut p = PathBuf::new(); p.push(get_unique_name()); //trash-test-111-0
+        let mut p = PathBuf::new();
+        p.push(get_unique_name()); //trash-test-111-0
         let mut path_pcvalid_utf8 = p.clone();
-        let mut path_invalid      = p.clone();
+        let mut path_invalid = p.clone();
 
         path_invalid.push(OsStr::from_bytes(invalid_utf8)); //      trash-test-111-0/\x80
         path_pcvalid_utf8.push(pcvalid_utf8); //                    trash-test-111-0/%80
