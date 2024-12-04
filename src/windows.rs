@@ -36,7 +36,10 @@ impl PlatformTrashContext {
 }
 impl TrashContext {
     /// See https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-_shfileopstructa
-    pub(crate) fn delete_specified_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+    pub(crate) fn delete_specified_canonicalized(
+        &self,
+        full_paths: Vec<PathBuf>,
+    ) -> Result<Option<Vec<TrashItem>>, Error> {
         ensure_com_initialized();
         unsafe {
             let pfo: IFileOperation = CoCreateInstance(&FileOperation as *const _, None, CLSCTX_ALL).unwrap();
@@ -66,14 +69,13 @@ impl TrashContext {
                 // the list of HRESULT codes is not documented.
                 return Err(Error::Unknown { description: "Some operations were aborted".into() });
             }
-            Ok(())
+            Ok(None)
         }
     }
 
     /// Removes all files and folder paths recursively.
-    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
-        self.delete_specified_canonicalized(full_paths)?;
-        Ok(())
+    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<Option<Vec<TrashItem>>, Error> {
+        self.delete_specified_canonicalized(full_paths)
     }
 }
 
