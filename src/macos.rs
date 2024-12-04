@@ -6,6 +6,15 @@ use objc2_foundation::{NSFileManager, NSString, NSURL};
 use crate::{into_unknown, Error, TrashContext};
 
 #[derive(Copy, Clone, Debug)]
+/// There are 2 ways to trash files: via the ≝Finder app or via the OS NsFileManager call
+///
+///   | <br>Feature            |≝<br>Finder     |<br>NsFileManager |
+///   |:-----------------------|:--------------:|:----------------:|
+///   |Undo via "Put back"     | ✓              | ✗                |
+///   |Speed                   | ✗<br>Slower    | ✓<br>Faster      |
+///   |No sound                | ✗              | ✓                |
+///   |No extra permissions    | ✗              | ✓                |
+///
 pub enum DeleteMethod {
     /// Use an `osascript`, asking the Finder application to delete the files.
     ///
