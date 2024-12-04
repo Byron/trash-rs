@@ -271,6 +271,9 @@ pub struct TrashItem {
     ///
     /// On Linux it is an absolute path to the `.trashinfo` file associated with
     /// the item.
+    ///
+    /// On macOS it is the string returned by the `.path()` method on the `NSURL` item
+    /// returned by the `trashItemAtURL_resultingItemURL_error` call.
     pub id: OsString,
 
     /// The name of the item. For example if the folder '/home/user/New Folder'
@@ -287,7 +290,11 @@ pub struct TrashItem {
 
     /// The number of non-leap seconds elapsed between the UNIX Epoch and the
     /// moment the file was deleted.
-    /// Without the "chrono" feature, this will be a negative number on linux only.
+    /// Without the "chrono" feature, this will be a negative number on linux/macOS only.
+    /// macOS has the number, but there is no information on how to get it,
+    /// the usual 'kMDItemDateAdded' attribute doesn't exist for files @ trash
+    /// apple.stackexchange.com/questions/437475/how-can-i-find-out-when-a-file-had-been-moved-to-trash
+    /// stackoverflow.com/questions/53341670/access-the-file-date-added-in-terminal
     pub time_deleted: i64,
 }
 
