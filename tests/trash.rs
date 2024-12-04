@@ -34,7 +34,7 @@ fn test_delete_file() {
     trace!("Started test_delete_file");
 
     let path = get_unique_name();
-    File::create(&path).unwrap();
+    File::create_new(&path).unwrap();
 
     delete(&path).unwrap();
     assert!(File::open(&path).is_err());
@@ -49,7 +49,7 @@ fn test_delete_folder() {
 
     let path = PathBuf::from(get_unique_name());
     create_dir(&path).unwrap();
-    File::create(path.join("file_in_folder")).unwrap();
+    File::create_new(path.join("file_in_folder")).unwrap();
 
     assert!(path.exists());
     delete(&path).unwrap();
@@ -66,7 +66,7 @@ fn test_delete_all() {
 
     let paths: Vec<_> = (0..count).map(|i| format!("test_file_to_delete_{i}")).collect();
     for path in paths.iter() {
-        File::create(path).unwrap();
+        File::create_new(path).unwrap();
     }
 
     delete_all(&paths).unwrap();
@@ -94,7 +94,7 @@ mod unix {
         init_logging();
         trace!("Started test_delete_symlink");
         let target_path = get_unique_name();
-        File::create(&target_path).unwrap();
+        File::create_new(&target_path).unwrap();
 
         let link_path = "test_link_to_delete";
         symlink(&target_path, link_path).unwrap();
@@ -112,7 +112,7 @@ mod unix {
         init_logging();
         trace!("Started test_delete_symlink_in_folder");
         let target_path = "test_link_target_for_delete_from_folder";
-        File::create(target_path).unwrap();
+        File::create_new(target_path).unwrap();
 
         let folder = Path::new("test_parent_folder_for_link_to_delete");
         create_dir(folder).unwrap();
@@ -134,7 +134,7 @@ mod unix {
 fn create_remove_single_file() {
     // Let's create and remove a single file
     let name = get_unique_name();
-    File::create(&name).unwrap();
+    File::create_new(&name).unwrap();
     trash::delete(&name).unwrap();
     assert!(File::open(&name).is_err());
 }
@@ -144,7 +144,7 @@ fn create_remove_single_file() {
 #[serial]
 fn create_remove_single_file_invalid_utf8() {
     let name = unsafe { OsStr::from_encoded_bytes_unchecked(&[168]) };
-    File::create(name).unwrap();
+    File::create_new(name).unwrap();
     trash::delete(name).unwrap();
 }
 
@@ -155,8 +155,8 @@ fn recursive_file_deletion() {
     let dir2 = parent_dir.join("dir2");
     std::fs::create_dir_all(&dir1).unwrap();
     std::fs::create_dir_all(&dir2).unwrap();
-    File::create(dir1.join("same-name")).unwrap();
-    File::create(dir2.join("same-name")).unwrap();
+    File::create_new(dir1.join("same-name")).unwrap();
+    File::create_new(dir2.join("same-name")).unwrap();
 
     trash::delete(parent_dir).unwrap();
     assert!(!parent_dir.exists());
@@ -169,7 +169,7 @@ fn recursive_file_with_content_deletion() {
     let dir2 = parent_dir.join("dir2");
     std::fs::create_dir_all(&dir1).unwrap();
     std::fs::create_dir_all(&dir2).unwrap();
-    File::create(dir1.join("same-name")).unwrap();
+    File::create_new(dir1.join("same-name")).unwrap();
     std::fs::write(dir2.join("same-name"), b"some content").unwrap();
 
     trash::delete(parent_dir).unwrap();

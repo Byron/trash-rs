@@ -52,7 +52,7 @@ mod os_limited {
         let names: Vec<OsString> = (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i).into()).collect();
         for _ in 0..batches {
             for path in names.iter() {
-                File::create(path).unwrap();
+                File::create_new(path).unwrap();
             }
             trash::delete_all(&names).unwrap();
         }
@@ -104,7 +104,7 @@ mod os_limited {
         let mut name = OsStr::new(&get_unique_name()).to_os_string().into_encoded_bytes();
         name.push(168);
         let name = OsString::from_vec(name);
-        File::create(&name).unwrap();
+        File::create_new(&name).unwrap();
 
         // Delete, list, and remove file with an invalid UTF8 name
         // Listing items is already exhaustively checked above, so this test is mainly concerned
@@ -136,7 +136,7 @@ mod os_limited {
         let names: Vec<_> = (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
         for _ in 0..batches {
             for path in names.iter() {
-                File::create(path).unwrap();
+                File::create_new(path).unwrap();
             }
             trash::delete_all(&names).unwrap();
         }
@@ -165,7 +165,7 @@ mod os_limited {
         let file_count: usize = 3;
         let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
         for path in names.iter() {
-            File::create(path).unwrap();
+            File::create_new(path).unwrap();
         }
         trash::delete_all(&names).unwrap();
 
@@ -207,11 +207,11 @@ mod os_limited {
         let collision_remaining = file_count - 1;
         let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
         for path in names.iter() {
-            File::create(path).unwrap();
+            File::create_new(path).unwrap();
         }
         trash::delete_all(&names).unwrap();
         for path in names.iter().skip(file_count - collision_remaining) {
-            File::create(path).unwrap();
+            File::create_new(path).unwrap();
         }
         let mut targets: Vec<_> = trash::os_limited::list()
             .unwrap()
@@ -264,12 +264,12 @@ mod os_limited {
         let file_count: usize = 4;
         let names: Vec<_> = (0..file_count).map(|i| format!("{}#{}", file_name_prefix, i)).collect();
         for path in names.iter() {
-            File::create(path).unwrap();
+            File::create_new(path).unwrap();
         }
         trash::delete_all(&names).unwrap();
 
         let twin_name = &names[1];
-        File::create(twin_name).unwrap();
+        File::create_new(twin_name).unwrap();
         trash::delete(twin_name).unwrap();
 
         let mut targets: Vec<_> = trash::os_limited::list()

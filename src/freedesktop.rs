@@ -896,7 +896,7 @@ mod tests {
         let names: Vec<OsString> = (0..files_per_batch).map(|i| format!("{}#{}", file_name_prefix, i).into()).collect();
         for _ in 0..batches {
             for path in &names {
-                File::create(path).unwrap();
+                File::create_new(path).unwrap();
             }
             // eprintln!("Deleting {:?}", names);
             let result = delete_all_using_system_program(&names);
@@ -946,7 +946,7 @@ mod tests {
         let symlink_names: Vec<OsString> = names.iter().map(|name| format!("{:?}-symlink", name).into()).collect();
 
         // Test file symbolic link and directory symbolic link
-        File::create(&names[0]).unwrap();
+        File::create_new(&names[0]).unwrap();
         std::fs::create_dir(&names[1]).unwrap();
 
         for (i, (name, symlink)) in names.iter().zip(&symlink_names).enumerate() {
