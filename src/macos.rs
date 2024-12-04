@@ -1,4 +1,4 @@
-use std::{ffi::OsString, path::PathBuf, process::Command};
+use std::{ffi::OsString, path::{Path, PathBuf}, process::Command};
 
 use log::trace;
 use objc2_foundation::{NSFileManager, NSString, NSURL};
@@ -69,11 +69,15 @@ impl TrashContext {
     }
 }
 
-fn delete_using_file_mgr(full_paths: Vec<String>) -> Result<(), Error> {
+fn delete_using_file_mgr<P:AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
     trace!("Starting delete_using_file_mgr");
     let file_mgr = unsafe { NSFileManager::defaultManager() };
     for path in full_paths {
-        let string = NSString::from_str(&path);
+        let path_b = path.as_ref().as_os_str().as_encoded_bytes();
+        let string = match simdutf8::basic::from_utf8(path_b) {
+            Ok(path_utf8) => NSString::from_str(path_utf8), // utf-8 path, use as is
+            Err(_) => NSString::from_str(&from_utf8_lossy_pc(path_b)) // binary path, %-encode it
+        };
 
         trace!("Starting fileURLWithPath");
         let url = unsafe { NSURL::fileURLWithPath(&string) };
@@ -85,7 +89,7 @@ fn delete_using_file_mgr(full_paths: Vec<String>) -> Result<(), Error> {
 
         if let Err(err) = res {
             return Err(Error::Unknown {
-                description: format!("While deleting '{path}', `trashItemAtURL` failed: {err}"),
+                description: format!("While deleting '{:?}', `trashItemAtURL` failed: {err}",path.as_ref()),
             });
         }
     }
