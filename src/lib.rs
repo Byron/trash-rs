@@ -70,7 +70,7 @@ impl TrashContext {
     /// Removes a single file or directory.
     ///
     /// When a symbolic link is provided to this function, the symbolic link will be removed and the link
-    /// target will be kept intact.
+    /// target will be kept intact. Successful results will have always have None trash items.
     ///
     /// # Example
     ///
@@ -81,8 +81,13 @@ impl TrashContext {
     /// trash::delete("delete_me").unwrap();
     /// assert!(File::open("delete_me").is_err());
     /// ```
-    pub fn delete<T: AsRef<Path>>(&self, path: T) -> Result<Option<TrashItem>, Error> {
-        match self.delete_all(&[path]) { // Result<Option<Vec<TrashItem>>>
+    pub fn delete<T: AsRef<Path>>(&self, path: T) ->  Result<Option<Vec<TrashItem>>, Error> {
+        self.delete_all(&[path])
+    }
+
+    /// Same as `delete`, but returns `TrashItem` if available.
+    pub fn delete_with_info<T: AsRef<Path>>(&self, path: T) -> Result<Option<TrashItem>, Error> {
+        match self.delete_all_with_info(&[path]) { // Result<Option<Vec<TrashItem>>>
             Ok(maybe_items)     => match maybe_items {
                 Some(mut items) => Ok(items.pop()), // no need to check that vec.len=2?
                 None            => Ok(None),         },
@@ -93,7 +98,7 @@ impl TrashContext {
     /// Removes all files/directories specified by the collection of paths provided as an argument.
     ///
     /// When a symbolic link is provided to this function, the symbolic link will be removed and the link
-    /// target will be kept intact.
+    /// target will be kept intact. Successful results will have always have None trash items.
     ///
     /// # Example
     ///
@@ -114,15 +119,35 @@ impl TrashContext {
         trace!("Starting canonicalize_paths");
         let full_paths = canonicalize_paths(paths)?;
         trace!("Finished canonicalize_paths");
-        self.delete_all_canonicalized(full_paths)
+        self.delete_all_canonicalized(full_paths, false)
     }
+
+    /// Same as `delete_all, but returns `TrashItem`s if available.
+    pub fn delete_all_with_info<I, T>(&self, paths: I) -> Result<Option<Vec<TrashItem>>, Error>
+    where
+        I: IntoIterator<Item = T>,
+        T: AsRef<Path>,
+    {
+        trace!("Starting canonicalize_paths");
+        let full_paths = canonicalize_paths(paths)?;
+        trace!("Finished canonicalize_paths");
+        self.delete_all_canonicalized(full_paths, true)
+    }
+
 }
 
 /// Convenience method for `DEFAULT_TRASH_CTX.delete()`.
 ///
 /// See: [`TrashContext::delete`](TrashContext::delete)
-pub fn delete<T: AsRef<Path>>(path: T) -> Result<Option<TrashItem>, Error> {
+pub fn delete<T: AsRef<Path>>(path: T) -> Result<Option<Vec<TrashItem>>, Error> {
     DEFAULT_TRASH_CTX.delete(path)
+}
+
+/// Convenience method for `DEFAULT_TRASH_CTX.delete_with_info()`.
+///
+/// See: [`TrashContext::delete`](TrashContext::delete_with_info)
+pub fn delete_with_info<T: AsRef<Path>>(path: T) -> Result<Option<TrashItem>, Error> {
+    DEFAULT_TRASH_CTX.delete_with_info(path)
 }
 
 /// Convenience method for `DEFAULT_TRASH_CTX.delete_all()`.
@@ -134,6 +159,17 @@ where
     T: AsRef<Path>,
 {
     DEFAULT_TRASH_CTX.delete_all(paths)
+}
+
+/// Convenience method for `DEFAULT_TRASH_CTX.delete_all_with_info()`.
+///
+/// See: [`TrashContext::delete_all`](TrashContext::delete_all_with_info)
+pub fn delete_all_with_info<I, T>(paths: I) -> Result<Option<Vec<TrashItem>>, Error>
+where
+    I: IntoIterator<Item = T>,
+    T: AsRef<Path>,
+{
+    DEFAULT_TRASH_CTX.delete_all_with_info(paths)
 }
 
 /// Provides information about an error.
