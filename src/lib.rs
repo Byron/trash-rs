@@ -77,7 +77,7 @@ impl TrashContext {
     /// ```
     /// use std::fs::File;
     /// use trash::delete;
-    /// File::create("delete_me").unwrap();
+    /// File::create_new("delete_me").unwrap();
     /// trash::delete("delete_me").unwrap();
     /// assert!(File::open("delete_me").is_err());
     /// ```
@@ -95,8 +95,8 @@ impl TrashContext {
     /// ```
     /// use std::fs::File;
     /// use trash::delete_all;
-    /// File::create("delete_me_1").unwrap();
-    /// File::create("delete_me_2").unwrap();
+    /// File::create_new("delete_me_1").unwrap();
+    /// File::create_new("delete_me_2").unwrap();
     /// delete_all(&["delete_me_1", "delete_me_2"]).unwrap();
     /// assert!(File::open("delete_me_1").is_err());
     /// assert!(File::open("delete_me_2").is_err());
@@ -440,7 +440,7 @@ pub mod os_limited {
     /// use trash::{delete, os_limited::{list, purge_all}};
     ///
     /// let filename = "trash-purge_all-example-ownership";
-    /// File::create(filename).unwrap();
+    /// File::create_new(filename).unwrap();
     /// delete(filename).unwrap();
     /// // Collect the filtered list just so that we can make sure there's exactly one element.
     /// // There's no need to `collect` it otherwise.
@@ -456,7 +456,7 @@ pub mod os_limited {
     /// use trash::{delete, os_limited::{list, purge_all}};
     ///
     /// let filename = "trash-purge_all-example-reference";
-    /// File::create(filename).unwrap();
+    /// File::create_new(filename).unwrap();
     /// delete(filename).unwrap();
     /// let mut selected = list().unwrap();
     /// selected.retain(|x| x.name == filename);
@@ -495,7 +495,7 @@ pub mod os_limited {
     /// use trash::os_limited::{list, restore_all};
     ///
     /// let filename = "trash-restore_all-example";
-    /// File::create(filename).unwrap();
+    /// File::create_new(filename).unwrap();
     /// restore_all(list().unwrap().into_iter().filter(|x| x.name == filename)).unwrap();
     /// std::fs::remove_file(filename).unwrap();
     /// ```
@@ -522,13 +522,13 @@ pub mod os_limited {
     {
         // Check for twins here cause that's pretty platform independent.
         struct ItemWrapper<'a>(&'a TrashItem);
-        impl<'a> PartialEq for ItemWrapper<'a> {
+        impl PartialEq for ItemWrapper<'_> {
             fn eq(&self, other: &Self) -> bool {
                 self.0.original_path() == other.0.original_path()
             }
         }
-        impl<'a> Eq for ItemWrapper<'a> {}
-        impl<'a> Hash for ItemWrapper<'a> {
+        impl Eq for ItemWrapper<'_> {}
+        impl Hash for ItemWrapper<'_> {
             fn hash<H: Hasher>(&self, state: &mut H) {
                 self.0.original_path().hash(state);
             }
