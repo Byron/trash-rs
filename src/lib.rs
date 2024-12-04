@@ -82,8 +82,13 @@ impl TrashContext {
     /// trash::delete("delete_me").unwrap();
     /// assert!(File::open("delete_me").is_err());
     /// ```
-    pub fn delete<T: AsRef<Path>>(&self, path: T) -> Result<Option<Vec<TrashItem>>, Error> {
-        self.delete_all(&[path])
+    pub fn delete<T: AsRef<Path>>(&self, path: T) -> Result<Option<TrashItem>, Error> {
+        match self.delete_all(&[path]) { // Result<Option<Vec<TrashItem>>>
+            Ok(maybe_items)     => match maybe_items {
+                Some(mut items) => Ok(items.pop()), // no need to check that vec.len=2?
+                None            => Ok(None),         },
+            Err(e)              => Err(e),
+        }
     }
 
     /// Removes all files/directories specified by the collection of paths provided as an argument.
@@ -117,7 +122,7 @@ impl TrashContext {
 /// Convenience method for `DEFAULT_TRASH_CTX.delete()`.
 ///
 /// See: [`TrashContext::delete`](TrashContext::delete)
-pub fn delete<T: AsRef<Path>>(path: T) -> Result<Option<Vec<TrashItem>>, Error> {
+pub fn delete<T: AsRef<Path>>(path: T) -> Result<Option<TrashItem>, Error> {
     DEFAULT_TRASH_CTX.delete(path)
 }
 
