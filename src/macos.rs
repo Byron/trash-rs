@@ -62,10 +62,9 @@ impl TrashContextExtMacos for TrashContext {
 }
 impl TrashContext {
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
-        let full_paths = full_paths.into_iter().map(to_string).collect::<Result<Vec<_>, _>>()?;
         match self.platform_specific.delete_method {
-            DeleteMethod::Finder => delete_using_finder(full_paths),
-            DeleteMethod::NsFileManager => delete_using_file_mgr(full_paths),
+            DeleteMethod::Finder => delete_using_finder(&full_paths),
+            DeleteMethod::NsFileManager => delete_using_file_mgr(&full_paths),
         }
     }
 }
@@ -124,15 +123,6 @@ fn delete_using_finder(full_paths: Vec<String>) -> Result<(), Error> {
         };
     }
     Ok(())
-}
-
-fn to_string<T: Into<OsString>>(str_in: T) -> Result<String, Error> {
-    let os_string = str_in.into();
-    let s = os_string.to_str();
-    match s {
-        Some(s) => Ok(s.to_owned()),
-        None => Err(Error::ConvertOsString { original: os_string }),
-    }
 }
 
 use std::borrow::Cow;
