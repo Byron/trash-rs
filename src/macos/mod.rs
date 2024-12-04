@@ -4,8 +4,9 @@ use std::{
     process::Command,
 };
 
-use log::trace;
+use log::{trace,warn};
 use objc2_foundation::{NSFileManager, NSString, NSURL};
+use objc2::rc::Retained;
 
 use crate::{into_unknown, Error, TrashContext, TrashItem};
 
@@ -85,8 +86,10 @@ impl TrashContext {
 fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P]) -> Result<Option<Vec<TrashItem>>, Error> {
     trace!("Starting delete_using_file_mgr");
     let file_mgr = unsafe { NSFileManager::defaultManager() };
+    let mut items = Vec::with_capacity(full_paths.len());
     for path in full_paths {
-        let path = path.as_ref().as_os_str().as_encoded_bytes();
+        let path_r = path.as_ref();
+        let path = path_r.as_os_str().as_encoded_bytes();
         let path = match std::str::from_utf8(path) {
             Ok(path_utf8) => NSString::from_str(path_utf8), // utf-8 path, use as is
             Err(_) => NSString::from_str(&percent_encode(path)), // binary path, %-encode it
@@ -97,16 +100,31 @@ fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P]) -> Result<Option<Vec<
         trace!("Finished fileURLWithPath");
 
         trace!("Calling trashItemAtURL");
-        let res = unsafe { file_mgr.trashItemAtURL_resultingItemURL_error(&url, None) };
+        let mut out_res_nsurl: Option<Retained<NSURL>> = None;
+        let res = unsafe { file_mgr.trashItemAtURL_resultingItemURL_error(&url, Some(&mut out_res_nsurl)) };
         trace!("Finished trashItemAtURL");
 
         if let Err(err) = res {
             return Err(Error::Unknown {
-                description: format!("While deleting '{:?}', `trashItemAtURL` failed: {err}", path.as_ref()),
+                description: format!("While deleting '{:?}', `trashItemAtURL` failed: {err}", path),
             });
+        } else {
+            if let Some(out_nsurl) = out_res_nsurl {
+                let mut time_deleted = -1;
+                #[cfg(    feature = "chrono") ] {let now = chrono::Local::now(); time_deleted = now.timestamp();}
+                #[cfg(not(feature = "chrono"))] {                                time_deleted = -1;}
+                if let Some(nspath) = unsafe {out_nsurl.path()} { // Option<Retained<NSString>>
+                    items.push(TrashItem {
+                        id             : nspath.to_string().into(),
+                        name           : path_r.file_name().expect("Item to be trashed should have a name"  ).into(),
+                        original_parent: path_r.parent   ().expect("Item to be trashed should have a parent").to_path_buf(),
+                        time_deleted,
+                    });
+                } else {warn!("OS did not return path string from the URL of the trashed item '{:?}', originally located at: '{:?}'", out_nsurl, path);}
+            }     else {warn!("OS did not return a path to the trashed file, originally located at: '{:?}'"                                    , path);}
         }
     }
-    Ok(None)
+    Ok(Some(items))
 }
 
 fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<Option<Vec<TrashItem>>, Error> {
