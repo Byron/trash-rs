@@ -106,7 +106,7 @@ fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
     // The `-e` flag is used to execute only one line of AppleScript.
     let mut command = Command::new("osascript");
     let posix_files = full_paths
-        .into_iter()
+        .iter()
         .map(|p| {
             let path_b = p.as_ref().as_os_str().as_encoded_bytes();
             match simdutf8::basic::from_utf8(path_b) {
