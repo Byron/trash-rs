@@ -106,7 +106,7 @@ fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(full_paths: &[P]) -> Re
     // The `-e` flag is used to execute only one line of AppleScript.
     let mut command = Command::new("osascript");
     let posix_files =
-        full_paths.into_iter().map(|p| format!("POSIX file \"{p:?}\"")).collect::<Vec<String>>().join(", ");
+        full_paths.into_iter().map(|p| format!("POSIX file {p:?}")).collect::<Vec<String>>().join(", ");
     let script = format!("tell application \"Finder\" to delete {{ {posix_files} }}");
 
     let argv: Vec<OsString> = vec!["-e".into(), script.into()];
