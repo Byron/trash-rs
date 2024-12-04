@@ -39,6 +39,7 @@ objc2-foundation = { version = "0.2.0", features = [
     "NSURL",
 ] }
 percent-encoding = "2.3.1"
+chrono = { version = "0.4.31", optional = true, default-features = false, features = ["clock",] }
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))'.dependencies]
 chrono = { version = "0.4.31", optional = true, default-features = false, features = [
