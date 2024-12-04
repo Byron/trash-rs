@@ -76,14 +76,13 @@ impl TrashContextExtMacos for TrashContext {
 impl TrashContext {
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<Option<Vec<TrashItem>>, Error> {
         match self.platform_specific.delete_method {
-            DeleteMethod::Finder =>  delete_using_finder(&full_paths)?,
-            DeleteMethod::NsFileManager =>  delete_using_file_mgr(&full_paths)?,
+            DeleteMethod::Finder =>  delete_using_finder(&full_paths),
+            DeleteMethod::NsFileManager =>  delete_using_file_mgr(&full_paths),
         }
-        Ok(None)
     }
 }
 
-fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
+fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P]) -> Result<Option<Vec<TrashItem>>, Error> {
     trace!("Starting delete_using_file_mgr");
     let file_mgr = unsafe { NSFileManager::defaultManager() };
     for path in full_paths {
@@ -107,10 +106,10 @@ fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> 
             });
         }
     }
-    Ok(())
+    Ok(None)
 }
 
-fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
+fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<Option<Vec<TrashItem>>, Error> {
     // AppleScript command to move files (or directories) to Trash looks like
     //   osascript -e 'tell application "Finder" to delete { POSIX file "file1", POSIX "file2" }'
     // The `-e` flag is used to execute only one line of AppleScript.
@@ -150,7 +149,7 @@ fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
             }
         };
     }
-    Ok(())
+    Ok(None)
 }
 
 /// std's from_utf8_lossy, but non-utf8 byte sequences are %-encoded instead of being replaced by a special symbol.
