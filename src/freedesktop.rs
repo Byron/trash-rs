@@ -33,7 +33,11 @@ impl PlatformTrashContext {
     }
 }
 impl TrashContext {
-    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>, _with_info: bool) -> Result<Option<Vec<TrashItem>>, Error> {
+    pub(crate) fn delete_all_canonicalized(
+        &self,
+        full_paths: Vec<PathBuf>,
+        _with_info: bool,
+    ) -> Result<Option<Vec<TrashItem>>, Error> {
         let home_trash = home_trash()?;
         let sorted_mount_points = get_sorted_mount_points()?;
         let home_topdir = home_topdir(&sorted_mount_points)?;
