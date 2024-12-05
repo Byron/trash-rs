@@ -108,9 +108,9 @@ fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P], with_info: bool) -> R
         trace!("Calling trashItemAtURL");
         let mut out_res_nsurl: Option<Retained<NSURL>> = None;
         let res = if with_info {
-            unsafe { file_mgr.trashItemAtURL_resultingItemURL_error(&url, None) }
-        } else {
             unsafe { file_mgr.trashItemAtURL_resultingItemURL_error(&url, Some(&mut out_res_nsurl)) }
+        } else {
+            unsafe { file_mgr.trashItemAtURL_resultingItemURL_error(&url, None) }
         };
         trace!("Finished trashItemAtURL");
 
