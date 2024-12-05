@@ -83,7 +83,7 @@ impl TrashContext {
         with_info: bool,
     ) -> Result<Option<Vec<TrashItem>>, Error> {
         match self.platform_specific.delete_method {
-            DeleteMethod::Finder => delete_using_finder(&full_paths), //Finder doesn't return trashed paths
+            DeleteMethod::Finder => delete_using_finder(&full_paths), // TODO: parse Finder's output to get paths?
             DeleteMethod::NsFileManager => delete_using_file_mgr(&full_paths, with_info),
         }
     }
