@@ -81,17 +81,19 @@ impl TrashContext {
     /// trash::delete("delete_me").unwrap();
     /// assert!(File::open("delete_me").is_err());
     /// ```
-    pub fn delete<T: AsRef<Path>>(&self, path: T) ->  Result<Option<Vec<TrashItem>>, Error> {
+    pub fn delete<T: AsRef<Path>>(&self, path: T) -> Result<Option<Vec<TrashItem>>, Error> {
         self.delete_all(&[path])
     }
 
     /// Same as `delete`, but returns `TrashItem` if available.
     pub fn delete_with_info<T: AsRef<Path>>(&self, path: T) -> Result<Option<TrashItem>, Error> {
-        match self.delete_all_with_info(&[path]) { // Result<Option<Vec<TrashItem>>>
-            Ok(maybe_items)     => match maybe_items {
+        match self.delete_all_with_info(&[path]) {
+            // Result<Option<Vec<TrashItem>>>
+            Ok(maybe_items) => match maybe_items {
                 Some(mut items) => Ok(items.pop()), // no need to check that vec.len=2?
-                None            => Ok(None),         },
-            Err(e)              => Err(e),
+                None => Ok(None),
+            },
+            Err(e) => Err(e),
         }
     }
 
@@ -133,7 +135,6 @@ impl TrashContext {
         trace!("Finished canonicalize_paths");
         self.delete_all_canonicalized(full_paths, true)
     }
-
 }
 
 /// Convenience method for `DEFAULT_TRASH_CTX.delete()`.
