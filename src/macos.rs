@@ -77,14 +77,14 @@ fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> 
     trace!("Starting delete_using_file_mgr");
     let file_mgr = unsafe { NSFileManager::defaultManager() };
     for path in full_paths {
-        let path_b = path.as_ref().as_os_str().as_encoded_bytes();
-        let string = match simdutf8::basic::from_utf8(path_b) {
+        let path = path.as_ref().as_os_str().as_encoded_bytes();
+        let path = match std::str::from_utf8(path) {
             Ok(path_utf8) => NSString::from_str(path_utf8), // utf-8 path, use as is
-            Err(_) => NSString::from_str(&from_utf8_lossy_pc(path_b)), // binary path, %-encode it
+            Err(_) => NSString::from_str(&percent_encode(path)), // binary path, %-encode it
         };
 
         trace!("Starting fileURLWithPath");
-        let url = unsafe { NSURL::fileURLWithPath(&string) };
+        let url = unsafe { NSURL::fileURLWithPath(&path) };
         trace!("Finished fileURLWithPath");
 
         trace!("Calling trashItemAtURL");
@@ -109,9 +109,9 @@ fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
         .iter()
         .map(|p| {
             let path_b = p.as_ref().as_os_str().as_encoded_bytes();
-            match simdutf8::basic::from_utf8(path_b) {
+            match std::str::from_utf8(path_b) {
                 Ok(path_utf8) => format!("POSIX file \"{path_utf8}\""), // utf-8 path, use as is
-                Err(_) => format!("POSIX file \"{}\"", &from_utf8_lossy_pc(path_b)), // binary path, %-encode it
+                Err(_) => format!("POSIX file \"{}\"", &percent_encode(path_b)), // binary path, %-encode it
             }
         })
         .collect::<Vec<String>>()
@@ -143,35 +143,29 @@ fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
     Ok(())
 }
 
-use percent_encoding::percent_encode_byte as b2pc;
+/// std's from_utf8_lossy, but non-utf8 byte sequences are %-encoded instead of being replaced by a special symbol.
+/// Valid utf8, including `%`, are not escaped.
 use std::borrow::Cow;
-fn from_utf8_lossy_pc(v: &[u8]) -> Cow<'_, str> {
-    // std's from_utf8_lossy, but non-utf8 byte sequences are %-encoded instead of being replaced by an special symbol. Valid utf8, including `%`, are not escaped, so this is still lossy. Useful for macOS file paths.
-    let mut iter = v.utf8_chunks();
-    let (first_valid, first_invalid) = if let Some(chunk) = iter.next() {
-        let valid = chunk.valid();
-        let invalid = chunk.invalid();
-        if invalid.is_empty() {
-            debug_assert_eq!(valid.len(), v.len()); // invalid=empty → last chunk
-            return Cow::Borrowed(valid);
+fn percent_encode(input: &[u8]) -> Cow<'_, str> {
+    use percent_encoding::percent_encode_byte as b2pc;
+
+    let mut iter = input.utf8_chunks().peekable();
+    if let Some(chunk) = iter.peek() {
+        if chunk.invalid().is_empty() {
+            return Cow::Borrowed(chunk.valid());
         }
-        (valid, invalid)
     } else {
         return Cow::Borrowed("");
     };
 
-    let mut res = String::with_capacity(v.len());
-    res.push_str(first_valid);
-    first_invalid.iter().for_each(|b| {
-        res.push_str(b2pc(*b));
-    });
+    let mut res = String::with_capacity(input.len());
     for chunk in iter {
         res.push_str(chunk.valid());
         let invalid = chunk.invalid();
         if !invalid.is_empty() {
-            invalid.iter().for_each(|b| {
-                res.push_str(b2pc(*b));
-            });
+            for byte in invalid {
+                res.push_str(b2pc(*byte));
+            }
         }
     }
     Cow::Owned(res)
@@ -180,16 +174,16 @@ fn from_utf8_lossy_pc(v: &[u8]) -> Cow<'_, str> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        macos::{from_utf8_lossy_pc, DeleteMethod, TrashContextExtMacos},
+        macos::{percent_encode, DeleteMethod, TrashContextExtMacos},
         tests::{get_unique_name, init_logging},
         TrashContext,
     };
     use serial_test::serial;
-    use std::borrow::Cow;
     use std::ffi::OsStr;
     use std::fs::File;
     use std::os::unix::ffi::OsStrExt;
     use std::path::PathBuf;
+    use std::process::Command;
 
     #[test]
     #[serial]
@@ -204,69 +198,68 @@ mod tests {
         assert!(File::open(&path).is_err());
     }
 
-    // DISABLED: test only works on file systems that support binary paths (not APFS), not sure what CI has
-    // successfully tested on a local HFS usb flash drive
     #[test]
     #[serial]
     fn test_delete_binary_path_with_ns_file_manager() {
-        let parent_fs_supports_binary = "/Volumes/Untitled"; // USB drive that supports non-utf8 paths
+        let (_cleanup, tmp) = create_hfs_volume().unwrap();
+        let parent_fs_supports_binary = tmp.path();
 
         init_logging();
         let mut trash_ctx = TrashContext::default();
         trash_ctx.set_delete_method(DeleteMethod::NsFileManager);
 
         let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
-        let mut p = PathBuf::new();
-        p.push(parent_fs_supports_binary); // /Volumes/Untitled
-        p.push(get_unique_name()); // /Volumes/Untitled/trash-test-111-0
-        let mut path_invalid = p.clone();
+        let mut path_invalid = parent_fs_supports_binary.join(get_unique_name());
         path_invalid.set_extension(OsStr::from_bytes(invalid_utf8)); //...trash-test-111-0.\x80 (not push to avoid fail unexisting dir)
 
-        // File::create_new(&path_invalid).unwrap();
-        // trash_ctx.delete(&path_invalid).unwrap();
-        // assert!(File::open(&path_invalid).is_err());
-    }
+        File::create_new(&path_invalid).unwrap();
 
-    // DISABLED: test only works on file systems that support binary paths (not APFS), not sure what CI has
-    // successfully tested on a local HFS usb flash drive
-    #[test]
-    #[serial]
-    fn test_delete_binary_path_with_finder() {
-        let parent_fs_supports_binary = "/Volumes/Untitled"; // USB drive that supports non-utf8 paths
-
-        init_logging();
-        let mut trash_ctx = TrashContext::default();
-        trash_ctx.set_delete_method(DeleteMethod::Finder);
-
-        let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
-        let mut p = PathBuf::new();
-        p.push(parent_fs_supports_binary); // /Volumes/Untitled
-        p.push(get_unique_name()); // /Volumes/Untitled/trash-test-111-0
-        let mut path_invalid = p.clone();
-        path_invalid.set_extension(OsStr::from_bytes(invalid_utf8)); //...trash-test-111-0.\x80 (not push to avoid fail unexisting dir)
-
-        // File::create_new(&path_invalid).unwrap();
-        // trash_ctx.delete(&path_invalid).unwrap();
-        // assert!(File::open(&path_invalid).is_err());
+        assert!(path_invalid.exists());
+        trash_ctx.delete(&path_invalid).unwrap();
+        assert!(!path_invalid.exists());
     }
 
     #[test]
     fn test_path_byte() {
         let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
-        let pcvalid_utf8 = "%80"; // valid macOS path in a %-escaped encoding
+        let percent_encoded = "%80"; // valid macOS path in a %-escaped encoding
 
-        let mut p = PathBuf::new();
-        p.push(get_unique_name()); //trash-test-111-0
-        let mut path_pcvalid_utf8 = p.clone();
-        let mut path_invalid = p.clone();
+        let mut expected_path = PathBuf::from(get_unique_name());
+        let mut path_with_invalid_utf8 = expected_path.clone();
 
-        path_invalid.push(OsStr::from_bytes(invalid_utf8)); //      trash-test-111-0/\x80
-        path_pcvalid_utf8.push(pcvalid_utf8); //                    trash-test-111-0/%80
+        path_with_invalid_utf8.push(OsStr::from_bytes(invalid_utf8)); //      trash-test-111-0/\x80
+        expected_path.push(percent_encoded); //                    trash-test-111-0/%80
 
-        let path_invalid_byte = path_invalid.as_os_str().as_encoded_bytes();
-        let pc_encode: Cow<'_, str> = from_utf8_lossy_pc(&path_invalid_byte);
-        let path_invalid_pc = PathBuf::from(pc_encode.as_ref()); // trash-test-111-0/%80
+        let actual = percent_encode(&path_with_invalid_utf8.as_os_str().as_encoded_bytes()); // trash-test-111-0/%80
+        assert_eq!(std::path::Path::new(actual.as_ref()), expected_path);
+    }
 
-        assert_eq!(path_pcvalid_utf8, path_invalid_pc);
+    fn create_hfs_volume() -> std::io::Result<(impl Drop, tempfile::TempDir)> {
+        let tmp = tempfile::tempdir()?;
+        let dmg_file = tmp.path().join("fs.dmg");
+        let cleanup = {
+            // Create dmg file
+            Command::new("hdiutil").args(["create", "-size", "1m", "-fs", "HFS+"]).arg(&dmg_file).status()?;
+
+            // Mount dmg file into temporary location
+            Command::new("hdiutil")
+                .args(["attach", "-nobrowse", "-mountpoint"])
+                .arg(tmp.path())
+                .arg(&dmg_file)
+                .status()?;
+
+            // Ensure that the mount point is always cleaned up
+            defer::defer({
+                let mount_point = tmp.path().to_owned();
+                move || {
+                    Command::new("hdiutil")
+                        .arg("detach")
+                        .arg(&mount_point)
+                        .status()
+                        .expect("detach temporary test dmg filesystem successfully");
+                }
+            })
+        };
+        Ok((cleanup, tmp))
     }
 }

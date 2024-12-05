@@ -1,4 +1,3 @@
-use std::ffi::OsStr;
 use std::fs::{create_dir, File};
 use std::path::{Path, PathBuf};
 
@@ -143,6 +142,7 @@ fn create_remove_single_file() {
 #[test]
 #[serial]
 fn create_remove_single_file_invalid_utf8() {
+    use std::ffi::OsStr;
     let name = unsafe { OsStr::from_encoded_bytes_unchecked(&[168]) };
     File::create_new(name).unwrap();
     trash::delete(name).unwrap();
