@@ -212,6 +212,24 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_delete_with_finder_quoted_paths() {
+        init_logging();
+        let mut trash_ctx = TrashContext::default();
+        trash_ctx.set_delete_method(DeleteMethod::Finder);
+
+        let mut path1 = PathBuf::from(get_unique_name());
+        let mut path2 = PathBuf::from(get_unique_name());
+        path1.set_extension(r#"a"b,"#);
+        path2.set_extension(r#"x80=%80 slash=\ pc=% quote=" comma=,"#);
+        File::create_new(&path1).unwrap();
+        File::create_new(&path2).unwrap();
+        trash_ctx.delete_all(&[path1.clone(),path2.clone()]).unwrap();
+        assert!(File::open(&path1).is_err());
+        assert!(File::open(&path2).is_err());
+    }
+
+    #[test]
+    #[serial]
     fn test_delete_with_ns_file_manager() {
         init_logging();
         let mut trash_ctx = TrashContext::default();
