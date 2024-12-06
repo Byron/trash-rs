@@ -33,6 +33,17 @@ fn test_delete_with_finder_with_info() {
         std::fs::remove_file(&trashed_path).unwrap(); // clean   up
         assert!( File::open(&trashed_path).is_err()); // cleaned up trash items
     }
+
+    // test a single file (in case returned paths aren't an array anymore)
+    let mut path3 = PathBuf::from(get_unique_name());
+    path3.set_extension(r#"a"b,"#);
+    File::create_new(&path3).unwrap();
+    let item = trash_ctx.delete_with_info(&path3).unwrap().unwrap(); //Ok + Some trashed paths
+    assert!(File::open(&path3).is_err()); // original files deleted
+    let trashed_path = item.id;
+    assert!(!File::open(&trashed_path).is_err()); // returned trash items exist
+    std::fs::remove_file(&trashed_path).unwrap(); // clean   up
+    assert!( File::open(&trashed_path).is_err()); // cleaned up trash items
 }
 
 
