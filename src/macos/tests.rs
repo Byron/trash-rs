@@ -36,31 +36,34 @@ fn test_delete_with_finder_with_info() {
 }
 
 
-// #[test]
-// #[serial]
-// fn test_delete_with_finder_with_info_invalid() {
-//     // add invalid byt
-//     init_logging();
-//     let mut trash_ctx = TrashContext::default();
-//     trash_ctx.set_delete_method(DeleteMethod::Finder);
+#[test]
+#[serial]
+fn test_delete_binary_with_finder_with_info() {
+    init_logging();
+    let (_cleanup, tmp) = create_hfs_volume().unwrap();
+    let parent_fs_supports_binary = tmp.path();
+    let mut trash_ctx = TrashContext::default();
+    trash_ctx.set_delete_method(DeleteMethod::Finder);
 
-//     let p = PathBuf::from("/Volumes/Untitled");
+    let mut path1 = parent_fs_supports_binary.join(get_unique_name());
+    let mut path2 = parent_fs_supports_binary.join(get_unique_name());
+    path1.set_extension(OsStr::from_bytes(b"\x80a\"b")); // \x80 = lone continuation byte (128) (invalid utf8)
+    path2.set_extension(OsStr::from_bytes(b"\x80=%80 slash=\\ pc=% quote=\" comma=,"));
+    File::create_new(&path1).unwrap();
+    File::create_new(&path2).unwrap();
+    assert!(&path1.exists());
+    assert!(&path2.exists());
+    let trashed_items = trash_ctx.delete_all_with_info(&[path1.clone(),path2.clone()]).unwrap().unwrap(); //Ok + Some trashed paths
+    assert!(File::open(&path1).is_err()); // original files deleted
+    assert!(File::open(&path2).is_err());
+    for item in trashed_items {
+        let trashed_path = item.id;
+        assert!(!File::open(&trashed_path).is_err()); // returned trash items exist
+        std::fs::remove_file(&trashed_path).unwrap(); // clean   up
+        assert!( File::open(&trashed_path).is_err()); // cleaned up trash items
+    }
+}
 
-//     let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
-
-//     let mut path1 = p.clone();
-//     let mut path2 = p.clone();
-//     path1.push(get_unique_name());
-//     path2.push(get_unique_name());
-//     path1.set_extension(OsStr::from_bytes(invalid_utf8));
-//     path2.set_extension(OsStr::from_bytes(invalid_utf8));
-
-//     File::create_new(&path1).unwrap();
-//     File::create_new(&path2).unwrap();
-//     trash_ctx.delete_all_with_info(&[path1,path2]).unwrap();
-//     // assert!(File::open(&path1).is_err());
-//     // assert!(File::open(&path2).is_err());
-// }
 #[test]
 #[serial]
 fn test_delete_with_finder_quoted_paths() {
