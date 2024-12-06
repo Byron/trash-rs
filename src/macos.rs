@@ -182,7 +182,7 @@ fn percent_encode(input: &[u8]) -> Cow<'_, str> {
 
 /// Escapes `"` or `\` with `\` for use in AppleScript text
 fn esc_quote(s: &str) -> Cow<'_, str> {
-    if s.contains(&['"', '\\']) {
+    if s.contains(['"', '\\']) {
         let mut r = String::with_capacity(s.len());
         let chars = s.chars();
         for c in chars {
