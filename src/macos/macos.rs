@@ -1,14 +1,12 @@
 use std::{
-    ffi::OsString,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 use log::{trace, warn};
 use objc2::rc::Retained;
 use objc2_foundation::{NSFileManager, NSString, NSURL};
 
-use crate::{into_unknown, Error, TrashContext, TrashItem};
+use crate::{Error, TrashContext, TrashItem};
 
 #[derive(Copy, Clone, Debug)]
 /// There are 2 ways to trash files: via the ≝Finder app or via the OS NsFileManager call
@@ -83,7 +81,7 @@ impl TrashContext {
         with_info: bool,
     ) -> Result<Option<Vec<TrashItem>>, Error> {
         match self.platform_specific.delete_method {
-            DeleteMethod::Finder => delete_using_finder(&full_paths), // TODO: parse Finder's output to get paths?
+            DeleteMethod::Finder => delete_using_finder(&full_paths, with_info),
             DeleteMethod::NsFileManager => delete_using_file_mgr(&full_paths, with_info),
         }
     }
@@ -157,11 +155,12 @@ fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P], with_info: bool) -> R
     }
 }
 
-fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<Option<Vec<TrashItem>>, Error> {
-    // AppleScript command to move files (or directories) to Trash looks like
-    //   osascript -e 'tell application "Finder" to delete { POSIX file "file1", POSIX "file2" }'
-    // The `-e` flag is used to execute only one line of AppleScript.
-    let mut command = Command::new("osascript");
+fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(full_paths: &[P], with_info: bool) -> Result<Option<Vec<TrashItem>>, Error> {
+    // TODO: should we convert to trashing item by item instead of in batches to have a guaranteed match of input to output?
+        // which method is faster?
+        // what about with a lot of items? will a huge script combining all paths still work?
+    use osakit::{Language, Script};
+    let mut items: Vec<TrashItem> = if with_info { Vec::with_capacity(full_paths.len()) } else { vec![] };
     let posix_files = full_paths
         .iter()
         .map(|p| {
@@ -173,29 +172,62 @@ fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<Option<Vec<Tr
         })
         .collect::<Vec<String>>()
         .join(", ");
-    let script = format!("tell application \"Finder\" to delete {{ {posix_files} }}");
+    let script_text = if with_info { format!(r#"
+        tell application "Finder"
+            set Trash_items to delete {{ {posix_files} }}
+        end tell
+        repeat with aFile in Trash_items -- Finder reference
+            set contents of aFile to (POSIX path of (aFile as alias)) -- can't get paths of Finder reference, coersion to alias needed
+        end repeat
+        return Trash_items
+        "#)
+    } else {format!(r#"tell application "Finder" to delete {{ {posix_files} }}"#)};
+    let mut script = Script::new_from_source(Language::AppleScript, &script_text);
 
-    let argv: Vec<OsString> = vec!["-e".into(), script.into()];
-    command.args(argv);
-
-    // Execute command
-    let result = command.output().map_err(into_unknown)?;
-    if !result.status.success() {
-        let stderr = String::from_utf8_lossy(&result.stderr);
-        match result.status.code() {
-            None => {
-                return Err(Error::Unknown {
-                    description: format!("The AppleScript exited with error. stderr: {}", stderr),
-                })
-            }
-
-            Some(code) => {
-                return Err(Error::Os {
-                    code,
-                    description: format!("The AppleScript exited with error. stderr: {}", stderr),
-                })
-            }
-        };
+    // Compile and Execute script
+    match script.compile() {
+        Ok(_) => match script.execute() {
+            Ok(res) => { if with_info {
+                #[allow(unused_assignments)]
+                let mut time_deleted = -1;
+                #[cfg(feature = "chrono")]
+                {
+                    let now = chrono::Local::now();
+                    time_deleted = now.timestamp();
+                }
+                #[cfg(not(feature = "chrono"))]
+                {
+                    time_deleted = -1;
+                }
+                // todo: check if single file still produces an array
+                if let Some(file_list) = res.as_array() {
+                    let len_match = full_paths.len()==file_list.len();
+                    if ! len_match {warn!("AppleScript returned a list of trashed paths len {} ≠ {} expected items sent to be trashed, to trashed items will have empty names/original parents as we cant be certain which trash path matches which trashed item",full_paths.len(),file_list.len());}
+                    for (i,posix_path) in file_list.iter().enumerate() {
+                        if let Some(file_path) = posix_path.as_str() { // Finder's return paths should be utf8 (%-encoded?)?
+                            //let p=PathBuf::from(file_path);
+                            //println!("✓converted posix_path:{}
+                            //        \nexists {}           {:?}", posix_path, p.exists(),p);
+                            let path_r = if len_match {full_paths[i].as_ref()} else {Path::new("")};
+                            items.push(TrashItem {
+                                id: file_path.into(),
+                                name: if len_match {path_r.file_name().expect("Item to be trashed should have a name").into()
+                                } else {"".into()},
+                                original_parent: if len_match {path_r.parent().expect("Item to be trashed should have a parent").to_path_buf()
+                                } else {"".into()},
+                                time_deleted,
+                            });
+                        } else {warn!("Failed to parse AppleScript's returned path to the trashed file: {:?}",&posix_path);}
+                    }
+                    return Ok(Some(items))
+                } else {
+                    let ss = if full_paths.len() > 1 {"s"} else {""};
+                    warn!("AppleScript did not return a list of path{} to the trashed file{}, originally located at: {:?}",&ss,&ss,&full_paths);
+                }
+            }},
+            Err(e) => return Err(Error::Unknown {description: format!("The AppleScript failed with error: {}", e),}),
+        },
+        Err(e) => return Err(Error::Unknown {description: format!("The AppleScript failed to compile with error: {}", e),}),
     }
     Ok(None)
 }
