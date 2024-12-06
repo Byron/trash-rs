@@ -119,8 +119,8 @@ fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
         .map(|p| {
             let path_b = p.as_ref().as_os_str().as_encoded_bytes();
             match std::str::from_utf8(path_b) {
-                Ok(path_utf8) => format!("POSIX file \"{path_utf8}\""), // utf-8 path, use as is
-                Err(_) => format!("POSIX file \"{}\"", &percent_encode(path_b)), // binary path, %-encode it
+                Ok(path_utf8) => format!(r#"POSIX file "{}""#,esc_quote(path_utf8)), // utf-8 path, escape \"
+                Err(_) => format!(       r#"POSIX file "{}""#,esc_quote(&percent_encode(path_b))), // binary path, %-encode it and escape \"
             }
         })
         .collect::<Vec<String>>()
