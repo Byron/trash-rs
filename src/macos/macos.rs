@@ -179,7 +179,7 @@ fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(
         tell application "Finder"
             set Trash_items to delete {{ {posix_files} }}
         end tell
-        if Trash_items is not list then -- if only 1 file is deleted, returns a file, not a list
+        if (class of Trash_items) is not list then -- if only 1 file is deleted, returns a file, not a list
             return                   (POSIX path of (Trash_items as alias))
         end if
         repeat with aFile in Trash_items -- Finder reference
