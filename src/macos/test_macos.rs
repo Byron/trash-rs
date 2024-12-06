@@ -1,4 +1,5 @@
 use crate::{
+    canonicalize_paths,
     macos::{percent_encode, DeleteMethod, TrashContextExtMacos},
     tests::{get_unique_name, init_logging},
     TrashContext,
@@ -39,6 +40,29 @@ fn test_delete_with_ns_file_manager() {
     File::create_new(&path).unwrap();
     trash_ctx.delete(&path).unwrap();
     assert!(File::open(&path).is_err());
+}
+
+#[test]
+#[serial]
+fn test_delete_binary_path_with_ns_file_manager_with_info() {
+    init_logging();
+    let mut trash_ctx = TrashContext::default();
+    trash_ctx.set_delete_method(DeleteMethod::NsFileManager);
+
+    let mut path = PathBuf::from(get_unique_name());
+    let paths = canonicalize_paths(&[path]).unwrap(); // need full path to get parent
+    assert!(!paths.is_empty());
+    path = paths[0].clone();
+    let name = path.file_name().unwrap();
+    let original_parent = path.parent().unwrap();
+
+    File::create_new(&path).unwrap();
+    let trash_item = trash_ctx.delete_with_info(&path).unwrap().unwrap();
+    assert!(File::open(&path).is_err());
+    assert_eq!(name, trash_item.name);
+    assert_eq!(original_parent, trash_item.original_parent);
+    // TrashItem's date deleted not tested since we can't guarantee the date we calculate here will match the date calculated @ delete
+    // TrashItem's path@trash not tested since we can't guarantee the ours will be identical to the one FileManager decides to use (names change if they're dupe, also trash path is a bit tricky to get right as it changes depending on the user/admin)
 }
 
 #[test]
