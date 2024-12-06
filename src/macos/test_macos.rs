@@ -34,6 +34,33 @@ fn test_delete_with_finder_with_info() {
         assert!( File::open(&trashed_path).is_err()); // cleaned up trash items
     }
 }
+
+
+// #[test]
+// #[serial]
+// fn test_delete_with_finder_with_info_invalid() {
+//     // add invalid byt
+//     init_logging();
+//     let mut trash_ctx = TrashContext::default();
+//     trash_ctx.set_delete_method(DeleteMethod::Finder);
+
+//     let p = PathBuf::from("/Volumes/Untitled");
+
+//     let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
+
+//     let mut path1 = p.clone();
+//     let mut path2 = p.clone();
+//     path1.push(get_unique_name());
+//     path2.push(get_unique_name());
+//     path1.set_extension(OsStr::from_bytes(invalid_utf8));
+//     path2.set_extension(OsStr::from_bytes(invalid_utf8));
+
+//     File::create_new(&path1).unwrap();
+//     File::create_new(&path2).unwrap();
+//     trash_ctx.delete_all_with_info(&[path1,path2]).unwrap();
+//     // assert!(File::open(&path1).is_err());
+//     // assert!(File::open(&path2).is_err());
+// }
 #[test]
 #[serial]
 fn test_delete_with_finder_quoted_paths() {
