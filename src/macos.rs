@@ -119,8 +119,8 @@ fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
         .map(|p| {
             let path_b = p.as_ref().as_os_str().as_encoded_bytes();
             match std::str::from_utf8(path_b) {
-                Ok(path_utf8) => format!(r#"POSIX file "{}""#,esc_quote(path_utf8)), // utf-8 path, escape \"
-                Err(_) => format!(       r#"POSIX file "{}""#,esc_quote(&percent_encode(path_b))), // binary path, %-encode it and escape \"
+                Ok(path_utf8) => format!(r#"POSIX file "{}""#, esc_quote(path_utf8)), // utf-8 path, escape \"
+                Err(_) => format!(r#"POSIX file "{}""#, esc_quote(&percent_encode(path_b))), // binary path, %-encode it and escape \"
             }
         })
         .collect::<Vec<String>>()
@@ -182,18 +182,24 @@ fn percent_encode(input: &[u8]) -> Cow<'_, str> {
 
 /// Escapes `"` or `\` with `\` for use in AppleScript text
 fn esc_quote(s: &str) -> Cow<'_, str> {
-  if s.contains(&['"','\\']) {
-    let mut r = String::with_capacity(s.len());
-    let chars = s.chars();
-    for c in chars { match c {
-       '"'
-      |'\\' => {r.push('\\');r.push(c);}, // escapes quote/escape char
-      _     => {             r.push(c);}, // no escape required
-    }};
-    Cow::Owned   (r)
-  } else {
-    Cow::Borrowed(s)
-  }
+    if s.contains(&['"', '\\']) {
+        let mut r = String::with_capacity(s.len());
+        let chars = s.chars();
+        for c in chars {
+            match c {
+                '"' | '\\' => {
+                    r.push('\\');
+                    r.push(c);
+                } // escapes quote/escape char
+                _ => {
+                    r.push(c);
+                } // no escape required
+            }
+        }
+        Cow::Owned(r)
+    } else {
+        Cow::Borrowed(s)
+    }
 }
 
 #[cfg(test)]
@@ -223,7 +229,7 @@ mod tests {
         path2.set_extension(r#"x80=%80 slash=\ pc=% quote=" comma=,"#);
         File::create_new(&path1).unwrap();
         File::create_new(&path2).unwrap();
-        trash_ctx.delete_all(&[path1.clone(),path2.clone()]).unwrap();
+        trash_ctx.delete_all(&[path1.clone(), path2.clone()]).unwrap();
         assert!(File::open(&path1).is_err());
         assert!(File::open(&path2).is_err());
     }
