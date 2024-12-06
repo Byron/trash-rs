@@ -13,6 +13,29 @@ use std::process::Command;
 
 #[test]
 #[serial]
+fn test_delete_with_finder_with_info() {
+    init_logging();
+    let mut trash_ctx = TrashContext::default();
+    trash_ctx.set_delete_method(DeleteMethod::Finder);
+
+    let mut path1 = PathBuf::from(get_unique_name());
+    let mut path2 = PathBuf::from(get_unique_name());
+    path1.set_extension(r#"a"b,"#);
+    path2.set_extension(r#"x80=%80 slash=\ pc=% quote=" comma=,"#);
+    File::create_new(&path1).unwrap();
+    File::create_new(&path2).unwrap();
+    let trashed_items = trash_ctx.delete_all_with_info(&[path1.clone(),path2.clone()]).unwrap().unwrap(); //Ok + Some trashed paths
+    assert!(File::open(&path1).is_err()); // original files deleted
+    assert!(File::open(&path2).is_err());
+    for item in trashed_items {
+        let trashed_path = item.id;
+        assert!(!File::open(&trashed_path).is_err()); // returned trash items exist
+        std::fs::remove_file(&trashed_path).unwrap(); // clean   up
+        assert!( File::open(&trashed_path).is_err()); // cleaned up trash items
+    }
+}
+#[test]
+#[serial]
 fn test_delete_with_finder_quoted_paths() {
     init_logging();
     let mut trash_ctx = TrashContext::default();
