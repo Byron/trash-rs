@@ -176,6 +176,9 @@ fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(full_paths: &[P], with_
         tell application "Finder"
             set Trash_items to delete {{ {posix_files} }}
         end tell
+        if Trash_items is not list then -- if only 1 file is deleted, returns a file, not a list
+            return                   (POSIX path of (Trash_items as alias))
+        end if
         repeat with aFile in Trash_items -- Finder reference
             set contents of aFile to (POSIX path of (aFile as alias)) -- can't get paths of Finder reference, coersion to alias needed
         end repeat
@@ -199,8 +202,10 @@ fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(full_paths: &[P], with_
                 {
                     time_deleted = -1;
                 }
-                // todo: check if single file still produces an array
-                if let Some(file_list) = res.as_array() {
+                let res_arr = if let Some(file_path) = res.as_str() { // convert a single value into an array for ease of handling later
+                    vec![file_path].into()
+                } else {res};
+                if let Some(file_list) = res_arr.as_array() {
                     let len_match = full_paths.len()==file_list.len();
                     if ! len_match {warn!("AppleScript returned a list of trashed paths len {} ≠ {} expected items sent to be trashed, to trashed items will have empty names/original parents as we cant be certain which trash path matches which trashed item",full_paths.len(),file_list.len());}
                     for (i,posix_path) in file_list.iter().enumerate() {
