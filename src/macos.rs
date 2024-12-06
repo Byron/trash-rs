@@ -155,7 +155,7 @@ fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
 /// std's from_utf8_lossy, but non-utf8 byte sequences are %-encoded instead of being replaced by a special symbol.
 /// Valid utf8, including `%`, are not escaped.
 use std::borrow::Cow;
-fn percent_encode(input: &[u8]) -> Cow<'_, str> {
+pub(crate) fn percent_encode(input: &[u8]) -> Cow<'_, str> {
     use percent_encoding::percent_encode_byte as b2pc;
 
     let mut iter = input.utf8_chunks().peekable();
@@ -181,7 +181,7 @@ fn percent_encode(input: &[u8]) -> Cow<'_, str> {
 }
 
 /// Escapes `"` or `\` with `\` for use in AppleScript text
-fn esc_quote(s: &str) -> Cow<'_, str> {
+pub(crate) fn esc_quote(s: &str) -> Cow<'_, str> {
     if s.contains(['"', '\\']) {
         let mut r = String::with_capacity(s.len());
         let chars = s.chars();
