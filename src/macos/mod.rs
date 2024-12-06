@@ -189,7 +189,10 @@ fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(
         "#
         )
     } else {
-        format!(r#"tell application "Finder" to delete {{ {posix_files} }}"#)
+        format!(
+            r#"tell application "Finder" to delete {{ {posix_files} }}
+                return "" "#
+        )
     };
     let mut script = Script::new_from_source(Language::AppleScript, &script_text);
 
