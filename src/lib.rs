@@ -320,6 +320,9 @@ pub struct TrashItem {
 
     /// The name of the item. For example if the folder '/home/user/New Folder'
     /// was deleted, its `name` is 'New Folder'
+    /// macOS: when trashing with DeleteMethod::Finder, files are passed to Finder in a single batch,
+    /// so if the size of the returned list of trashed paths is different from the list of items we sent
+    /// to trash, we can't match input to output, so will leave this field "" blank
     pub name: OsString,
 
     /// The path to the parent folder of this item before it was put inside the
@@ -328,6 +331,9 @@ pub struct TrashItem {
     ///
     /// To get the full path to the file in its original location use the
     /// `original_path` function.
+    /// macOS: when trashing with DeleteMethod::Finder, files are passed to Finder in a single batch,
+    /// so if the size of the returned list of trashed paths is different from the list of items we sent
+    /// to trash, we can't match input to output, so will leave this field "" blank
     pub original_parent: PathBuf,
 
     /// The number of non-leap seconds elapsed between the UNIX Epoch and the
@@ -335,8 +341,10 @@ pub struct TrashItem {
     /// Without the "chrono" feature, this will be a negative number on linux/macOS only.
     /// macOS has the number, but there is no information on how to get it,
     /// the usual 'kMDItemDateAdded' attribute doesn't exist for files @ trash
-    /// apple.stackexchange.com/questions/437475/how-can-i-find-out-when-a-file-had-been-moved-to-trash
-    /// stackoverflow.com/questions/53341670/access-the-file-date-added-in-terminal
+    ///   apple.stackexchange.com/questions/437475/how-can-i-find-out-when-a-file-had-been-moved-to-trash
+    ///   stackoverflow.com/questions/53341670/access-the-file-date-added-in-terminal
+    /// macOS: when trashing with DeleteMethod::Finder, files are passed to Finder in a single batch, so the timing will be
+    /// set to the time before a batch is trashed and is the same for all files in a batch
     pub time_deleted: i64,
 }
 
