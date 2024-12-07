@@ -50,6 +50,7 @@ mod platform;
 mod platform;
 
 #[cfg(target_os = "macos")]
+#[path = "macos/macos.rs"]
 pub mod macos;
 #[cfg(target_os = "macos")]
 use macos as platform;
