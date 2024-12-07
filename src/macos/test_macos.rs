@@ -5,7 +5,7 @@ use serial_test::serial;
 fn test_run_as_with_finder() -> Result<Option<Vec<TrashItem>>, Error> {
     use osakit::{Language, Script};
     // stackoverflow.com/a/21341372
-    let _dlog = r#"
+    let dlog = r#"
     on dlog(anyObjOrListOfObjects)
         global DLOG_TARGETS
         try
@@ -80,11 +80,13 @@ fn test_run_as_with_finder() -> Result<Option<Vec<TrashItem>>, Error> {
         end repeat
     end dlog    "#;
 
-    // {dlog}
-    // set DLOG_TARGETS to {{ "~/Downloads/aslog.txt" }}
     let script_text = format!(
         r#"
+        {dlog}
+        set DLOG_TARGETS to {{ "~/Downloads/aslog.txt" }}
+        tell me to dlog("———————————————— pre-Finder")
         tell application "Finder"
+            tell me to dlog("@ Finder set_items")
             set Trash_items to selection
         end tell
         return "empty string"
