@@ -24,6 +24,8 @@ fn test_delete_with_finder_with_info() {
     path2.set_extension(r#"x80=%80 slash=\ pc=% quote=" comma=,"#);
     File::create_new(&path1).unwrap();
     File::create_new(&path2).unwrap();
+    assert!(&path1.exists());
+    assert!(&path2.exists());
     let trashed_items = trash_ctx.delete_all_with_info(&[path1.clone(), path2.clone()]).unwrap().unwrap(); //Ok + Some trashed paths
     assert!(File::open(&path1).is_err()); // original files deleted
     assert!(File::open(&path2).is_err());
