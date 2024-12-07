@@ -10,7 +10,7 @@ use std::path::PathBuf;
 #[test] #[serial] fn test_x1 () {
     use std::{thread, time};
     println!("sleeping");
-    let ten_millis = time::Duration::from_millis(1000);
+    let ten_millis = time::Duration::from_millis(3000);
     thread::sleep(ten_millis);
     init_logging();
     let mut trash_ctx = TrashContext::default();
@@ -24,7 +24,7 @@ use std::path::PathBuf;
 #[test] #[serial] fn test_x2 () {
     use std::{thread, time};
     println!("sleeping");
-    let ten_millis = time::Duration::from_millis(1000);
+    let ten_millis = time::Duration::from_millis(3000);
     thread::sleep(ten_millis);
     init_logging();
     let mut trash_ctx = TrashContext::default();
@@ -38,7 +38,7 @@ use std::path::PathBuf;
 #[test] #[serial] fn test_x3 () {
     use std::{thread, time};
     println!("sleeping");
-    let ten_millis = time::Duration::from_millis(1000);
+    let ten_millis = time::Duration::from_millis(3000);
     thread::sleep(ten_millis);
     init_logging();
     let mut trash_ctx = TrashContext::default();
@@ -52,7 +52,7 @@ use std::path::PathBuf;
 #[test] #[serial] fn test_x4 () {
     use std::{thread, time};
     println!("sleeping");
-    let ten_millis = time::Duration::from_millis(1000);
+    let ten_millis = time::Duration::from_millis(3000);
     thread::sleep(ten_millis);
     init_logging();
     let mut trash_ctx = TrashContext::default();
@@ -66,7 +66,7 @@ use std::path::PathBuf;
 #[test] #[serial] fn test_x5 () {
     use std::{thread, time};
     println!("sleeping");
-    let ten_millis = time::Duration::from_millis(1000);
+    let ten_millis = time::Duration::from_millis(3000);
     thread::sleep(ten_millis);
     init_logging();
     let mut trash_ctx = TrashContext::default();
@@ -80,7 +80,7 @@ use std::path::PathBuf;
 #[test] #[serial] fn test_x6 () {
     use std::{thread, time};
     println!("sleeping");
-    let ten_millis = time::Duration::from_millis(1000);
+    let ten_millis = time::Duration::from_millis(3000);
     thread::sleep(ten_millis);
     init_logging();
     let mut trash_ctx = TrashContext::default();
@@ -94,7 +94,7 @@ use std::path::PathBuf;
 #[test] #[serial] fn test_x7 () {
     use std::{thread, time};
     println!("sleeping");
-    let ten_millis = time::Duration::from_millis(1000);
+    let ten_millis = time::Duration::from_millis(3000);
     thread::sleep(ten_millis);
     init_logging();
     let mut trash_ctx = TrashContext::default();
