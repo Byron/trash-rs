@@ -277,86 +277,97 @@ fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(
                 return "" "#
         )
     };
-    let script_text = format!(r#"
+    let script_text = format!(
+        r#"
         tell application "Finder"
             set Trash_items to selection
         end tell
         return "empty string"
-                              "#);
+                              "#
+    );
 
     let mut script = Script::new_from_source(Language::AppleScript, &script_text);
 
     // Compile and Execute script
     println!("  ? script starting...");
     match script.compile() {
-        Ok(_) => {println!("  ✓ script compiled");
+        Ok(_) => {
+            println!("  ✓ script compiled");
             match script.execute() {
-            Ok(res) => {println!("  ✓ script run res={:?}",&res);
-                if with_info {
-                    println!("  doing with_info");
-                    #[allow(unused_assignments)]
-                    let mut time_deleted = -1;
-                    #[cfg(feature = "chrono")]
-                    {
-                        let now = chrono::Local::now();
-                        time_deleted = now.timestamp();
-                    }
-                    #[cfg(not(feature = "chrono"))]
-                    {
-                        time_deleted = -1;
-                    }
-                    let res_arr = if let Some(file_path) = res.as_str() {
-                        // convert a single value into an array for ease of handling later
-                        vec![file_path].into()
-                    } else {
-                        res
-                    };
-                    if let Some(file_list) = res_arr.as_array() {
-                        let len_match = full_paths.len() == file_list.len();
-                        if !len_match {
-                            warn!("AppleScript returned a list of trashed paths len {} ≠ {} expected items sent to be trashed, to trashed items will have empty names/original parents as we cant be certain which trash path matches which trashed item",full_paths.len(),file_list.len());
+                Ok(res) => {
+                    println!("  ✓ script run res={:?}", &res);
+                    if with_info {
+                        println!("  doing with_info");
+                        #[allow(unused_assignments)]
+                        let mut time_deleted = -1;
+                        #[cfg(feature = "chrono")]
+                        {
+                            let now = chrono::Local::now();
+                            time_deleted = now.timestamp();
                         }
-                        for (i, posix_path) in file_list.iter().enumerate() {
-                            if let Some(file_path) = posix_path.as_str() {
-                                // Finder's return paths should be utf8 (%-encoded?)?
-                                //let p=PathBuf::from(file_path);
-                                //println!("✓converted posix_path:{}
-                                //        \nexists {}           {:?}", posix_path, p.exists(),p);
-                                let path_r = if len_match { full_paths[i].as_ref() } else { Path::new("") };
-                                items.push(TrashItem {
-                                    id: file_path.into(),
-                                    name: if len_match {
-                                        path_r.file_name().expect("Item to be trashed should have a name").into()
-                                    } else {
-                                        "".into()
-                                    },
-                                    original_parent: if len_match {
-                                        path_r.parent().expect("Item to be trashed should have a parent").to_path_buf()
-                                    } else {
-                                        "".into()
-                                    },
-                                    time_deleted,
-                                });
-                            } else {
-                                warn!(
-                                    "Failed to parse AppleScript's returned path to the trashed file: {:?}",
-                                    &posix_path
-                                );
+                        #[cfg(not(feature = "chrono"))]
+                        {
+                            time_deleted = -1;
+                        }
+                        let res_arr = if let Some(file_path) = res.as_str() {
+                            // convert a single value into an array for ease of handling later
+                            vec![file_path].into()
+                        } else {
+                            res
+                        };
+                        if let Some(file_list) = res_arr.as_array() {
+                            let len_match = full_paths.len() == file_list.len();
+                            if !len_match {
+                                warn!("AppleScript returned a list of trashed paths len {} ≠ {} expected items sent to be trashed, to trashed items will have empty names/original parents as we cant be certain which trash path matches which trashed item",full_paths.len(),file_list.len());
                             }
+                            for (i, posix_path) in file_list.iter().enumerate() {
+                                if let Some(file_path) = posix_path.as_str() {
+                                    // Finder's return paths should be utf8 (%-encoded?)?
+                                    //let p=PathBuf::from(file_path);
+                                    //println!("✓converted posix_path:{}
+                                    //        \nexists {}           {:?}", posix_path, p.exists(),p);
+                                    let path_r = if len_match { full_paths[i].as_ref() } else { Path::new("") };
+                                    items.push(TrashItem {
+                                        id: file_path.into(),
+                                        name: if len_match {
+                                            path_r.file_name().expect("Item to be trashed should have a name").into()
+                                        } else {
+                                            "".into()
+                                        },
+                                        original_parent: if len_match {
+                                            path_r
+                                                .parent()
+                                                .expect("Item to be trashed should have a parent")
+                                                .to_path_buf()
+                                        } else {
+                                            "".into()
+                                        },
+                                        time_deleted,
+                                    });
+                                } else {
+                                    warn!(
+                                        "Failed to parse AppleScript's returned path to the trashed file: {:?}",
+                                        &posix_path
+                                    );
+                                }
+                            }
+                            println!("  ✓ returning some items");
+                            return Ok(Some(items));
+                        } else {
+                            let ss = if full_paths.len() > 1 { "s" } else { "" };
+                            warn!("AppleScript did not return a list of path{} to the trashed file{}, originally located at: {:?}",&ss,&ss,&full_paths);
                         }
-                        println!("  ✓ returning some items");
-                        return Ok(Some(items));
-                    } else {
-                        let ss = if full_paths.len() > 1 { "s" } else { "" };
-                        warn!("AppleScript did not return a list of path{} to the trashed file{}, originally located at: {:?}",&ss,&ss,&full_paths);
                     }
                 }
+                Err(e) => {
+                    println!("  ✗ script failed to run");
+                    return Err(Error::Unknown { description: format!("The AppleScript failed with error: {}", e) });
+                }
             }
-            Err(e) => {println!("  ✗ script failed to run");
-                return Err(Error::Unknown { description: format!("The AppleScript failed with error: {}", e) })},
-        }},
-        Err(e) => {println!("  ✗ script failed to compile");
-            return Err(Error::Unknown { description: format!("The AppleScript failed to compile with error: {}", e) })
+        }
+        Err(e) => {
+            println!("  ✗ script failed to compile");
+            return Err(Error::Unknown { description: format!("The AppleScript failed to compile with error: {}", e) });
         }
     }
     Ok(None)
