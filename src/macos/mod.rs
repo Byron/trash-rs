@@ -51,18 +51,50 @@ impl Default for DeleteMethod {
         Self::new()
     }
 }
+
+
+#[derive(Copy, Clone, Debug)]
+/// There are 2 ways to ask Finder to trash files: by calling the `osascript` binary or directly into the `OSAKit` Framework.
+/// The `OSAKit` method should be faster, but it can unexpectedly bug by stalling until the default 2 min timeout expires,
+/// so the default is `osascript`.
+///
+pub enum ScriptMethod {
+    /// Spawn a process calling the standalone `osascript` binary to run AppleScript. Slower, but more reliable.
+    ///
+    /// This is the default.
+    Cli,
+
+    /// Call into `OSAKit` directly via ObjC-bindings. Faster, but can sometimes to fail to trigger Finder action, stalling for 2 min.
+    ///
+    Osakit,
+}
+impl ScriptMethod {
+    /// Returns `ScriptMethod::Cli`
+    pub const fn new() -> Self {
+        ScriptMethod::Cli
+    }
+}
+impl Default for ScriptMethod {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Clone, Default, Debug)]
 pub struct PlatformTrashContext {
     delete_method: DeleteMethod,
+    script_method: ScriptMethod,
 }
 impl PlatformTrashContext {
     pub const fn new() -> Self {
-        Self { delete_method: DeleteMethod::new() }
+        Self { delete_method: DeleteMethod::new(), script_method: ScriptMethod::new() }
     }
 }
 pub trait TrashContextExtMacos {
     fn set_delete_method(&mut self, method: DeleteMethod);
     fn delete_method(&self) -> DeleteMethod;
+    fn set_script_method(&mut self, method: ScriptMethod);
+    fn script_method(&self) -> ScriptMethod;
 }
 impl TrashContextExtMacos for TrashContext {
     fn set_delete_method(&mut self, method: DeleteMethod) {
@@ -70,6 +102,12 @@ impl TrashContextExtMacos for TrashContext {
     }
     fn delete_method(&self) -> DeleteMethod {
         self.platform_specific.delete_method
+    }
+    fn set_script_method(&mut self, method: ScriptMethod) {
+        self.platform_specific.script_method = method;
+    }
+    fn script_method(&self) -> ScriptMethod {
+        self.platform_specific.script_method
     }
 }
 impl TrashContext {
