@@ -107,6 +107,20 @@ fn test_delete_with_ns_file_manager() {
 
 #[test]
 #[serial]
+fn test_delete_with_finder() {
+    init_logging();
+    let mut trash_ctx = TrashContext::default();
+    trash_ctx.set_delete_method(DeleteMethod::Finder);
+
+    let path = PathBuf::from(get_unique_name());
+    File::create_new(&path).unwrap();
+    assert!(path.exists());
+    trash_ctx.delete(&path).unwrap();
+    assert!(!path.exists());
+}
+
+#[test]
+#[serial]
 fn test_delete_binary_path_with_ns_file_manager_with_info() {
     init_logging();
     let mut trash_ctx = TrashContext::default();
