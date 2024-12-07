@@ -229,9 +229,9 @@ mod tests {
         path2.set_extension(r#"x80=%80 slash=\ pc=% quote=" comma=,"#);
         File::create_new(&path1).unwrap();
         File::create_new(&path2).unwrap();
-        trash_ctx.delete_all(&[path1.clone(), path2.clone()]).unwrap();
-        assert!(File::open(&path1).is_err());
-        assert!(File::open(&path2).is_err());
+        trash_ctx.delete_all(&[&path1, &path2]).unwrap();
+        assert!(!path1.exists());
+        assert!(!path2.exists());
     }
 
     #[test]
@@ -254,18 +254,19 @@ mod tests {
         let parent_fs_supports_binary = tmp.path();
 
         init_logging();
-        let mut trash_ctx = TrashContext::default();
-        trash_ctx.set_delete_method(DeleteMethod::NsFileManager);
+        for method in [DeleteMethod::NsFileManager, DeleteMethod::Finder] {
+            let mut trash_ctx = TrashContext::default();
+            trash_ctx.set_delete_method(method);
 
-        let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
-        let mut path_invalid = parent_fs_supports_binary.join(get_unique_name());
-        path_invalid.set_extension(OsStr::from_bytes(invalid_utf8)); //...trash-test-111-0.\x80 (not push to avoid fail unexisting dir)
+            let mut path_invalid = parent_fs_supports_binary.join(get_unique_name());
+            path_invalid.set_extension(OsStr::from_bytes(b"\x80\"\\")); //...trash-test-111-0.\x80 (not push to avoid fail unexisting dir)
 
-        File::create_new(&path_invalid).unwrap();
+            File::create_new(&path_invalid).unwrap();
 
-        assert!(path_invalid.exists());
-        trash_ctx.delete(&path_invalid).unwrap();
-        assert!(!path_invalid.exists());
+            assert!(path_invalid.exists());
+            trash_ctx.delete(&path_invalid).unwrap();
+            assert!(!path_invalid.exists());
+        }
     }
 
     #[test]
