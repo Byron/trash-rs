@@ -119,8 +119,8 @@ fn delete_using_finder<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
         .map(|p| {
             let path_b = p.as_ref().as_os_str().as_encoded_bytes();
             match std::str::from_utf8(path_b) {
-                Ok(path_utf8) => format!("POSIX file \"{path_utf8}\""), // utf-8 path, use as is
-                Err(_) => format!("POSIX file \"{}\"", &percent_encode(path_b)), // binary path, %-encode it
+                Ok(path_utf8) => format!(r#"POSIX file "{}""#, esc_quote(path_utf8)), // utf-8 path, escape \"
+                Err(_) => format!(r#"POSIX file "{}""#, esc_quote(&percent_encode(path_b))), // binary path, %-encode it and escape \"
             }
         })
         .collect::<Vec<String>>()
@@ -180,6 +180,28 @@ fn percent_encode(input: &[u8]) -> Cow<'_, str> {
     Cow::Owned(res)
 }
 
+/// Escapes `"` or `\` with `\` for use in AppleScript text
+fn esc_quote(s: &str) -> Cow<'_, str> {
+    if s.contains(['"', '\\']) {
+        let mut r = String::with_capacity(s.len());
+        let chars = s.chars();
+        for c in chars {
+            match c {
+                '"' | '\\' => {
+                    r.push('\\');
+                    r.push(c);
+                } // escapes quote/escape char
+                _ => {
+                    r.push(c);
+                } // no escape required
+            }
+        }
+        Cow::Owned(r)
+    } else {
+        Cow::Borrowed(s)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -193,6 +215,24 @@ mod tests {
     use std::os::unix::ffi::OsStrExt;
     use std::path::PathBuf;
     use std::process::Command;
+
+    #[test]
+    #[serial]
+    fn test_delete_with_finder_quoted_paths() {
+        init_logging();
+        let mut trash_ctx = TrashContext::default();
+        trash_ctx.set_delete_method(DeleteMethod::Finder);
+
+        let mut path1 = PathBuf::from(get_unique_name());
+        let mut path2 = PathBuf::from(get_unique_name());
+        path1.set_extension(r#"a"b,"#);
+        path2.set_extension(r#"x80=%80 slash=\ pc=% quote=" comma=,"#);
+        File::create_new(&path1).unwrap();
+        File::create_new(&path2).unwrap();
+        trash_ctx.delete_all(&[&path1, &path2]).unwrap();
+        assert!(!path1.exists());
+        assert!(!path2.exists());
+    }
 
     #[test]
     #[serial]
@@ -214,18 +254,19 @@ mod tests {
         let parent_fs_supports_binary = tmp.path();
 
         init_logging();
-        let mut trash_ctx = TrashContext::default();
-        trash_ctx.set_delete_method(DeleteMethod::NsFileManager);
+        for method in [DeleteMethod::NsFileManager, DeleteMethod::Finder] {
+            let mut trash_ctx = TrashContext::default();
+            trash_ctx.set_delete_method(method);
 
-        let invalid_utf8 = b"\x80"; // lone continuation byte (128) (invalid utf8)
-        let mut path_invalid = parent_fs_supports_binary.join(get_unique_name());
-        path_invalid.set_extension(OsStr::from_bytes(invalid_utf8)); //...trash-test-111-0.\x80 (not push to avoid fail unexisting dir)
+            let mut path_invalid = parent_fs_supports_binary.join(get_unique_name());
+            path_invalid.set_extension(OsStr::from_bytes(b"\x80\"\\")); //...trash-test-111-0.\x80 (not push to avoid fail unexisting dir)
 
-        File::create_new(&path_invalid).unwrap();
+            File::create_new(&path_invalid).unwrap();
 
-        assert!(path_invalid.exists());
-        trash_ctx.delete(&path_invalid).unwrap();
-        assert!(!path_invalid.exists());
+            assert!(path_invalid.exists());
+            trash_ctx.delete(&path_invalid).unwrap();
+            assert!(!path_invalid.exists());
+        }
     }
 
     #[test]
