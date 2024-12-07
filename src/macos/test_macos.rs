@@ -7,7 +7,9 @@ use serial_test::serial;
 use std::path::PathBuf;
 
 use std::{thread, time};
-#[test] #[serial] fn test_x1 () {
+#[test]
+#[serial]
+fn test_x1() {
     init_logging();
     for i in 0..10 {
         println!("{i} sleeping");
