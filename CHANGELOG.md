@@ -5,6 +5,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.2.1 (2024-12-07)
+
+### Bug Fixes
+
+ - <csr-id-e1bb697a510ec49008d0b4f9a58b38dc061d7901/> Escape quoted paths when deleting with AppleScript
+ - <csr-id-6f0b737668c0f9c19e09657e8cbc98caf90e30a9/> Support for non-UTF8 paths on HFS+ on MacOS
+   Now illegal UTF8 is percent-encoded. Previously this code would have panicked.
+
+### Other
+
+ - <csr-id-415c87d81ff859ae40ba5d2e31ffcc44a1ebfffa/> add an overview table to DeleteMethod on Mac
+ - <csr-id-6fbad98299ffde1acf2a63552d39e4085664d6f1/> move macos deps behind macos cfg target
+ - <csr-id-3978204c7b5d7ca1038717da3238c82f7bb6a6c6/> add simdutf8 for fast utf8 validation
+ - <csr-id-e58e92baee1f3121114befe73e2a7a1d1dba363e/> add percent encoding support
+ - <csr-id-9ed83e724f944f4eacf2e4cafdf8025548f7a17b/> replace create with create_new to avoid potentially nulling existing files
+
+### Test
+
+ - <csr-id-175d6f5de323b2fed7c8049eaf6bb91266171b30/> new delete illegal bytes via Finder
+   Disabled since only works on older FS, but tested manually to work on a USB HFS drive
+ - <csr-id-bfbc394a1aba8cb3f348c77f3dffc18a59dde28f/> new delete illegal bytes
+   Disabled since only works on older FS, but tested manually to work on a USB HFS drive
+ - <csr-id-dc7dca02ba13b34d57f63244522044a17e88cecc/> add for from_utf8_lossy_pc
+ - <csr-id-9c213c91817d718b1785b9cd8a52d6c87beef936/> replace create with create_new to avoid potentially nulling existing files
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 25 commits contributed to the release.
+ - 11 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Escape quoted paths when deleting with AppleScript ([`e1bb697`](https://github.com/Byron/trash-rs/commit/e1bb697a510ec49008d0b4f9a58b38dc061d7901))
+    - Support for non-UTF8 paths on HFS+ on MacOS ([`6f0b737`](https://github.com/Byron/trash-rs/commit/6f0b737668c0f9c19e09657e8cbc98caf90e30a9))
+    - Various refactors ([`d23a591`](https://github.com/Byron/trash-rs/commit/d23a59166d52c90d7ee02ca2fb356cad0b330eca))
+    - Merge pull request #125 from eugenesvk/fr-doc-deletemethod ([`47ed29d`](https://github.com/Byron/trash-rs/commit/47ed29da5773e3f94285ee6f77fe4b9ba484ea3b))
+    - Add an overview table to DeleteMethod on Mac ([`415c87d`](https://github.com/Byron/trash-rs/commit/415c87d81ff859ae40ba5d2e31ffcc44a1ebfffa))
+    - Clippy ([`b147384`](https://github.com/Byron/trash-rs/commit/b147384fb820a0577d8228b5872d6dac338d4cf5))
+    - Cargo fmt ([`e499a0e`](https://github.com/Byron/trash-rs/commit/e499a0e1a49dbf3f2e672d1d42cc7b54944b6d9d))
+    - New delete illegal bytes via Finder ([`175d6f5`](https://github.com/Byron/trash-rs/commit/175d6f5de323b2fed7c8049eaf6bb91266171b30))
+    - Fix Finder path generation for AS ([`0359a4d`](https://github.com/Byron/trash-rs/commit/0359a4d13975e2fc5717052b2aa23e0394c7b619))
+    - Cargo fmt ([`5d17879`](https://github.com/Byron/trash-rs/commit/5d17879c0c823209f05d4cbc21629079c67e51ba))
+    - Fix finder extra escaping ([`d7295e8`](https://github.com/Byron/trash-rs/commit/d7295e8edd0934d3d1b3e7e0f9cc745b5d103ce2))
+    - Cargo fmt ([`ab5c49b`](https://github.com/Byron/trash-rs/commit/ab5c49ba45d94fdfa1ed6919daf1d61627de8ab3))
+    - New delete illegal bytes ([`bfbc394`](https://github.com/Byron/trash-rs/commit/bfbc394a1aba8cb3f348c77f3dffc18a59dde28f))
+    - Move macos deps behind macos cfg target ([`6fbad98`](https://github.com/Byron/trash-rs/commit/6fbad98299ffde1acf2a63552d39e4085664d6f1))
+    - Convert delete_using_finder to use binary Paths ([`c013b9a`](https://github.com/Byron/trash-rs/commit/c013b9a95bfde455a85dcf5b382ee7a6aaf145a2))
+    - Convert delete_using_file_mgr to use binary Paths ([`1d18e7a`](https://github.com/Byron/trash-rs/commit/1d18e7a9ae7a92a909c4dc34b441d799f0466b0b))
+    - Remove automatic panicky conversion of potentially binary paths into non-binary strings ([`d7d2187`](https://github.com/Byron/trash-rs/commit/d7d218743dc1e4793a49b0aa95e752e740c2a9c3))
+    - Add simdutf8 for fast utf8 validation ([`3978204`](https://github.com/Byron/trash-rs/commit/3978204c7b5d7ca1038717da3238c82f7bb6a6c6))
+    - Add for from_utf8_lossy_pc ([`dc7dca0`](https://github.com/Byron/trash-rs/commit/dc7dca02ba13b34d57f63244522044a17e88cecc))
+    - Add from_utf8_lossy_pc ([`8481d3c`](https://github.com/Byron/trash-rs/commit/8481d3cccb561e67a98f79ae1bfa8f7ade87d6c4))
+    - Add percent encoding support ([`e58e92b`](https://github.com/Byron/trash-rs/commit/e58e92baee1f3121114befe73e2a7a1d1dba363e))
+    - Merge pull request #126 from eugenesvk/fr-test-file-new ([`823f6fb`](https://github.com/Byron/trash-rs/commit/823f6fb3856f67a99e40ec943488615eb12d3edc))
+    - Try de-clippy ([`243b00d`](https://github.com/Byron/trash-rs/commit/243b00d75f165472f55127cd40cbcbf08f715400))
+    - Replace create with create_new to avoid potentially nulling existing files ([`9c213c9`](https://github.com/Byron/trash-rs/commit/9c213c91817d718b1785b9cd8a52d6c87beef936))
+    - Replace create with create_new to avoid potentially nulling existing files ([`9ed83e7`](https://github.com/Byron/trash-rs/commit/9ed83e724f944f4eacf2e4cafdf8025548f7a17b))
+</details>
+
 ## 5.2.0 (2024-10-26)
 
 ### New Features
@@ -21,7 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 56 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -33,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v5.2.0 ([`1a0fc59`](https://github.com/Byron/trash-rs/commit/1a0fc5908a29c7e648a76ca706e2aa2a40eedda6))
     - Merge pull request #120 from joshuamegnauth54/feat-short-circuiting-is-empty ([`0120bbe`](https://github.com/Byron/trash-rs/commit/0120bbe66889e3659b9f09598f3567dd6c00d4b6))
     - Short circuiting check for empty trash ([`6d59fa9`](https://github.com/Byron/trash-rs/commit/6d59fa939429d2eede8b7cf22b2e084bc3c546f4))
 </details>
