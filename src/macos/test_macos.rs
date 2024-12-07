@@ -1,9 +1,9 @@
-use std::process::Command;
-use std::ffi::OsString;
 use crate::into_unknown;
 use crate::tests::init_logging;
 use crate::Error;
 use serial_test::serial;
+use std::ffi::OsString;
+use std::process::Command;
 
 fn test_run_as_with_finder_cli() -> Result<(), Error> {
     let mut command = Command::new("osascript");
@@ -96,10 +96,13 @@ use std::{thread, time};
 fn test_x1() {
     init_logging();
     let ten_millis = time::Duration::from_millis(100);
-    for i in 0..10 { println!("{i} sleeping cli"); // thread::sleep(ten_millis);
+    for i in 0..10 {
+        println!("{i} sleeping cli"); // thread::sleep(ten_millis);
         test_run_as_with_finder_cli().unwrap();
     }
-    for i in 0..10 { println!("{i} sleeping"); thread::sleep(ten_millis);
+    for i in 0..10 {
+        println!("{i} sleeping");
+        thread::sleep(ten_millis);
         test_run_as_with_finder().unwrap();
     }
 }
