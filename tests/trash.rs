@@ -30,14 +30,17 @@ pub use util::{get_unique_name, init_logging};
 #[serial]
 fn test_delete_file() {
     init_logging();
-    trace!("Started test_delete_file");
+    println!("Started test_delete_file");
 
-    let path = get_unique_name();
+    let path = PathBuf::from(get_unique_name());
     File::create_new(&path).unwrap();
+    println!("created file {:?}", &path);
+    assert!(path.exists());
 
+    println!("trying to delete {:?}", &path);
     delete(&path).unwrap();
-    assert!(File::open(&path).is_err());
-    trace!("Finished test_delete_file");
+    assert!(!path.exists());
+    println!("Finished test_delete_file");
 }
 
 #[test]
