@@ -1,7 +1,6 @@
-use crate::{Error, TrashItem};
 use crate::tests::init_logging;
+use crate::{Error, TrashItem};
 use serial_test::serial;
-
 
 fn test_run_as_with_finder() -> Result<Option<Vec<TrashItem>>, Error> {
     use osakit::{Language, Script};
@@ -81,8 +80,8 @@ fn test_run_as_with_finder() -> Result<Option<Vec<TrashItem>>, Error> {
         end repeat
     end dlog    "#;
 
-        // {dlog}
-        // set DLOG_TARGETS to {{ "~/Downloads/aslog.txt" }}
+    // {dlog}
+    // set DLOG_TARGETS to {{ "~/Downloads/aslog.txt" }}
     let script_text = format!(
         r#"
         tell application "Finder"
@@ -114,8 +113,6 @@ fn test_run_as_with_finder() -> Result<Option<Vec<TrashItem>>, Error> {
     }
     Ok(None)
 }
-
-
 
 use std::{thread, time};
 #[test]
