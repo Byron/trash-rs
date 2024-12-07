@@ -1,8 +1,8 @@
 use crate::tests::init_logging;
-use crate::{Error, TrashItem};
+use crate::Error;
 use serial_test::serial;
 
-fn test_run_as_with_finder() -> Result<Option<Vec<TrashItem>>, Error> {
+fn test_run_as_with_finder() -> Result<(), Error> {
     use osakit::{Language, Script};
     let script_text = format!(
         r#"
@@ -33,7 +33,7 @@ fn test_run_as_with_finder() -> Result<Option<Vec<TrashItem>>, Error> {
             return Err(Error::Unknown { description: format!("The AppleScript failed to compile with error: {}", e) });
         }
     }
-    Ok(None)
+    Ok(())
 }
 
 use std::{thread, time};
@@ -41,9 +41,9 @@ use std::{thread, time};
 #[serial]
 fn test_x1() {
     init_logging();
+    let ten_millis = time::Duration::from_millis(1000);
     for i in 0..10 {
         println!("{i} sleeping");
-        let ten_millis = time::Duration::from_millis(1000);
         thread::sleep(ten_millis);
         test_run_as_with_finder().unwrap();
     }
