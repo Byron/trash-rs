@@ -1,6 +1,6 @@
 use crate::{
     canonicalize_paths,
-    macos::{percent_encode, DeleteMethod, TrashContextExtMacos},
+    macos::{percent_encode, DeleteMethod, ScriptMethod, TrashContextExtMacos},
     tests::{get_unique_name, init_logging},
     TrashContext,
 };
@@ -17,6 +17,7 @@ fn test_delete_with_finder_with_info() {
     init_logging();
     let mut trash_ctx = TrashContext::default();
     trash_ctx.set_delete_method(DeleteMethod::Finder);
+    trash_ctx.set_script_method(ScriptMethod::Cli);
 
     let mut path1 = PathBuf::from(get_unique_name());
     let mut path2 = PathBuf::from(get_unique_name());
