@@ -26,7 +26,11 @@ fn test_delete_with_finder_with_info() {
     File::create_new(&path2).unwrap();
     assert!(&path1.exists());
     assert!(&path2.exists());
+    println!("file exists: {:?}",&path1);
+    println!("file exists: {:?}",&path2);
+    println!("———————————————— pre delete_all_with_info");
     let trashed_items = trash_ctx.delete_all_with_info(&[path1.clone(), path2.clone()]).unwrap().unwrap(); //Ok + Some trashed paths
+    println!("———————————————— pos delete_all_with_info");
     assert!(File::open(&path1).is_err()); // original files deleted
     assert!(File::open(&path2).is_err());
     for item in trashed_items {
