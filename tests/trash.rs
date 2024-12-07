@@ -63,15 +63,17 @@ fn test_delete_folder() {
 #[test]
 fn test_delete_all() {
     init_logging();
-    trace!("Started test_delete_all");
+    println!("Started test_delete_all");
     let count: usize = 3;
 
     let paths: Vec<_> = (0..count).map(|i| format!("test_file_to_delete_{i}")).collect();
     for path in paths.iter() {
         File::create_new(path).unwrap();
     }
+    println!("created test_delete_all");
 
     delete_all(&paths).unwrap();
+    println!("deleted test_delete_all");
     for path in paths.iter() {
         assert!(File::open(path).is_err());
     }
