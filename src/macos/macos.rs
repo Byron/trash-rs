@@ -218,10 +218,13 @@ fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(
     let mut script = Script::new_from_source(Language::AppleScript, &script_text);
 
     // Compile and Execute script
+    println!("  ? script starting...");
     match script.compile() {
-        Ok(_) => match script.execute() {
-            Ok(res) => {
+        Ok(_) => {println!("  ✓ script compiled");
+            match script.execute() {
+            Ok(res) => {println!("  ✓ script run res={:?}",&res);
                 if with_info {
+                    println!("  doing with_info");
                     #[allow(unused_assignments)]
                     let mut time_deleted = -1;
                     #[cfg(feature = "chrono")]
@@ -272,6 +275,7 @@ fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(
                                 );
                             }
                         }
+                        println!("  ✓ returning some items");
                         return Ok(Some(items));
                     } else {
                         let ss = if full_paths.len() > 1 { "s" } else { "" };
@@ -279,9 +283,10 @@ fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(
                     }
                 }
             }
-            Err(e) => return Err(Error::Unknown { description: format!("The AppleScript failed with error: {}", e) }),
-        },
-        Err(e) => {
+            Err(e) => {println!("  ✗ script failed to run");
+                return Err(Error::Unknown { description: format!("The AppleScript failed with error: {}", e) })},
+        }},
+        Err(e) => {println!("  ✗ script failed to compile");
             return Err(Error::Unknown { description: format!("The AppleScript failed to compile with error: {}", e) })
         }
     }
