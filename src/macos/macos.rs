@@ -281,13 +281,7 @@ fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(
         tell application "Finder"
             set Trash_items to selection
         end tell
-        if (class of Trash_items) is not list then -- if only 1 file is deleted, returns a file, not a list
-            return                   (POSIX path of (Trash_items as alias))
-        end if
-        repeat with aFile in Trash_items -- Finder reference
-            set contents of aFile to (POSIX path of (aFile as alias)) -- can't get paths of Finder reference, coersion to alias needed
-        end repeat
-        return Trash_items
+        return "empty string"
                               "#);
 
     let mut script = Script::new_from_source(Language::AppleScript, &script_text);
