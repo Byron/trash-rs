@@ -176,15 +176,23 @@ fn delete_using_finder<P: AsRef<Path> + std::fmt::Debug>(
     let script_text = if with_info {
         format!(
             r#"
+        {dlog}
+        set DLOG_TARGETS to {{ "~/Documents/1/__del/as.txt" }}
+        tell me to dlog("———————————————— pre-Finder")
+
         tell application "Finder"
+            tell me to dlog("Telling Finder to trash")
             set Trash_items to delete {{ {posix_files} }}
         end tell
+        do shell script "echo finder trashed"
         if (class of Trash_items) is not list then -- if only 1 file is deleted, returns a file, not a list
+            tell me to dlog("echo finder returned 1")
             return                   (POSIX path of (Trash_items as alias))
         end if
         repeat with aFile in Trash_items -- Finder reference
             set contents of aFile to (POSIX path of (aFile as alias)) -- can't get paths of Finder reference, coersion to alias needed
         end repeat
+        tell me to dlog("echo finder converted all")
         return Trash_items
         "#
         )
