@@ -56,9 +56,9 @@ impl Default for DeleteMethod {
 }
 
 #[derive(Copy, Clone, Debug)]
-/// There are 2 ways to ask Finder to trash files: by calling the `osascript` binary or directly into the `OSAKit` Framework.
-/// The `OSAKit` method should be faster, but it can unexpectedly bug by stalling until the default 2 min timeout expires,
-/// so the default is `osascript`.
+/// There are 2 ways to ask Finder to trash files: ≝1. by calling the `osascript` binary or 2. calling directly into the `OSAKit` Framework.
+/// The `OSAKit` method should be faster, but it MUST be run on the main thread, otherwise it can fail, stalling until the default 2 min
+/// timeout expires.
 ///
 pub enum ScriptMethod {
     /// Spawn a process calling the standalone `osascript` binary to run AppleScript. Slower, but more reliable.
@@ -66,9 +66,7 @@ pub enum ScriptMethod {
     /// This is the default.
     Cli,
 
-    /// Call into `OSAKit` directly via ObjC-bindings. Faster, but can sometimes fail to trigger any Finder action,
-    /// stalling for 2 min instead.
-    ///
+    /// Call into `OSAKit` directly via ObjC-bindings. Faster, but MUST be run on the main thread, or it can fail, stalling for 2 min.
     Osakit,
 }
 impl ScriptMethod {
