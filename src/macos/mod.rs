@@ -66,7 +66,8 @@ pub enum ScriptMethod {
     /// This is the default.
     Cli,
 
-    /// Call into `OSAKit` directly via ObjC-bindings. Faster, but can sometimes to fail to trigger Finder action, stalling for 2 min.
+    /// Call into `OSAKit` directly via ObjC-bindings. Faster, but can sometimes fail to trigger any Finder action,
+    /// stalling for 2 min instead.
     ///
     Osakit,
 }
