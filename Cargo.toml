@@ -22,6 +22,7 @@ log = "0.4"
 
 [dev-dependencies]
 serial_test = { version = "2.0.0", default-features = false }
+libtest-mimic = "0.8.1"
 chrono = { version = "0.4.31", default-features = false, features = ["clock"] }
 rand = "0.8.5"
 once_cell = "1.18.0"
