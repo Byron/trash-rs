@@ -1,20 +1,42 @@
-// Separate file to force running the tests on the main thread, which is required for any macOS OSAkit APIs, which otherwise fail after a 2-min stall
+// Separate file to force running the tests on the main thread, required for any macOS OSAkit APIs, which otherwise fail after a 2-min stall
+// Uses cargo-nextest and a custom libtest_mimic test harness for that since the default Cargo test doesn't.
+// ADD "test_main_thread_" prefix to test names so that the main cargo test run filter them out with `--skip "test_main_thread_"`
+#[path = "../src/tests.rs"]
+mod trash_tests;
+use serial_test::serial;
 use trash::{
-    canonicalize_paths,
-    macos::{percent_encode, DeleteMethod, ScriptMethod, TrashContextExtMacos},
-    tests::{get_unique_name, init_logging},
+    macos::{DeleteMethod, ScriptMethod, TrashContextExtMacos},
     TrashContext,
 };
-use serial_test::serial;
-use std::ffi::OsStr;
+use trash_tests::{get_unique_name, init_logging}; // not pub, so import directly
+// use std::ffi::OsStr;
+// use std::os::unix::ffi::OsStrExt;
 use std::fs::File;
-use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
-use std::process::Command;
+// use std::process::Command;
 
-#[test]
+use libtest_mimic::{Arguments, Trial};
+#[ignore]
+fn main() {
+    let args = Arguments::from_args(); // Parse command line arguments
+    let tests = vec![
+        // Create a list of tests and/or benchmarks
+        Trial::test("test_main_thread_delete_with_finder_osakit_with_info", || {
+            Ok(test_main_thread_delete_with_finder_osakit_with_info())
+        }),
+    ];
+    libtest_mimic::run(&args, tests).exit(); // Run all tests and exit the application appropriatly
+}
+
+use std::thread;
 #[serial]
-fn test_delete_with_finder_osakit_with_info() { // tested to work, but not always: can randomly timeout, so disabled by default
+pub fn test_main_thread_delete_with_finder_osakit_with_info() {
+    // OSAkit must be run on the main thread
+    if let Some("main") = thread::current().name() {
+    } else {
+        eprintln!("This test is NOT thread-safe, so must be run on the main thread, and is not, thus can fail…");
+    };
+
     init_logging();
     let mut trash_ctx = TrashContext::default();
     trash_ctx.set_delete_method(DeleteMethod::Finder);
