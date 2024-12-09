@@ -38,7 +38,7 @@ mod test_main_thread_mac {
         // OSAkit must be run on the main thread
         if let Some("main") = thread::current().name() {
         } else {
-            eprintln!("This test is NOT thread-safe, so must be run on the main thread, and is not, thus can fail…");
+            panic!("OSAkit is NOT thread-safe, so this test must run on the main thread, and it's not");
         };
 
         init_logging();
