@@ -70,7 +70,7 @@ impl TrashContext {
     /// Removes a single file or directory.
     ///
     /// When a symbolic link is provided to this function, the symbolic link will be removed and the link
-    /// target will be kept intact.
+    /// target will be kept intact. Successful results will have always have None trash items.
     ///
     /// # Example
     ///
@@ -81,14 +81,26 @@ impl TrashContext {
     /// trash::delete("delete_me").unwrap();
     /// assert!(File::open("delete_me").is_err());
     /// ```
-    pub fn delete<T: AsRef<Path>>(&self, path: T) -> Result<(), Error> {
+    pub fn delete<T: AsRef<Path>>(&self, path: T) -> Result<Option<Vec<TrashItem>>, Error> {
         self.delete_all(&[path])
+    }
+
+    /// Same as `delete`, but returns `TrashItem` if available.
+    pub fn delete_with_info<T: AsRef<Path>>(&self, path: T) -> Result<Option<TrashItem>, Error> {
+        match self.delete_all_with_info(&[path]) {
+            // Result<Option<Vec<TrashItem>>>
+            Ok(maybe_items) => match maybe_items {
+                Some(mut items) => Ok(items.pop()), // no need to check that vec.len=2?
+                None => Ok(None),
+            },
+            Err(e) => Err(e),
+        }
     }
 
     /// Removes all files/directories specified by the collection of paths provided as an argument.
     ///
     /// When a symbolic link is provided to this function, the symbolic link will be removed and the link
-    /// target will be kept intact.
+    /// target will be kept intact. Successful results will have always have None trash items.
     ///
     /// # Example
     ///
@@ -101,7 +113,7 @@ impl TrashContext {
     /// assert!(File::open("delete_me_1").is_err());
     /// assert!(File::open("delete_me_2").is_err());
     /// ```
-    pub fn delete_all<I, T>(&self, paths: I) -> Result<(), Error>
+    pub fn delete_all<I, T>(&self, paths: I) -> Result<Option<Vec<TrashItem>>, Error>
     where
         I: IntoIterator<Item = T>,
         T: AsRef<Path>,
@@ -109,26 +121,56 @@ impl TrashContext {
         trace!("Starting canonicalize_paths");
         let full_paths = canonicalize_paths(paths)?;
         trace!("Finished canonicalize_paths");
-        self.delete_all_canonicalized(full_paths)
+        self.delete_all_canonicalized(full_paths, false)
+    }
+
+    /// Same as `delete_all, but returns `TrashItem`s if available.
+    pub fn delete_all_with_info<I, T>(&self, paths: I) -> Result<Option<Vec<TrashItem>>, Error>
+    where
+        I: IntoIterator<Item = T>,
+        T: AsRef<Path>,
+    {
+        trace!("Starting canonicalize_paths");
+        let full_paths = canonicalize_paths(paths)?;
+        trace!("Finished canonicalize_paths");
+        self.delete_all_canonicalized(full_paths, true)
     }
 }
 
 /// Convenience method for `DEFAULT_TRASH_CTX.delete()`.
 ///
 /// See: [`TrashContext::delete`](TrashContext::delete)
-pub fn delete<T: AsRef<Path>>(path: T) -> Result<(), Error> {
+pub fn delete<T: AsRef<Path>>(path: T) -> Result<Option<Vec<TrashItem>>, Error> {
     DEFAULT_TRASH_CTX.delete(path)
+}
+
+/// Convenience method for `DEFAULT_TRASH_CTX.delete_with_info()`.
+///
+/// See: [`TrashContext::delete`](TrashContext::delete_with_info)
+pub fn delete_with_info<T: AsRef<Path>>(path: T) -> Result<Option<TrashItem>, Error> {
+    DEFAULT_TRASH_CTX.delete_with_info(path)
 }
 
 /// Convenience method for `DEFAULT_TRASH_CTX.delete_all()`.
 ///
 /// See: [`TrashContext::delete_all`](TrashContext::delete_all)
-pub fn delete_all<I, T>(paths: I) -> Result<(), Error>
+pub fn delete_all<I, T>(paths: I) -> Result<Option<Vec<TrashItem>>, Error>
 where
     I: IntoIterator<Item = T>,
     T: AsRef<Path>,
 {
     DEFAULT_TRASH_CTX.delete_all(paths)
+}
+
+/// Convenience method for `DEFAULT_TRASH_CTX.delete_all_with_info()`.
+///
+/// See: [`TrashContext::delete_all`](TrashContext::delete_all_with_info)
+pub fn delete_all_with_info<I, T>(paths: I) -> Result<Option<Vec<TrashItem>>, Error>
+where
+    I: IntoIterator<Item = T>,
+    T: AsRef<Path>,
+{
+    DEFAULT_TRASH_CTX.delete_all_with_info(paths)
 }
 
 /// Provides information about an error.
@@ -270,10 +312,16 @@ pub struct TrashItem {
     ///
     /// On Linux it is an absolute path to the `.trashinfo` file associated with
     /// the item.
+    ///
+    /// On macOS it is the string returned by the `.path()` method on the `NSURL` item
+    /// returned by the `trashItemAtURL_resultingItemURL_error` call.
     pub id: OsString,
 
     /// The name of the item. For example if the folder '/home/user/New Folder'
     /// was deleted, its `name` is 'New Folder'
+    /// macOS: when trashing with DeleteMethod::Finder, files are passed to Finder in a single batch,
+    /// so if the size of the returned list of trashed paths is different from the list of items we sent
+    /// to trash, we can't match input to output, so will leave this field "" blank
     pub name: OsString,
 
     /// The path to the parent folder of this item before it was put inside the
@@ -282,11 +330,20 @@ pub struct TrashItem {
     ///
     /// To get the full path to the file in its original location use the
     /// `original_path` function.
+    /// macOS: when trashing with DeleteMethod::Finder, files are passed to Finder in a single batch,
+    /// so if the size of the returned list of trashed paths is different from the list of items we sent
+    /// to trash, we can't match input to output, so will leave this field "" blank
     pub original_parent: PathBuf,
 
     /// The number of non-leap seconds elapsed between the UNIX Epoch and the
     /// moment the file was deleted.
-    /// Without the "chrono" feature, this will be a negative number on linux only.
+    /// Without the "chrono" feature, this will be a negative number on linux/macOS only.
+    /// macOS has the number, but there is no information on how to get it,
+    /// the usual 'kMDItemDateAdded' attribute doesn't exist for files @ trash
+    ///   apple.stackexchange.com/questions/437475/how-can-i-find-out-when-a-file-had-been-moved-to-trash
+    ///   stackoverflow.com/questions/53341670/access-the-file-date-added-in-terminal
+    /// macOS: when trashing with DeleteMethod::Finder, files are passed to Finder in a single batch, so the timing will be
+    /// set to the time before a batch is trashed and is the same for all files in a batch
     pub time_deleted: i64,
 }
 
