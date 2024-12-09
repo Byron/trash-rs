@@ -1,5 +1,5 @@
-// Separate file to force running the tests on the main thread, required for any macOS OSAkit APIs, which otherwise fail after a 2-min stall
-// Uses cargo-nextest and a custom libtest_mimic test harness for that since the default Cargo test doesn't.
+// Separate file to force running tests on the main thread, a must for macOS OSAkit APIs, which can otherwise fail after a 2-min stall
+// Uses a custom libtest_mimic test harness for that since the default Cargo test doesn't support it.
 // ADD "test_main_thread_" prefix to test names so that the main cargo test run filter them out with `--skip "test_main_thread_"`
 fn main() {
     #[cfg(target_os = "macos")]
