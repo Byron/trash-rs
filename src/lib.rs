@@ -540,6 +540,6 @@ pub mod os_limited {
                 return Err(Error::RestoreTwins { path: item.original_path(), items });
             }
         }
-        platform::restore_all(items)
+        platform::restore_all(items, false)
     }
 }
