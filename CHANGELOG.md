@@ -5,7 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.2.2 (2025-02-22)
+
+### Chore
+
+ - <csr-id-083743e848ff1b2a61af47bb3afdd8aa04e3eace/> prepare for objc2 frameworks v0.3
+   These will have a bunch of default features enabled, so let's
+   pre-emptively disable them.
+
+### Bug Fixes
+
+ - <csr-id-dffb80d0950c2edd52a7883162fa8923393ea5c8/> Use octal for S_ISVTX sticky bit check
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release over the course of 76 calendar days.
+ - 77 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Merge pull request #136 from nebel/master ([`1704f72`](https://github.com/Byron/trash-rs/commit/1704f72605fd1daf1a61d3caaeb6312260df8367))
+    - Use octal for S_ISVTX sticky bit check ([`dffb80d`](https://github.com/Byron/trash-rs/commit/dffb80d0950c2edd52a7883162fa8923393ea5c8))
+    - Merge pull request #135 from madsmtm/objc2-disable-default-features ([`74894a8`](https://github.com/Byron/trash-rs/commit/74894a8a7a32e66d2ef02ae70285437184a07bd3))
+    - Prepare for objc2 frameworks v0.3 ([`083743e`](https://github.com/Byron/trash-rs/commit/083743e848ff1b2a61af47bb3afdd8aa04e3eace))
+    - Merge pull request #132 from eugenesvk/fr-mac-test-out ([`357c3b8`](https://github.com/Byron/trash-rs/commit/357c3b81111c82184ac83b94b74627266314aa82))
+    - Move MacOS specific tests to their own directory ([`ee7f256`](https://github.com/Byron/trash-rs/commit/ee7f2562ee5fbc13702b5bfbd55fc0214a9ea6e8))
+</details>
+
 ## 5.2.1 (2024-12-07)
+
+<csr-id-415c87d81ff859ae40ba5d2e31ffcc44a1ebfffa/>
+<csr-id-6fbad98299ffde1acf2a63552d39e4085664d6f1/>
+<csr-id-3978204c7b5d7ca1038717da3238c82f7bb6a6c6/>
+<csr-id-e58e92baee1f3121114befe73e2a7a1d1dba363e/>
+<csr-id-9ed83e724f944f4eacf2e4cafdf8025548f7a17b/>
+<csr-id-175d6f5de323b2fed7c8049eaf6bb91266171b30/>
+<csr-id-bfbc394a1aba8cb3f348c77f3dffc18a59dde28f/>
+<csr-id-dc7dca02ba13b34d57f63244522044a17e88cecc/>
+<csr-id-9c213c91817d718b1785b9cd8a52d6c87beef936/>
 
 ### Bug Fixes
 
@@ -34,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 25 commits contributed to the release.
+ - 26 commits contributed to the release.
  - 11 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -45,6 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v5.2.1 ([`59b0a8a`](https://github.com/Byron/trash-rs/commit/59b0a8a1a1a4625e281b417f7a6e4d4c2a077aea))
     - Escape quoted paths when deleting with AppleScript ([`e1bb697`](https://github.com/Byron/trash-rs/commit/e1bb697a510ec49008d0b4f9a58b38dc061d7901))
     - Support for non-UTF8 paths on HFS+ on MacOS ([`6f0b737`](https://github.com/Byron/trash-rs/commit/6f0b737668c0f9c19e09657e8cbc98caf90e30a9))
     - Various refactors ([`d23a591`](https://github.com/Byron/trash-rs/commit/d23a59166d52c90d7ee02ca2fb356cad0b330eca))
