@@ -611,7 +611,7 @@ enum TrashValidity {
 fn folder_validity(path: impl AsRef<Path>) -> Result<TrashValidity, FsError> {
     /// Mask for the sticky bit
     /// Taken from: http://man7.org/linux/man-pages/man7/inode.7.html
-    const S_ISVTX: u32 = 0x1000;
+    const S_ISVTX: u32 = 0o1000;
 
     let path = path.as_ref();
     let metadata = path.symlink_metadata().map_err(|e| (path.to_owned(), e))?;
