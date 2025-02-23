@@ -53,13 +53,21 @@ jobs:
           echo "target flag is: ${{ env.TARGET_FLAGS }}"
           echo "target dir is: ${{ env.TARGET_DIR }}"
 
-      - name: cargo test
+      - name: cargo test (excluding main_thread)
         if: ${{ !startsWith(matrix.build, 'netbsd') }}
-        run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }}
+        run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }} -- --skip test_main_thread
 
-      - name: cargo test (without chrono)
+      - name: cargo test (only main_thread)
         if: ${{ !startsWith(matrix.build, 'netbsd') }}
-        run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
+        run: ${{ env.CARGO }} test test_main_thread --verbose ${{ env.TARGET_FLAGS }} -- --test-threads=1
+
+      - name: cargo test (without chrono, excluding main_thread)
+        if: ${{ !startsWith(matrix.build, 'netbsd') }}
+        run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}  -- --skip test_main_thread
+
+      - name: cargo test (without chrono, only main_thread)
+        if: ${{ !startsWith(matrix.build, 'netbsd') }}
+        run: ${{ env.CARGO }} test test_main_thread --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}  -- --test-threads=1
 
       - name: cargo build
         if: ${{ startsWith(matrix.build, 'netbsd') }}
