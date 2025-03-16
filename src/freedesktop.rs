@@ -357,27 +357,27 @@ pub fn restore_single(item: &TrashItem, destination: &Path, force: bool) -> Resu
     if file.is_dir() {
         // NOTE create_dir_all succeeds when the path already exist but create_dir
         // fails with `std::io::ErrorKind::AlreadyExists`.
-        if let Err(e) = std::fs::create_dir(&destination) {
+        if let Err(e) = std::fs::create_dir(destination) {
             if e.kind() == std::io::ErrorKind::AlreadyExists {
                 collision = true;
             } else {
-                return Err(fs_error(&destination, e));
+                return Err(fs_error(destination, e));
             }
         }
     } else {
         // File or symlink
-        if let Err(e) = OpenOptions::new().create_new(true).write(true).open(&destination) {
+        if let Err(e) = OpenOptions::new().create_new(true).write(true).open(destination) {
             if e.kind() == std::io::ErrorKind::AlreadyExists {
                 collision = true;
             } else {
-                return Err(fs_error(&destination, e));
+                return Err(fs_error(destination, e));
             }
         }
     }
     if !force && collision {
         return Err(Error::RestoreCollision { path: destination.to_path_buf(), remaining_items: vec![] });
     }
-    std::fs::rename(&file, &destination).map_err(|e| fs_error(&file, e))?;
+    std::fs::rename(&file, destination).map_err(|e| fs_error(&file, e))?;
     std::fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
     Ok(())
 }
