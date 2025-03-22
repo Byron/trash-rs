@@ -341,7 +341,7 @@ fn restorable_file_in_trash_from_info_file(info_file: impl AsRef<std::ffi::OsStr
     trash_folder.join("files").join(name_in_trash)
 }
 
-pub fn restore_single(item: &TrashItem, destination: &Path, mode: RestoreMode) -> Result<(), Error> {
+pub fn restore_single(item: TrashItem, destination: &Path, mode: RestoreMode) -> Result<(), Error> {
     // The "in-trash" filename must be parsed from the trashinfo filename
     // which is the filename in the `id` field.
     let info_file = &item.id;
@@ -379,7 +379,7 @@ pub fn restore_single(item: &TrashItem, destination: &Path, mode: RestoreMode) -
         match mode {
             RestoreMode::Force => (),
             RestoreMode::Soft => {
-                return Err(Error::RestoreCollision { path: destination.to_path_buf(), remaining_items: vec![] });
+                return Err(Error::RestoreCollision { path: destination.to_path_buf(), remaining_items: vec![item] });
             }
         }
     }
@@ -397,13 +397,14 @@ where
     let mut iter = items.into_iter();
     while let Some(item) = iter.next() {
         let destination = item.original_path();
-        match restore_single(&item, &destination, mode) {
+        match restore_single(item, &destination, mode) {
             Ok(()) => (),
             Err(e) => {
                 return Err(match e {
-                    Error::RestoreCollision { path, .. } => {
-                        Error::RestoreCollision { path, remaining_items: std::iter::once(item).chain(iter).collect() }
-                    }
+                    Error::RestoreCollision { path, remaining_items } => Error::RestoreCollision {
+                        path,
+                        remaining_items: remaining_items.into_iter().chain(iter).collect(),
+                    },
                     other => other,
                 })
             }
