@@ -897,7 +897,7 @@ mod tests {
         os_limited::{list, purge_all, restore_all},
         platform::encode_uri_path,
         tests::get_unique_name,
-        Error,
+        Error, RestoreMode,
     };
 
     use super::decode_uri_path;
@@ -981,7 +981,8 @@ mod tests {
             delete(symlink).unwrap();
             let items = list().unwrap();
             let item = items.into_iter().find(|it| it.name == *symlink).unwrap();
-            restore_all([item.clone()]).expect("The broken symbolic link should be restored successfully.");
+            restore_all([item.clone()], RestoreMode::Soft)
+                .expect("The broken symbolic link should be restored successfully.");
 
             // Delete and Purge it without errors
             delete(symlink).unwrap();
