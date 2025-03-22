@@ -341,7 +341,7 @@ fn restorable_file_in_trash_from_info_file(info_file: impl AsRef<std::ffi::OsStr
     trash_folder.join("files").join(name_in_trash)
 }
 
-pub fn restore_single(item: TrashItem, destination: &Path, mode: RestoreMode) -> Result<(), Error> {
+pub fn restore_single(item: TrashItem, destination: impl AsRef<Path>, mode: RestoreMode) -> Result<(), Error> {
     // The "in-trash" filename must be parsed from the trashinfo filename
     // which is the filename in the `id` field.
     let info_file = &item.id;
@@ -357,20 +357,20 @@ pub fn restore_single(item: TrashItem, destination: &Path, mode: RestoreMode) ->
     if file.is_dir() {
         // NOTE create_dir_all succeeds when the path already exist but create_dir
         // fails with `std::io::ErrorKind::AlreadyExists`.
-        if let Err(e) = std::fs::create_dir(destination) {
+        if let Err(e) = std::fs::create_dir(destination.as_ref()) {
             if e.kind() == std::io::ErrorKind::AlreadyExists {
                 collision = true;
             } else {
-                return Err(fs_error(destination, e));
+                return Err(fs_error(destination.as_ref(), e));
             }
         }
     } else {
         // File or symlink
-        if let Err(e) = OpenOptions::new().create_new(true).write(true).open(destination) {
+        if let Err(e) = OpenOptions::new().create_new(true).write(true).open(destination.as_ref()) {
             if e.kind() == std::io::ErrorKind::AlreadyExists {
                 collision = true;
             } else {
-                return Err(fs_error(destination, e));
+                return Err(fs_error(destination.as_ref(), e));
             }
         }
     }
@@ -379,11 +379,14 @@ pub fn restore_single(item: TrashItem, destination: &Path, mode: RestoreMode) ->
         match mode {
             RestoreMode::Force => (),
             RestoreMode::Soft => {
-                return Err(Error::RestoreCollision { path: destination.to_path_buf(), remaining_items: vec![item] });
+                return Err(Error::RestoreCollision {
+                    path: destination.as_ref().to_path_buf(),
+                    remaining_items: vec![item],
+                });
             }
         }
     }
-    std::fs::rename(&file, destination).map_err(|e| fs_error(&file, e))?;
+    std::fs::rename(&file, destination.as_ref()).map_err(|e| fs_error(&file, e))?;
     std::fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
     Ok(())
 }
