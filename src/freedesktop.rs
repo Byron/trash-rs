@@ -21,7 +21,7 @@ use std::{
 
 use log::{debug, warn};
 
-use crate::{Error, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
+use crate::{Error, RestoreMode, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
 
 type FsError = (PathBuf, std::io::Error);
 
@@ -341,7 +341,7 @@ fn restorable_file_in_trash_from_info_file(info_file: impl AsRef<std::ffi::OsStr
     trash_folder.join("files").join(name_in_trash)
 }
 
-pub fn restore_single(item: &TrashItem, destination: &Path, force: bool) -> Result<(), Error> {
+pub fn restore_single(item: &TrashItem, destination: &Path, mode: RestoreMode) -> Result<(), Error> {
     // The "in-trash" filename must be parsed from the trashinfo filename
     // which is the filename in the `id` field.
     let info_file = &item.id;
@@ -374,15 +374,21 @@ pub fn restore_single(item: &TrashItem, destination: &Path, force: bool) -> Resu
             }
         }
     }
-    if !force && collision {
-        return Err(Error::RestoreCollision { path: destination.to_path_buf(), remaining_items: vec![] });
+
+    if collision {
+        match mode {
+            RestoreMode::Force => (),
+            RestoreMode::Soft => {
+                return Err(Error::RestoreCollision { path: destination.to_path_buf(), remaining_items: vec![] });
+            }
+        }
     }
     std::fs::rename(&file, destination).map_err(|e| fs_error(&file, e))?;
     std::fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
     Ok(())
 }
 
-pub fn restore_all<I>(items: I, force: bool) -> Result<(), Error>
+pub fn restore_all<I>(items: I, mode: RestoreMode) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
@@ -391,7 +397,7 @@ where
     let mut iter = items.into_iter();
     while let Some(item) = iter.next() {
         let destination = item.original_path();
-        match restore_single(&item, &destination, force) {
+        match restore_single(&item, &destination, mode) {
             Ok(()) => (),
             Err(e) => {
                 return Err(match e {

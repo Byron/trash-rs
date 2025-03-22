@@ -343,6 +343,12 @@ pub struct TrashItemMetadata {
     pub size: TrashItemSize,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum RestoreMode {
+    Force,
+    Soft,
+}
+
 #[cfg(any(
     target_os = "windows",
     all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))
@@ -357,7 +363,7 @@ pub mod os_limited {
         hash::{Hash, Hasher},
     };
 
-    use super::{platform, Error, TrashItem, TrashItemMetadata};
+    use super::{platform, Error, RestoreMode, TrashItem, TrashItemMetadata};
 
     /// Returns all [`TrashItem`]s that are currently in the trash.
     ///
@@ -540,6 +546,6 @@ pub mod os_limited {
                 return Err(Error::RestoreTwins { path: item.original_path(), items });
             }
         }
-        platform::restore_all(items, false)
+        platform::restore_all(items, RestoreMode::Soft)
     }
 }
