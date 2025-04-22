@@ -630,13 +630,13 @@ fn folder_validity(path: impl AsRef<Path>) -> Result<TrashValidity, FsError> {
 /// https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html
 fn home_trash() -> Result<PathBuf, Error> {
     if let Some(data_home) = std::env::var_os("XDG_DATA_HOME") {
-        if data_home.len() > 0 {
+        if !data_home.is_empty() {
             let data_home_path = AsRef::<Path>::as_ref(data_home.as_os_str());
             return Ok(data_home_path.join("Trash"));
         }
     }
     if let Some(home) = std::env::var_os("HOME") {
-        if home.len() > 0 {
+        if !home.is_empty() {
             let home_path = AsRef::<Path>::as_ref(home.as_os_str());
             return Ok(home_path.join(".local/share/Trash"));
         }
@@ -646,13 +646,13 @@ fn home_trash() -> Result<PathBuf, Error> {
 
 fn home_topdir(mnt_points: &[MountPoint]) -> Result<PathBuf, Error> {
     if let Some(data_home) = std::env::var_os("XDG_DATA_HOME") {
-        if data_home.len() > 0 {
+        if !data_home.is_empty() {
             let data_home_path = AsRef::<Path>::as_ref(data_home.as_os_str());
             return Ok(get_first_topdir_containing_path(data_home_path, mnt_points).to_owned());
         }
     }
     if let Some(home) = std::env::var_os("HOME") {
-        if home.len() > 0 {
+        if !home.is_empty() {
             let home_path = AsRef::<Path>::as_ref(home.as_os_str());
             return Ok(get_first_topdir_containing_path(home_path, mnt_points).to_owned());
         }
@@ -718,7 +718,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
             break;
         }
         let dir = unsafe { CStr::from_ptr((*mntent).mnt_dir).to_str().unwrap() };
-        if dir.bytes().len() == 0 {
+        if dir.is_empty() {
             continue;
         }
         let mount_point = unsafe {
