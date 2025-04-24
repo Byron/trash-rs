@@ -297,4 +297,36 @@ mod os_limited {
         let is_empty = trash::os_limited::is_empty().unwrap();
         assert_eq!(is_empty, is_empty_list, "is_empty() should match empty status from list()");
     }
+
+    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+    #[test]
+    #[serial]
+    fn delete_items_info() {
+        init_logging();
+        let names = {
+            let prefix = get_unique_name();
+            let mut names = Vec::with_capacity(5);
+            for n in 0..4 {
+                let name = format!("{prefix}#{n}").into_bytes();
+                names.push(OsString::from_vec(name));
+            }
+
+            // Throw in an invalid UTF-8 OsString for good measure
+            let mut name = OsStr::new(&format!("{prefix}#")).to_os_string().into_encoded_bytes();
+            name.push(168);
+            names.push(OsString::from_vec(name));
+
+            names
+        };
+
+        for name in &names {
+            File::create_new(name).unwrap();
+        }
+
+        let deleted_names = trash::delete_all(&names).unwrap().expect("Should get a list of deleted items");
+        assert_eq!(deleted_names.len(), names.len());
+        for name in names {
+            assert!(deleted_names.iter().any(|item| item.name == name));
+        }
+    }
 }

@@ -7,7 +7,7 @@ use std::{
 use log::trace;
 use objc2_foundation::{NSFileManager, NSString, NSURL};
 
-use crate::{into_unknown, Error, TrashContext};
+use crate::{into_unknown, Error, TrashContext, TrashItem};
 
 #[derive(Copy, Clone, Debug)]
 /// There are 2 ways to trash files: via the ≝Finder app or via the OS NsFileManager call
@@ -74,11 +74,12 @@ impl TrashContextExtMacos for TrashContext {
     }
 }
 impl TrashContext {
-    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<Option<Vec<TrashItem>>, Error> {
         match self.platform_specific.delete_method {
-            DeleteMethod::Finder => delete_using_finder(&full_paths),
-            DeleteMethod::NsFileManager => delete_using_file_mgr(&full_paths),
+            DeleteMethod::Finder => delete_using_finder(&full_paths)?,
+            DeleteMethod::NsFileManager => delete_using_file_mgr(&full_paths)?,
         }
+        Ok(None)
     }
 }
 
