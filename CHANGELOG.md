@@ -5,7 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+Updated the `obj2` crate when building or MacOS.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 172 days passed between releases.
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Thanks Clippy
+
+<csr-read-only-do-not-edit/>
+
+[Clippy](https://github.com/rust-lang/rust-clippy) helped 1 time to make code idiomatic. 
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Upgrade objc2 ([`134c357`](https://github.com/Byron/trash-rs/commit/134c3577e4892878e65fa7af8d24d1910df0fe6e))
+    - Thanks clippy ([`b80f7ed`](https://github.com/Byron/trash-rs/commit/b80f7edb1e3db64ae029b02a26d77c11986d9f11))
+</details>
+
 ## 5.2.2 (2025-02-22)
+
+<csr-id-083743e848ff1b2a61af47bb3afdd8aa04e3eace/>
 
 ### Chore
 
@@ -21,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release over the course of 76 calendar days.
+ - 7 commits contributed to the release over the course of 76 calendar days.
  - 77 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -33,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v5.2.2 ([`2ac29d2`](https://github.com/Byron/trash-rs/commit/2ac29d20a74c88d5933c1545dd4dd285910d2478))
     - Merge pull request #136 from nebel/master ([`1704f72`](https://github.com/Byron/trash-rs/commit/1704f72605fd1daf1a61d3caaeb6312260df8367))
     - Use octal for S_ISVTX sticky bit check ([`dffb80d`](https://github.com/Byron/trash-rs/commit/dffb80d0950c2edd52a7883162fa8923393ea5c8))
     - Merge pull request #135 from madsmtm/objc2-disable-default-features ([`74894a8`](https://github.com/Byron/trash-rs/commit/74894a8a7a32e66d2ef02ae70285437184a07bd3))
