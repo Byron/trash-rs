@@ -102,7 +102,7 @@ fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> 
 
         if let Err(err) = res {
             return Err(Error::Unknown {
-                description: format!("While deleting '{:?}', `trashItemAtURL` failed: {err}", path.as_ref()),
+                description: format!("While deleting '{:?}', `trashItemAtURL` failed: {err}", &path),
             });
         }
     }
