@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 5.2.3 (2025-08-15)
 
 Updated the `obj2` crate when building or MacOS.
 
@@ -13,8 +13,7 @@ Updated the `obj2` crate when building or MacOS.
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
- - 172 days passed between releases.
+ - 3 commits contributed to the release over the course of 114 calendar days.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -31,6 +30,7 @@ Updated the `obj2` crate when building or MacOS.
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Prepare patch release notes. ([`f9be785`](https://github.com/Byron/trash-rs/commit/f9be7851acc660023ee0f3a6d1e58d04a4731c9f))
     - Upgrade objc2 ([`134c357`](https://github.com/Byron/trash-rs/commit/134c3577e4892878e65fa7af8d24d1910df0fe6e))
     - Thanks clippy ([`b80f7ed`](https://github.com/Byron/trash-rs/commit/b80f7edb1e3db64ae029b02a26d77c11986d9f11))
 </details>
