@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.2.4 (2025-10-24)
+
+### Bug Fixes
+
+ - <csr-id-c3d2d1d094ea4bde31398855b78af20b19abc6f8/> handle cross-device link errors by falling back to copy+delete on Linux
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release over the course of 69 calendar days.
+ - 69 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Merge pull request #141 from muni-corn/cross-device-trash ([`d0784e4`](https://github.com/Byron/trash-rs/commit/d0784e42f99ef572050ffc8bc9abd4002cc9dd78))
+    - Refactor and fixes ([`1894bfe`](https://github.com/Byron/trash-rs/commit/1894bfe4ab6677ca833cc60bbd6e568480abbf77))
+    - Handle cross-device link errors by falling back to copy+delete on Linux ([`c3d2d1d`](https://github.com/Byron/trash-rs/commit/c3d2d1d094ea4bde31398855b78af20b19abc6f8))
+    - Merge branch 'feature-upgrade-objc2' ([`cd22e14`](https://github.com/Byron/trash-rs/commit/cd22e1456bffc6027622cd55f131d43dc5372015))
+</details>
+
 ## 5.2.3 (2025-08-15)
 
 Updated the `obj2` crate when building or MacOS.
@@ -13,7 +41,7 @@ Updated the `obj2` crate when building or MacOS.
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release over the course of 114 calendar days.
+ - 4 commits contributed to the release over the course of 114 calendar days.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -30,6 +58,7 @@ Updated the `obj2` crate when building or MacOS.
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v5.2.3 ([`a628ccc`](https://github.com/Byron/trash-rs/commit/a628cccc688c6172bd793ef5dd5791fc987402d7))
     - Prepare patch release notes. ([`f9be785`](https://github.com/Byron/trash-rs/commit/f9be7851acc660023ee0f3a6d1e58d04a4731c9f))
     - Upgrade objc2 ([`134c357`](https://github.com/Byron/trash-rs/commit/134c3577e4892878e65fa7af8d24d1910df0fe6e))
     - Thanks clippy ([`b80f7ed`](https://github.com/Byron/trash-rs/commit/b80f7edb1e3db64ae029b02a26d77c11986d9f11))
