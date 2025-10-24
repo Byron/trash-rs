@@ -8,6 +8,7 @@ description = "A library for moving files and folders to the Recycle Bin"
 keywords = ["remove", "trash", "rubbish", "recycle", "bin"]
 repository = "https://github.com/ArturKovacs/trash"
 edition = "2021"
+rust-version = "1.85.0"
 include = ["src/**/*", "LICENSE.txt", "README.md", "CHANGELOG.md", "build.rs"]
 
 [features]
@@ -23,7 +24,6 @@ log = "0.4"
 [dev-dependencies]
 serial_test = { version = "2.0.0", default-features = false }
 chrono = { version = "0.4.31", default-features = false, features = ["clock"] }
-rand = "0.8.5"
 once_cell = "1.18.0"
 env_logger = "0.10.0"
 tempfile = "3.8.0"

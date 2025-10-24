@@ -84,7 +84,7 @@ impl TrashContext {
 
 fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> {
     trace!("Starting delete_using_file_mgr");
-    let file_mgr = unsafe { NSFileManager::defaultManager() };
+    let file_mgr = NSFileManager::defaultManager();
     for path in full_paths {
         let path = path.as_ref().as_os_str().as_encoded_bytes();
         let path = match std::str::from_utf8(path) {
@@ -93,11 +93,11 @@ fn delete_using_file_mgr<P: AsRef<Path>>(full_paths: &[P]) -> Result<(), Error> 
         };
 
         trace!("Starting fileURLWithPath");
-        let url = unsafe { NSURL::fileURLWithPath(&path) };
+        let url = NSURL::fileURLWithPath(&path);
         trace!("Finished fileURLWithPath");
 
         trace!("Calling trashItemAtURL");
-        let res = unsafe { file_mgr.trashItemAtURL_resultingItemURL_error(&url, None) };
+        let res = file_mgr.trashItemAtURL_resultingItemURL_error(&url, None);
         trace!("Finished trashItemAtURL");
 
         if let Err(err) = res {

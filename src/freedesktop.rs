@@ -552,35 +552,31 @@ fn move_items_no_replace(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result
 
     try_creating_placeholders(src, dst)?;
 
-    // Try rename first (fastest option for same filesystem)
-    if let Err(e) = std::fs::rename(src, dst) {
-        // Check if this is a cross-device link error
-        if e.kind() == ErrorKind::CrossesDevices {
-            // Cross-device link error - need to copy and delete instead
-            debug!("Cross-device move detected, falling back to copy+delete for {:?}", src);
+    // Try to rename first (fastest option for same filesystem)
+    let Err(e) = std::fs::rename(src, dst) else { return Ok(()) };
 
-            // Copy the file/directory
-            if src.is_dir() {
-                copy_dir_all(src, dst)?;
-            } else {
-                std::fs::copy(src, dst).map_err(|e| (src.to_owned(), e))?;
-            }
-
-            // Remove the source
-            if src.is_dir() {
-                std::fs::remove_dir_all(src).map_err(|e| (src.to_owned(), e))?;
-            } else {
-                std::fs::remove_file(src).map_err(|e| (src.to_owned(), e))?;
-            }
-
-            Ok(())
-        } else {
-            // Some other error, propagate it
-            Err((src.to_owned(), e))
-        }
-    } else {
-        Ok(())
+    let needs_cross_device_copy = e.kind() == ErrorKind::CrossesDevices;
+    if !needs_cross_device_copy {
+        return Err((src.to_owned(), e));
     }
+
+    debug!("Cross-device move detected, falling back to copy+delete for {:?}", src);
+
+    // Copy the file/directory
+    if src.is_dir() {
+        copy_dir_all(src, dst)?;
+    } else {
+        std::fs::copy(src, dst).map_err(|e| (src.to_owned(), e))?;
+    }
+
+    // Remove the source
+    if src.is_dir() {
+        std::fs::remove_dir_all(src).map_err(|e| (src.to_owned(), e))?;
+    } else {
+        std::fs::remove_file(src).map_err(|e| (src.to_owned(), e))?;
+    }
+
+    Ok(())
 }
 
 fn try_creating_placeholders(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), FsError> {

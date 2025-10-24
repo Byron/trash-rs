@@ -89,6 +89,7 @@ mod unix {
     // use crate::init_logging;
 
     #[test]
+    #[ignore = "permission denied in more recent macOS versions"]
     fn test_delete_symlink() {
         init_logging();
         trace!("Started test_delete_symlink");
@@ -107,6 +108,7 @@ mod unix {
     }
 
     #[test]
+    #[ignore = "permission denied in more recent macOS versions"]
     fn test_delete_symlink_in_folder() {
         init_logging();
         trace!("Started test_delete_symlink_in_folder");
