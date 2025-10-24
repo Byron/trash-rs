@@ -11,7 +11,7 @@ use std::{
     collections::HashSet,
     ffi::{OsStr, OsString},
     fs::{self, File, OpenOptions},
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, ErrorKind, Write},
     os::unix::{
         ffi::{OsStrExt, OsStringExt},
         fs::PermissionsExt,
@@ -551,13 +551,36 @@ fn move_items_no_replace(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result
     let dst = dst.as_ref();
 
     try_creating_placeholders(src, dst)?;
-    std::fs::rename(src, dst).map_err(|e| (src.to_owned(), e))?;
 
-    // Once everything is moved, lets recursively remove the directory
-    if src.is_dir() {
-        std::fs::remove_dir_all(src).map_err(|e| (src.to_owned(), e))?;
+    // Try rename first (fastest option for same filesystem)
+    if let Err(e) = std::fs::rename(src, dst) {
+        // Check if this is a cross-device link error
+        if e.kind() == ErrorKind::CrossesDevices {
+            // Cross-device link error - need to copy and delete instead
+            debug!("Cross-device move detected, falling back to copy+delete for {:?}", src);
+
+            // Copy the file/directory
+            if src.is_dir() {
+                copy_dir_all(src, dst)?;
+            } else {
+                std::fs::copy(src, dst).map_err(|e| (src.to_owned(), e))?;
+            }
+
+            // Remove the source
+            if src.is_dir() {
+                std::fs::remove_dir_all(src).map_err(|e| (src.to_owned(), e))?;
+            } else {
+                std::fs::remove_file(src).map_err(|e| (src.to_owned(), e))?;
+            }
+
+            Ok(())
+        } else {
+            // Some other error, propagate it
+            Err((src.to_owned(), e))
+        }
+    } else {
+        Ok(())
     }
-    Ok(())
 }
 
 fn try_creating_placeholders(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), FsError> {
@@ -571,6 +594,33 @@ fn try_creating_placeholders(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Re
         // Symlink or file
         OpenOptions::new().create_new(true).write(true).open(dst).map_err(|e| (dst.to_owned(), e))?;
     }
+    Ok(())
+}
+
+/// Helper function to recursively copy a directory
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), FsError> {
+    let src = src.as_ref();
+    let dst = dst.as_ref();
+
+    std::fs::create_dir_all(dst).map_err(|e| (dst.to_owned(), e))?;
+
+    for entry in std::fs::read_dir(src).map_err(|e| (src.to_owned(), e))? {
+        let entry = entry.map_err(|e| (src.to_owned(), e))?;
+        let file_type = entry.file_type().map_err(|e| (entry.path(), e))?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        if file_type.is_dir() {
+            copy_dir_all(&src_path, &dst_path)?;
+        } else if file_type.is_symlink() {
+            // Handle symlinks by copying the symlink itself, not the target
+            let target = std::fs::read_link(&src_path).map_err(|e| (src_path.clone(), e))?;
+            std::os::unix::fs::symlink(&target, &dst_path).map_err(|e| (dst_path.clone(), e))?;
+        } else {
+            std::fs::copy(&src_path, &dst_path).map_err(|e| (src_path.clone(), e))?;
+        }
+    }
+
     Ok(())
 }
 
