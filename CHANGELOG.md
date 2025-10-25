@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.2.5 (2025-10-25)
+
+### Bug Fixes
+
+ - <csr-id-23ca2a2ea182fe551ac0d4630ebbb98c3db0abad/> set the `objc2-foundation` to the one that's actually required
+   Otherwise, downstream with Cargo.lock may see build failures.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 day passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#142](https://github.com/Byron/trash-rs/issues/142)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#142](https://github.com/Byron/trash-rs/issues/142)**
+    - Set the `objc2-foundation` to the one that's actually required ([`23ca2a2`](https://github.com/Byron/trash-rs/commit/23ca2a2ea182fe551ac0d4630ebbb98c3db0abad))
+</details>
+
 ## 5.2.4 (2025-10-24)
 
 ### Bug Fixes
@@ -15,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release over the course of 69 calendar days.
+ - 5 commits contributed to the release over the course of 69 calendar days.
  - 69 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v5.2.4 ([`e3092ad`](https://github.com/Byron/trash-rs/commit/e3092add67470b904e327d1183c7692c55b65bf1))
     - Merge pull request #141 from muni-corn/cross-device-trash ([`d0784e4`](https://github.com/Byron/trash-rs/commit/d0784e42f99ef572050ffc8bc9abd4002cc9dd78))
     - Refactor and fixes ([`1894bfe`](https://github.com/Byron/trash-rs/commit/1894bfe4ab6677ca833cc60bbd6e568480abbf77))
     - Handle cross-device link errors by falling back to copy+delete on Linux ([`c3d2d1d`](https://github.com/Byron/trash-rs/commit/c3d2d1d094ea4bde31398855b78af20b19abc6f8))
