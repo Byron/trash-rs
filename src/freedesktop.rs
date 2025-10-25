@@ -21,7 +21,7 @@ use std::{
 
 use log::{debug, warn};
 
-use crate::{Error, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
+use crate::{Error, RestoreMode, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
 
 type FsError = (PathBuf, std::io::Error);
 
@@ -341,56 +341,77 @@ fn restorable_file_in_trash_from_info_file(info_file: impl AsRef<std::ffi::OsStr
     trash_folder.join("files").join(name_in_trash)
 }
 
-pub fn restore_all<I>(items: I) -> Result<(), Error>
+pub fn restore_single(item: TrashItem, destination: impl AsRef<Path>, mode: RestoreMode) -> Result<(), Error> {
+    // The "in-trash" filename must be parsed from the trashinfo filename
+    // which is the filename in the `id` field.
+    let info_file = &item.id;
+
+    // A bunch of unwraps here. This is fine because if any of these fail that means
+    // that either there's a bug in this code or the target system didn't follow
+    // the specification.
+    let file = restorable_file_in_trash_from_info_file(info_file);
+    assert!(virtually_exists(&file).map_err(|e| fs_error(&file, e))?);
+    // Make sure the parent exists so that `create_dir` doesn't faile due to that.
+    std::fs::create_dir_all(&item.original_parent).map_err(|e| fs_error(&item.original_parent, e))?;
+    let mut collision = false;
+    if file.is_dir() {
+        // NOTE create_dir_all succeeds when the path already exist but create_dir
+        // fails with `std::io::ErrorKind::AlreadyExists`.
+        if let Err(e) = std::fs::create_dir(destination.as_ref()) {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                collision = true;
+            } else {
+                return Err(fs_error(destination.as_ref(), e));
+            }
+        }
+    } else {
+        // File or symlink
+        if let Err(e) = OpenOptions::new().create_new(true).write(true).open(destination.as_ref()) {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                collision = true;
+            } else {
+                return Err(fs_error(destination.as_ref(), e));
+            }
+        }
+    }
+
+    if collision {
+        match mode {
+            RestoreMode::Force => (),
+            RestoreMode::Soft => {
+                return Err(Error::RestoreCollision {
+                    path: destination.as_ref().to_path_buf(),
+                    remaining_items: vec![item],
+                });
+            }
+        }
+    }
+    std::fs::rename(&file, destination.as_ref()).map_err(|e| fs_error(&file, e))?;
+    std::fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
+    Ok(())
+}
+
+pub fn restore_all<I>(items: I, mode: RestoreMode) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
     // Simply read the items' original location from the infofile and attemp to move the items there
     // and delete the infofile if the move operation was sucessful.
-
     let mut iter = items.into_iter();
     while let Some(item) = iter.next() {
-        // The "in-trash" filename must be parsed from the trashinfo filename
-        // which is the filename in the `id` field.
-        let info_file = &item.id;
-
-        // A bunch of unwraps here. This is fine because if any of these fail that means
-        // that either there's a bug in this code or the target system didn't follow
-        // the specification.
-        let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(virtually_exists(&file).map_err(|e| fs_error(&file, e))?);
-        // TODO add option to forcefully replace any target at the restore location
-        // if it already exists.
-        let original_path = item.original_path();
-        // Make sure the parent exists so that `create_dir` doesn't faile due to that.
-        std::fs::create_dir_all(&item.original_parent).map_err(|e| fs_error(&item.original_parent, e))?;
-        let mut collision = false;
-        if file.is_dir() {
-            // NOTE create_dir_all succeeds when the path already exist but create_dir
-            // fails with `std::io::ErrorKind::AlreadyExists`.
-            if let Err(e) = std::fs::create_dir(&original_path) {
-                if e.kind() == std::io::ErrorKind::AlreadyExists {
-                    collision = true;
-                } else {
-                    return Err(fs_error(&original_path, e));
-                }
-            }
-        } else {
-            // File or symlink
-            if let Err(e) = OpenOptions::new().create_new(true).write(true).open(&original_path) {
-                if e.kind() == std::io::ErrorKind::AlreadyExists {
-                    collision = true;
-                } else {
-                    return Err(fs_error(&original_path, e));
-                }
+        let destination = item.original_path();
+        match restore_single(item, &destination, mode) {
+            Ok(()) => (),
+            Err(e) => {
+                return Err(match e {
+                    Error::RestoreCollision { path, remaining_items } => Error::RestoreCollision {
+                        path,
+                        remaining_items: remaining_items.into_iter().chain(iter).collect(),
+                    },
+                    other => other,
+                })
             }
         }
-        if collision {
-            let remaining: Vec<_> = std::iter::once(item).chain(iter).collect();
-            return Err(Error::RestoreCollision { path: original_path, remaining_items: remaining });
-        }
-        std::fs::rename(&file, &original_path).map_err(|e| fs_error(&file, e))?;
-        std::fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
     }
     Ok(())
 }
@@ -926,7 +947,7 @@ mod tests {
         os_limited::{list, purge_all, restore_all},
         platform::encode_uri_path,
         tests::get_unique_name,
-        Error,
+        Error, RestoreMode,
     };
 
     use super::decode_uri_path;
@@ -1010,7 +1031,8 @@ mod tests {
             delete(symlink).unwrap();
             let items = list().unwrap();
             let item = items.into_iter().find(|it| it.name == *symlink).unwrap();
-            restore_all([item.clone()]).expect("The broken symbolic link should be restored successfully.");
+            restore_all([item.clone()], RestoreMode::Soft)
+                .expect("The broken symbolic link should be restored successfully.");
 
             // Delete and Purge it without errors
             delete(symlink).unwrap();
