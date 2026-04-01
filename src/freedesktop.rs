@@ -34,22 +34,19 @@ impl PlatformTrashContext {
 }
 impl TrashContext {
     pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
-        let home_trash = home_trash()?;
+        let home_trash = canonicalize_path_or_parents(home_trash()?.as_path())?;
         let sorted_mount_points = get_sorted_mount_points()?;
-        let home_topdir = home_topdir(&sorted_mount_points)?;
-        debug!("The home topdir is {:?}", home_topdir);
+        let home_trash_topdir = get_first_topdir_containing_path(&home_trash, &sorted_mount_points);
+        debug!("The home topdir is {:?}", home_trash_topdir);
         let uid = unsafe { libc::getuid() };
         for path in full_paths {
             debug!("Deleting {:?}", path);
             let topdir = get_first_topdir_containing_path(&path, &sorted_mount_points);
             debug!("The topdir of this file is {:?}", topdir);
-            if topdir == home_topdir {
+            if topdir == home_trash_topdir {
                 debug!("The topdir was identical to the home topdir, so moving to the home trash.");
                 // Note that the following function creates the trash folder
                 // and its required subfolders in case they don't exist.
-                move_to_trash(path, &home_trash, topdir).map_err(|(p, e)| fs_error(p, e))?;
-            } else if topdir.to_str() == Some("/var/home") && home_topdir.to_str() == Some("/") {
-                debug!("The topdir is '/var/home' but the home_topdir is '/', moving to the home trash anyway.");
                 move_to_trash(path, &home_trash, topdir).map_err(|(p, e)| fs_error(p, e))?;
             } else {
                 execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
@@ -690,25 +687,29 @@ fn home_trash() -> Result<PathBuf, Error> {
     Err(Error::Unknown { description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into() })
 }
 
-fn home_topdir(mnt_points: &[MountPoint]) -> Result<PathBuf, Error> {
-    if let Some(data_home) = std::env::var_os("XDG_DATA_HOME") {
-        if !data_home.is_empty() {
-            let data_home_path = AsRef::<Path>::as_ref(data_home.as_os_str());
-            return Ok(get_first_topdir_containing_path(data_home_path, mnt_points).to_owned());
-        }
-    }
-    if let Some(home) = std::env::var_os("HOME") {
-        if !home.is_empty() {
-            let home_path = AsRef::<Path>::as_ref(home.as_os_str());
-            return Ok(get_first_topdir_containing_path(home_path, mnt_points).to_owned());
-        }
-    }
-    Err(Error::Unknown { description: "Neither the XDG_DATA_HOME nor the HOME environment variable was found".into() })
-}
-
 fn get_first_topdir_containing_path<'a>(path: &Path, mnt_points: &'a [MountPoint]) -> &'a Path {
     let root: &'static Path = Path::new("/");
     mnt_points.iter().map(|mp| mp.mnt_dir.as_path()).find(|mount_path| path.starts_with(mount_path)).unwrap_or(root)
+}
+
+/// Canonicalize a path. If the path doesn't exist, the canonical form of the
+/// path is determined by looking at it's parents.
+fn canonicalize_path_or_parents(mut path: &Path) -> Result<PathBuf, Error> {
+    let mut popped_path_components = vec![];
+
+    loop {
+        match path.canonicalize() {
+            Ok(canonical) => {
+                return Ok(popped_path_components.iter().rev().fold(canonical, |acc, component| acc.join(component)));
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                let file_name = path.file_name().ok_or(Error::CanonicalizePath { original: path.to_owned() })?;
+                popped_path_components.push(file_name.to_owned());
+                path = path.parent().ok_or(Error::CanonicalizePath { original: path.to_owned() })?;
+            }
+            Err(e) => return Err(Error::FileSystem { path: path.to_owned(), source: e }),
+        }
+    }
 }
 
 struct MountPoint {
