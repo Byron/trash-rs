@@ -10,7 +10,7 @@
 // - `cargo build --bin trash-helper` (or a full `cargo build`) before running
 //   these tests so that the `trash-helper` binary exists in the target directory.
 
-#![cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+#![cfg(target_os = "linux")]
 
 use std::path::{Path, PathBuf};
 use testcontainers::{
