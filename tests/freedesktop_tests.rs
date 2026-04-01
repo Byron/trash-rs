@@ -97,6 +97,131 @@ async fn exec_ok(container: &ContainerAsync<GenericImage>, cmd: &str) {
     assert_eq!(code, 0, "setup command exited {code}: {cmd}");
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ComplexMount {
+    A,
+    B,
+}
+
+impl ComplexMount {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::A => "mount_a",
+            Self::B => "mount_b",
+        }
+    }
+
+    const fn direct_home(self) -> &'static str {
+        match self {
+            Self::A => "/foo/alice/john",
+            Self::B => "/foo/bar/beth/john",
+        }
+    }
+
+    const fn symlink_home(self) -> &'static str {
+        match self {
+            Self::A => "/foo/bar/baz/john",
+            Self::B => "/foo/bridge/john",
+        }
+    }
+
+    const fn trash_dir(self) -> &'static str {
+        match self {
+            Self::A => "/foo/.Trash-0",
+            Self::B => "/foo/bar/.Trash-0",
+        }
+    }
+
+    const fn other(self) -> Self {
+        match self {
+            Self::A => Self::B,
+            Self::B => Self::A,
+        }
+    }
+
+    fn home(self, access: AccessPath) -> &'static str {
+        match access {
+            AccessPath::Direct => self.direct_home(),
+            AccessPath::ViaSymlink => self.symlink_home(),
+        }
+    }
+
+    fn file_path(self, access: AccessPath, file_name: &str) -> String {
+        format!("{}/{file_name}", self.home(access))
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum AccessPath {
+    Direct,
+    ViaSymlink,
+}
+
+impl AccessPath {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Direct => "direct",
+            Self::ViaSymlink => "via_symlink",
+        }
+    }
+}
+
+async fn setup_complex_mount_permutation_layout(container: &ContainerAsync<GenericImage>) {
+    exec_ok(
+        container,
+        "mkdir -p /foo && \
+         mount -t tmpfs tmpfs /foo && \
+         mkdir -p /foo/bar && \
+         mount -t tmpfs tmpfs /foo/bar && \
+         mkdir -p /foo/alice/john && \
+         mkdir -p /foo/bar/beth/john && \
+         ln -s /foo/alice /foo/bar/baz && \
+         ln -s /foo/bar/beth /foo/bridge",
+    )
+    .await;
+}
+
+async fn assert_complex_mount_permutation(
+    container: &ContainerAsync<GenericImage>,
+    file_mount: ComplexMount,
+    file_access: AccessPath,
+    home_mount: ComplexMount,
+    home_access: AccessPath,
+) {
+    let case_name = format!(
+        "file_{}_{}_home_{}_{}",
+        file_mount.label(),
+        file_access.label(),
+        home_mount.label(),
+        home_access.label(),
+    );
+    let file_name = format!("doe-{case_name}");
+    let file_path = file_mount.file_path(file_access, &file_name);
+    let home_data_dir = home_mount.home(home_access);
+
+    exec_ok(container, &format!("touch {file_path}")).await;
+
+    let delete_cmd = format!("XDG_DATA_HOME={home_data_dir} /usr/local/bin/trash-helper delete {file_path}");
+    let code = exec_cmd(container, &delete_cmd).await;
+    assert_eq!(code, 0, "{case_name}: delete should succeed");
+
+    let in_home_trash = exec_cmd(container, &format!("test -f {home_data_dir}/Trash/files/{file_name}")).await;
+    let in_file_mount_trash =
+        exec_cmd(container, &format!("test -e {}/files/{file_name}", file_mount.trash_dir())).await;
+    let in_other_mount_trash =
+        exec_cmd(container, &format!("test -e {}/files/{file_name}", file_mount.other().trash_dir())).await;
+
+    if file_mount == home_mount {
+        assert_eq!(in_home_trash, 0, "{case_name}: file must be in the home trash");
+        assert_ne!(in_file_mount_trash, 0, "{case_name}: file must not fall back to the file mount trash");
+    } else {
+        assert_ne!(in_home_trash, 0, "{case_name}: file must not land in the home trash");
+        assert_eq!(in_file_mount_trash, 0, "{case_name}: file must land in the file mount trash");
+    }
+
+    assert_ne!(in_other_mount_trash, 0, "{case_name}: file must not land in the unrelated mount trash");
+}
+
 // ── test cases ────────────────────────────────────────────────────────────────
 
 /// The home trash directory (`$HOME/.local/share/Trash`) is a regular directory.
@@ -122,11 +247,7 @@ async fn trash_is_file() {
     let helper = find_trash_helper();
     let c = start_container(&helper).await;
 
-    exec_ok(
-        &c,
-        "mkdir -p /home/u/.local/share && touch /home/u/.local/share/Trash && touch /target-file",
-    )
-    .await;
+    exec_ok(&c, "mkdir -p /home/u/.local/share && touch /home/u/.local/share/Trash && touch /target-file").await;
 
     let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-helper delete /target-file").await;
     assert_ne!(code, 0, "delete when Trash is a file should fail");
@@ -232,8 +353,7 @@ async fn trash_is_mount() {
     assert_eq!(verify, 0, "file should be in /.Trash-0/ (the root FS trash)");
 
     // The home trash mount must remain empty.
-    let home_trash_empty =
-        exec_cmd(&c, "test -z \"$(ls /home/u/.local/share/Trash/files/ 2>/dev/null)\"").await;
+    let home_trash_empty = exec_cmd(&c, "test -z \"$(ls /home/u/.local/share/Trash/files/ 2>/dev/null)\"").await;
     assert_eq!(home_trash_empty, 0, "home Trash mount should be empty");
 }
 
@@ -274,11 +394,7 @@ async fn trash_complex_mounts_with_symlink() {
     // Put the home directory on the root FS so it belongs to a different mount.
     exec_ok(&c, "mkdir -p /home/u/.local/share/Trash").await;
 
-    let code = exec_cmd(
-        &c,
-        "HOME=/home/u /usr/local/bin/trash-helper delete /foo/bar/baz/john/doe",
-    )
-    .await;
+    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-helper delete /foo/bar/baz/john/doe").await;
     assert_eq!(code, 0, "delete should succeed");
 
     // Canonical path is /foo/alice/john/doe → mount point is /foo.
@@ -291,8 +407,7 @@ async fn trash_complex_mounts_with_symlink() {
     assert_ne!(in_bar_trash, 0, "file must NOT be in /foo/bar/.Trash-0/ (wrong mount)");
 
     // Must NOT appear in the home trash.
-    let in_home_trash =
-        exec_cmd(&c, "test -e /home/u/.local/share/Trash/files/doe").await;
+    let in_home_trash = exec_cmd(&c, "test -e /home/u/.local/share/Trash/files/doe").await;
     assert_ne!(in_home_trash, 0, "file must NOT be in home Trash (different mount)");
 }
 
@@ -332,11 +447,8 @@ async fn trash_complex_mounts_home_trash_via_symlink() {
     )
     .await;
 
-    let code = exec_cmd(
-        &c,
-        "XDG_DATA_HOME=/foo/bar/baz/john /usr/local/bin/trash-helper delete /foo/bar/baz/john/doe",
-    )
-    .await;
+    let code =
+        exec_cmd(&c, "XDG_DATA_HOME=/foo/bar/baz/john /usr/local/bin/trash-helper delete /foo/bar/baz/john/doe").await;
     assert_eq!(code, 0, "delete should succeed");
 
     // The home trash canonicalizes to /foo/alice/john/Trash (mount A), which
@@ -351,4 +463,35 @@ async fn trash_complex_mounts_home_trash_via_symlink() {
     // Must NOT land in /foo/bar's trash (wrong mount).
     let in_bar_trash = exec_cmd(&c, "test -e /foo/bar/.Trash-0/files/doe").await;
     assert_ne!(in_bar_trash, 0, "file must NOT be in /foo/bar/.Trash-0/");
+}
+
+#[tokio::test]
+async fn trash_complex_mounts_home_trash_permutations() {
+    let helper = find_trash_helper();
+    let c = start_container(&helper).await;
+    setup_complex_mount_permutation_layout(&c).await;
+
+    for mount in [ComplexMount::A, ComplexMount::B] {
+        for file_access in [AccessPath::Direct, AccessPath::ViaSymlink] {
+            for home_access in [AccessPath::Direct, AccessPath::ViaSymlink] {
+                assert_complex_mount_permutation(&c, mount, file_access, mount, home_access).await;
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn trash_complex_mounts_per_mount_trash_permutations() {
+    let helper = find_trash_helper();
+    let c = start_container(&helper).await;
+    setup_complex_mount_permutation_layout(&c).await;
+
+    for file_mount in [ComplexMount::A, ComplexMount::B] {
+        let home_mount = file_mount.other();
+        for file_access in [AccessPath::Direct, AccessPath::ViaSymlink] {
+            for home_access in [AccessPath::Direct, AccessPath::ViaSymlink] {
+                assert_complex_mount_permutation(&c, file_mount, file_access, home_mount, home_access).await;
+            }
+        }
+    }
 }
