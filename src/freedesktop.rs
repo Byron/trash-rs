@@ -915,7 +915,8 @@ mod tests {
         ffi::{OsStr, OsString},
         fmt,
         fs::File,
-        os::unix::{self, ffi::OsStringExt},
+        io::ErrorKind,
+        os::unix::{self, ffi::OsStringExt, fs::PermissionsExt},
         path::{Path, PathBuf},
         process::Command,
     };
@@ -930,7 +931,7 @@ mod tests {
         Error,
     };
 
-    use super::decode_uri_path;
+    use super::{canonicalize_path_or_parents, decode_uri_path};
 
     #[test]
     #[serial]
@@ -1045,6 +1046,287 @@ mod tests {
 
         // Shouldn't panic
         encode_uri_path(&path);
+    }
+
+    #[test]
+    fn test_canonicalize_path_or_parents() {
+        enum CanonicalizeFixture<'a> {
+            Dir(&'a str),
+            File(&'a str),
+            Symlink { path: &'a str, target: &'a str },
+            Chmod { path: &'a str, mode: u32 },
+        }
+
+        enum CanonicalizeExpectation<'a> {
+            Canonical(&'a str),
+            PermissionDenied,
+        }
+
+        struct CanonicalizeCase<'a> {
+            name: &'a str,
+            setup: &'a [CanonicalizeFixture<'a>],
+            input: &'a str,
+            expected: CanonicalizeExpectation<'a>,
+            teardown: &'a [CanonicalizeFixture<'a>],
+        }
+
+        fn resolve(case_root: &Path, relative_path: &str) -> PathBuf {
+            case_root.join(relative_path)
+        }
+
+        fn apply_fixtures(case_root: &Path, fixtures: &[CanonicalizeFixture<'_>]) {
+            for fixture in fixtures {
+                match fixture {
+                    CanonicalizeFixture::Dir(path) => {
+                        std::fs::create_dir_all(resolve(case_root, path)).unwrap();
+                    }
+                    CanonicalizeFixture::File(path) => {
+                        let path = resolve(case_root, path);
+                        if let Some(parent) = path.parent() {
+                            std::fs::create_dir_all(parent).unwrap();
+                        }
+                        File::create_new(path).unwrap();
+                    }
+                    CanonicalizeFixture::Symlink { path, target } => {
+                        let path = resolve(case_root, path);
+                        if let Some(parent) = path.parent() {
+                            std::fs::create_dir_all(parent).unwrap();
+                        }
+                        unix::fs::symlink(resolve(case_root, target), path).unwrap();
+                    }
+                    CanonicalizeFixture::Chmod { path, mode } => {
+                        std::fs::set_permissions(resolve(case_root, path), std::fs::Permissions::from_mode(*mode))
+                            .unwrap();
+                    }
+                }
+            }
+        }
+
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let cases = [
+            CanonicalizeCase {
+                name: "path exists",
+                setup: &[
+                    CanonicalizeFixture::Dir("existing-parent"),
+                    CanonicalizeFixture::File("existing-parent/existing-file"),
+                ],
+                input: "existing-parent/existing-file",
+                expected: CanonicalizeExpectation::Canonical("existing-parent/existing-file"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "path doesn't exist",
+                setup: &[CanonicalizeFixture::Dir("existing-parent")],
+                input: "existing-parent/missing-file",
+                expected: CanonicalizeExpectation::Canonical("existing-parent/missing-file"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "path is symlink",
+                setup: &[
+                    CanonicalizeFixture::Dir("existing-parent"),
+                    CanonicalizeFixture::File("existing-parent/path-symlink-target"),
+                    CanonicalizeFixture::Symlink {
+                        path: "existing-parent/path-symlink",
+                        target: "existing-parent/path-symlink-target",
+                    },
+                ],
+                input: "existing-parent/path-symlink",
+                expected: CanonicalizeExpectation::Canonical("existing-parent/path-symlink-target"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "no perms to path",
+                setup: &[
+                    CanonicalizeFixture::Dir("no-perms-path-parent/locked-path"),
+                    CanonicalizeFixture::Chmod { path: "no-perms-path-parent/locked-path", mode: 0o000 },
+                ],
+                input: "no-perms-path-parent/locked-path/child",
+                expected: CanonicalizeExpectation::PermissionDenied,
+                teardown: &[CanonicalizeFixture::Chmod { path: "no-perms-path-parent/locked-path", mode: 0o700 }],
+            },
+            CanonicalizeCase {
+                name: "parent doesn't exist",
+                setup: &[CanonicalizeFixture::Dir("parent-missing-grandparent")],
+                input: "parent-missing-grandparent/missing-parent/leaf",
+                expected: CanonicalizeExpectation::Canonical("parent-missing-grandparent/missing-parent/leaf"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "parent is symlink",
+                setup: &[
+                    CanonicalizeFixture::Dir("parent-symlink-target"),
+                    CanonicalizeFixture::File("parent-symlink-target/leaf"),
+                    CanonicalizeFixture::Dir("parent-symlink-grandparent"),
+                    CanonicalizeFixture::Symlink {
+                        path: "parent-symlink-grandparent/parent-link",
+                        target: "parent-symlink-target",
+                    },
+                ],
+                input: "parent-symlink-grandparent/parent-link/leaf",
+                expected: CanonicalizeExpectation::Canonical("parent-symlink-target/leaf"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "parent is symlink but path doesn't exist",
+                setup: &[
+                    CanonicalizeFixture::Dir("parent-symlink-target"),
+                    CanonicalizeFixture::Dir("parent-symlink-grandparent"),
+                    CanonicalizeFixture::Symlink {
+                        path: "parent-symlink-grandparent/parent-link",
+                        target: "parent-symlink-target",
+                    },
+                ],
+                input: "parent-symlink-grandparent/parent-link/missing-leaf",
+                expected: CanonicalizeExpectation::Canonical("parent-symlink-target/missing-leaf"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "no perms to parent",
+                setup: &[
+                    CanonicalizeFixture::Dir("no-perms-parent-grandparent/locked-parent"),
+                    CanonicalizeFixture::Chmod { path: "no-perms-parent-grandparent/locked-parent", mode: 0o000 },
+                ],
+                input: "no-perms-parent-grandparent/locked-parent/leaf/child",
+                expected: CanonicalizeExpectation::PermissionDenied,
+                teardown: &[CanonicalizeFixture::Chmod {
+                    path: "no-perms-parent-grandparent/locked-parent",
+                    mode: 0o700,
+                }],
+            },
+            CanonicalizeCase {
+                name: "grandparent doesn't exist",
+                setup: &[],
+                input: "missing-grandparent/parent/leaf",
+                expected: CanonicalizeExpectation::Canonical("missing-grandparent/parent/leaf"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "grandparent is symlink",
+                setup: &[
+                    CanonicalizeFixture::Dir("grandparent-symlink-target/parent"),
+                    CanonicalizeFixture::File("grandparent-symlink-target/parent/leaf"),
+                    CanonicalizeFixture::Symlink { path: "grandparent-link", target: "grandparent-symlink-target" },
+                ],
+                input: "grandparent-link/parent/leaf",
+                expected: CanonicalizeExpectation::Canonical("grandparent-symlink-target/parent/leaf"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "grandparent is symlink but path doesn't exist",
+                setup: &[
+                    CanonicalizeFixture::Dir("grandparent-symlink-target/parent"),
+                    CanonicalizeFixture::Symlink { path: "grandparent-link", target: "grandparent-symlink-target" },
+                ],
+                input: "grandparent-link/parent/missing-leaf",
+                expected: CanonicalizeExpectation::Canonical("grandparent-symlink-target/parent/missing-leaf"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "grandparent is symlink but parent doesn't exist",
+                setup: &[
+                    CanonicalizeFixture::Dir("grandparent-symlink-target"),
+                    CanonicalizeFixture::Symlink { path: "grandparent-link", target: "grandparent-symlink-target" },
+                ],
+                input: "grandparent-link/missing-parent/leaf",
+                expected: CanonicalizeExpectation::Canonical("grandparent-symlink-target/missing-parent/leaf"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "grandparent is symlink + parent is symlink",
+                setup: &[
+                    CanonicalizeFixture::Dir("grandparent-symlink-target"),
+                    CanonicalizeFixture::Dir("gp-parent-symlink-target"),
+                    CanonicalizeFixture::File("gp-parent-symlink-target/leaf"),
+                    CanonicalizeFixture::Symlink {
+                        path: "grandparent-symlink-target/parent-link",
+                        target: "gp-parent-symlink-target",
+                    },
+                    CanonicalizeFixture::Symlink { path: "grandparent-link", target: "grandparent-symlink-target" },
+                ],
+                input: "grandparent-link/parent-link/leaf",
+                expected: CanonicalizeExpectation::Canonical("gp-parent-symlink-target/leaf"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "grandparent is symlink + path is symlink",
+                setup: &[
+                    CanonicalizeFixture::Dir("grandparent-symlink-target/parent"),
+                    CanonicalizeFixture::File("gp-path-symlink-target"),
+                    CanonicalizeFixture::Symlink {
+                        path: "grandparent-symlink-target/parent/path-link",
+                        target: "gp-path-symlink-target",
+                    },
+                    CanonicalizeFixture::Symlink { path: "grandparent-link", target: "grandparent-symlink-target" },
+                ],
+                input: "grandparent-link/parent/path-link",
+                expected: CanonicalizeExpectation::Canonical("gp-path-symlink-target"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "grandparent is symlink + parent is symlink + path is symlink",
+                setup: &[
+                    CanonicalizeFixture::Dir("grandparent-symlink-target"),
+                    CanonicalizeFixture::Dir("gp-parent-path-parent-target"),
+                    CanonicalizeFixture::Dir("gp-parent-path-symlink-target-parent"),
+                    CanonicalizeFixture::File("gp-parent-path-symlink-target-parent/leaf-target"),
+                    CanonicalizeFixture::Symlink {
+                        path: "gp-parent-path-parent-target/path-link",
+                        target: "gp-parent-path-symlink-target-parent/leaf-target",
+                    },
+                    CanonicalizeFixture::Symlink {
+                        path: "grandparent-symlink-target/path-parent-link",
+                        target: "gp-parent-path-parent-target",
+                    },
+                    CanonicalizeFixture::Symlink { path: "grandparent-link", target: "grandparent-symlink-target" },
+                ],
+                input: "grandparent-link/path-parent-link/path-link",
+                expected: CanonicalizeExpectation::Canonical("gp-parent-path-symlink-target-parent/leaf-target"),
+                teardown: &[],
+            },
+            CanonicalizeCase {
+                name: "no perms to grandparent",
+                setup: &[
+                    CanonicalizeFixture::Dir("locked-grandparent/parent"),
+                    CanonicalizeFixture::Chmod { path: "locked-grandparent", mode: 0o000 },
+                ],
+                input: "locked-grandparent/parent/leaf/child",
+                expected: CanonicalizeExpectation::PermissionDenied,
+                teardown: &[CanonicalizeFixture::Chmod { path: "locked-grandparent", mode: 0o700 }],
+            },
+        ];
+
+        for (index, case) in cases.iter().enumerate() {
+            let case_root = root.join(format!("case-{index}"));
+            std::fs::create_dir(&case_root).unwrap();
+            apply_fixtures(&case_root, case.setup);
+
+            let input = resolve(&case_root, case.input);
+            match case.expected {
+                CanonicalizeExpectation::Canonical(expected) => {
+                    let expected = resolve(&case_root, expected);
+                    let canonical = canonicalize_path_or_parents(&input).unwrap_or_else(|err| {
+                        panic!("case `{}` unexpectedly failed for {:?}: {:?}", case.name, input, err);
+                    });
+                    assert_eq!(canonical, expected, "case `{}` produced an unexpected canonical path", case.name);
+                }
+                CanonicalizeExpectation::PermissionDenied => match canonicalize_path_or_parents(&input).unwrap_err() {
+                    Error::FileSystem { path, source } => {
+                        assert_eq!(path, input, "case `{}` returned an unexpected failing path", case.name);
+                        assert_eq!(
+                            source.kind(),
+                            ErrorKind::PermissionDenied,
+                            "case `{}` returned an unexpected error",
+                            case.name
+                        );
+                    }
+                    err => panic!("case `{}` returned an unexpected error for {:?}: {:?}", case.name, input, err),
+                },
+            }
+
+            apply_fixtures(&case_root, case.teardown);
+        }
     }
 
     //////////////////////////////////////////////////////////////////////////////////////
