@@ -693,7 +693,7 @@ fn get_first_topdir_containing_path<'a>(path: &Path, mnt_points: &'a [MountPoint
 }
 
 /// Canonicalize a path. If the path doesn't exist, the canonical form of the
-/// path is determined by looking at it's parents.
+/// path is determined by looking at its parent directories.
 fn canonicalize_path_or_parents(mut path: &Path) -> Result<PathBuf, Error> {
     let mut popped_path_components = vec![];
 
