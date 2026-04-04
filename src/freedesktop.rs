@@ -37,14 +37,14 @@ impl TrashContext {
         let home_trash = canonicalize_path_or_parents(home_trash()?.as_path())?;
         let sorted_mount_points = get_sorted_mount_points()?;
         let home_trash_topdir = get_first_topdir_containing_path(&home_trash, &sorted_mount_points);
-        debug!("The home topdir is {:?}", home_trash_topdir);
+        debug!("The 'home trash' topdir is {:?}", home_trash_topdir);
         let uid = unsafe { libc::getuid() };
         for path in full_paths {
             debug!("Deleting {:?}", path);
             let topdir = get_first_topdir_containing_path(&path, &sorted_mount_points);
             debug!("The topdir of this file is {:?}", topdir);
             if topdir == home_trash_topdir {
-                debug!("The topdir was identical to the home topdir, so moving to the home trash.");
+                debug!("The topdir was identical to the 'home trash' topdir, so moving to the home trash.");
                 // Note that the following function creates the trash folder
                 // and its required subfolders in case they don't exist.
                 move_to_trash(path, &home_trash, topdir).map_err(|(p, e)| fs_error(p, e))?;
