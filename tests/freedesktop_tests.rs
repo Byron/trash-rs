@@ -1,14 +1,14 @@
 // Freedesktop trash tests that run entirely inside privileged Docker containers.
 //
 // Every test case spins up a fresh Ubuntu 24.04 container with CAP_SYS_ADMIN
-// (needed for `mount`) and a bind-mounted `trash-helper` binary compiled on the
+// (needed for `mount`) and a bind-mounted `trash-test-helper` binary compiled on the
 // host.  All filesystem mutations happen inside the container, so the host is
 // never touched.
 //
 // Prerequisites:
 // - Docker daemon running and accessible to the current user.
-// - `cargo build --bin trash-helper` (or a full `cargo build`) before running
-//   these tests so that the `trash-helper` binary exists in the target directory.
+// - `cargo build --bin trash-test-helper` (or a full `cargo build`) before running
+//   these tests so that the `trash-test-helper` binary exists in the target directory.
 
 #![cfg(target_os = "linux")]
 
@@ -24,11 +24,11 @@ const TAG: &str = "24.04";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/// Locate the compiled `trash-helper` binary in the Cargo target tree.
+/// Locate the compiled `trash-test-helper` binary in the Cargo target tree.
 ///
 /// The integration-test binary lives at `target/debug/deps/<name>-<hash>`.
-/// `trash-helper` is one level up, at `target/debug/trash-helper`.
-fn find_trash_helper() -> PathBuf {
+/// `trash-test-helper` is one level up, at `target/debug/trash-test-helper`.
+fn find_trash_test_helper() -> PathBuf {
     let exe = std::env::current_exe().expect("cannot determine current exe path");
     // exe  → …/target/debug/deps/<test-binary>
     // up 2 → …/target/debug/
@@ -36,16 +36,16 @@ fn find_trash_helper() -> PathBuf {
         .parent() // deps/
         .and_then(|p| p.parent()) // debug/
         .expect("unexpected test-binary location");
-    let helper = debug_dir.join("trash-helper");
+    let helper = debug_dir.join("trash-test-helper");
     assert!(
         helper.exists(),
-        "trash-helper not found at {helper:?}.\n\
-         Run `cargo build --bin trash-helper` before running these tests.",
+        "trash-test-helper not found at {helper:?}.\n\
+         Run `cargo build --bin trash-test-helper` before running these tests.",
     );
     helper
 }
 
-/// Start a privileged container with the `trash-helper` binary bind-mounted.
+/// Start a privileged container with the `trash-test-helper` binary bind-mounted.
 async fn start_container(helper: &Path) -> ContainerAsync<GenericImage> {
     let container = GenericImage::new(IMAGE, TAG)
         // Keep the container alive for the duration of the test.
@@ -54,14 +54,14 @@ async fn start_container(helper: &Path) -> ContainerAsync<GenericImage> {
         .with_privileged(true)
         .with_mount(Mount::bind_mount(
             helper.to_str().expect("helper path must be valid UTF-8"),
-            "/usr/local/bin/trash-helper",
+            "/usr/local/bin/trash-test-helper",
         ))
         .start()
         .await
         .expect("failed to start container");
 
     // Ensure the bind-mounted binary has the execute bit set inside the container.
-    exec_ok(&container, "chmod +x /usr/local/bin/trash-helper").await;
+    exec_ok(&container, "chmod +x /usr/local/bin/trash-test-helper").await;
     container
 }
 
@@ -201,7 +201,8 @@ async fn assert_complex_mount_permutation(
 
     exec_ok(container, &format!("touch {file_path}")).await;
 
-    let delete_cmd = format!("XDG_DATA_HOME={home_data_dir} /usr/local/bin/trash-helper delete {file_path}");
+    let delete_cmd =
+        format!("XDG_DATA_HOME={home_data_dir} /usr/local/bin/trash-test-helper delete {file_path}");
     let code = exec_cmd(container, &delete_cmd).await;
     assert_eq!(code, 0, "{case_name}: delete should succeed");
 
@@ -228,12 +229,12 @@ async fn assert_complex_mount_permutation(
 /// Deleting a file should succeed and place it under `Trash/files/`.
 #[tokio::test]
 async fn trash_is_dir() {
-    let helper = find_trash_helper();
+    let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
 
     exec_ok(&c, "mkdir -p /home/u/.local/share/Trash && touch /target-file").await;
 
-    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-helper delete /target-file").await;
+    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-test-helper delete /target-file").await;
     assert_eq!(code, 0, "delete to a directory trash should succeed");
 
     let verify = exec_cmd(&c, "test -f /home/u/.local/share/Trash/files/target-file").await;
@@ -244,12 +245,12 @@ async fn trash_is_dir() {
 /// The trash operation should fail because it cannot create subdirectories inside it.
 #[tokio::test]
 async fn trash_is_file() {
-    let helper = find_trash_helper();
+    let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
 
     exec_ok(&c, "mkdir -p /home/u/.local/share && touch /home/u/.local/share/Trash && touch /target-file").await;
 
-    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-helper delete /target-file").await;
+    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-test-helper delete /target-file").await;
     assert_ne!(code, 0, "delete when Trash is a file should fail");
 
     // The source file must still be present.
@@ -261,7 +262,7 @@ async fn trash_is_file() {
 /// This is valid – the library follows the symlink and uses the target directory.
 #[tokio::test]
 async fn trash_is_symlink_to_dir() {
-    let helper = find_trash_helper();
+    let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
 
     exec_ok(
@@ -273,7 +274,7 @@ async fn trash_is_symlink_to_dir() {
     )
     .await;
 
-    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-helper delete /target-file").await;
+    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-test-helper delete /target-file").await;
     assert_eq!(code, 0, "delete via a symlink-to-dir trash should succeed");
 
     // The file ends up in the *real* directory the symlink points to.
@@ -285,7 +286,7 @@ async fn trash_is_symlink_to_dir() {
 /// This is invalid; the trash operation should fail.
 #[tokio::test]
 async fn trash_is_symlink_to_file() {
-    let helper = find_trash_helper();
+    let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
 
     exec_ok(
@@ -297,7 +298,7 @@ async fn trash_is_symlink_to_file() {
     )
     .await;
 
-    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-helper delete /target-file").await;
+    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-test-helper delete /target-file").await;
     assert_ne!(code, 0, "delete when Trash symlink points to a file should fail");
 
     let still_there = exec_cmd(&c, "test -f /target-file").await;
@@ -308,7 +309,7 @@ async fn trash_is_symlink_to_file() {
 /// The trash operation should fail.
 #[tokio::test]
 async fn trash_is_symlink_to_nonexistent() {
-    let helper = find_trash_helper();
+    let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
 
     exec_ok(
@@ -319,7 +320,7 @@ async fn trash_is_symlink_to_nonexistent() {
     )
     .await;
 
-    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-helper delete /target-file").await;
+    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-test-helper delete /target-file").await;
     assert_ne!(code, 0, "delete when Trash is a broken symlink should fail");
 
     let still_there = exec_cmd(&c, "test -f /target-file").await;
@@ -334,7 +335,7 @@ async fn trash_is_symlink_to_nonexistent() {
 /// trash on the root mount) instead of using the home trash.
 #[tokio::test]
 async fn trash_is_mount() {
-    let helper = find_trash_helper();
+    let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
 
     exec_ok(
@@ -345,7 +346,7 @@ async fn trash_is_mount() {
     )
     .await;
 
-    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-helper delete /target-file").await;
+    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-test-helper delete /target-file").await;
     assert_eq!(code, 0, "delete should succeed even when Trash is on its own mount");
 
     // The file is on the root FS; the library places it in the root FS's per-UID trash.
@@ -374,7 +375,7 @@ async fn trash_is_mount() {
 /// trash should end up in `/foo/.Trash-0/` and *not* in `/foo/bar/.Trash-0/`.
 #[tokio::test]
 async fn trash_complex_mounts_with_symlink() {
-    let helper = find_trash_helper();
+    let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
 
     exec_ok(
@@ -394,7 +395,7 @@ async fn trash_complex_mounts_with_symlink() {
     // Put the home directory on the root FS so it belongs to a different mount.
     exec_ok(&c, "mkdir -p /home/u/.local/share/Trash").await;
 
-    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-helper delete /foo/bar/baz/john/doe").await;
+    let code = exec_cmd(&c, "HOME=/home/u /usr/local/bin/trash-test-helper delete /foo/bar/baz/john/doe").await;
     assert_eq!(code, 0, "delete should succeed");
 
     // Canonical path is /foo/alice/john/doe → mount point is /foo.
@@ -432,7 +433,7 @@ async fn trash_complex_mounts_with_symlink() {
 /// creating a per-mount `.Trash-0` directory.
 #[tokio::test]
 async fn trash_complex_mounts_home_trash_via_symlink() {
-    let helper = find_trash_helper();
+    let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
 
     exec_ok(
@@ -447,8 +448,11 @@ async fn trash_complex_mounts_home_trash_via_symlink() {
     )
     .await;
 
-    let code =
-        exec_cmd(&c, "XDG_DATA_HOME=/foo/bar/baz/john /usr/local/bin/trash-helper delete /foo/bar/baz/john/doe").await;
+    let code = exec_cmd(
+        &c,
+        "XDG_DATA_HOME=/foo/bar/baz/john /usr/local/bin/trash-test-helper delete /foo/bar/baz/john/doe",
+    )
+    .await;
     assert_eq!(code, 0, "delete should succeed");
 
     // The home trash canonicalizes to /foo/alice/john/Trash (mount A), which
@@ -467,7 +471,7 @@ async fn trash_complex_mounts_home_trash_via_symlink() {
 
 #[tokio::test]
 async fn trash_complex_mounts_home_trash_permutations() {
-    let helper = find_trash_helper();
+    let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
     setup_complex_mount_permutation_layout(&c).await;
 
@@ -482,7 +486,7 @@ async fn trash_complex_mounts_home_trash_permutations() {
 
 #[tokio::test]
 async fn trash_complex_mounts_per_mount_trash_permutations() {
-    let helper = find_trash_helper();
+    let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
     setup_complex_mount_permutation_layout(&c).await;
 
