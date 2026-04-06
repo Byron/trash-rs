@@ -1,9 +1,9 @@
 // Freedesktop trash tests that run entirely inside privileged Docker containers.
 //
 // Every test case spins up a fresh Ubuntu 24.04 container with CAP_SYS_ADMIN
-// (needed for `mount`) and a bind-mounted `trash-test-helper` binary compiled on the
-// host.  All filesystem mutations happen inside the container, so the host is
-// never touched.
+// (needed for `mount`) and copies the `trash-test-helper` binary in via the
+// Docker API. All filesystem mutations happen inside the container, so the
+// host is never touched.
 //
 // Prerequisites:
 // - Docker daemon running and accessible to the current user.
@@ -11,11 +11,7 @@
 #![cfg(target_os = "linux")]
 
 use std::path::{Path, PathBuf};
-use testcontainers::{
-    core::{ExecCommand, Mount},
-    runners::AsyncRunner,
-    ContainerAsync, GenericImage, ImageExt,
-};
+use testcontainers::{core::ExecCommand, runners::AsyncRunner, ContainerAsync, GenericImage, ImageExt};
 
 const IMAGE: &str = "ubuntu";
 const TAG: &str = "24.04";
@@ -30,22 +26,19 @@ fn find_trash_test_helper() -> PathBuf {
     helper
 }
 
-/// Start a privileged container with the `trash-test-helper` binary bind-mounted.
+/// Start a privileged container with the `trash-test-helper` binary copied in.
 async fn start_container(helper: &Path) -> ContainerAsync<GenericImage> {
     let container = GenericImage::new(IMAGE, TAG)
         // Keep the container alive for the duration of the test.
         .with_cmd(["sleep", "infinity"])
         // CAP_SYS_ADMIN is required for `mount` inside the container.
         .with_privileged(true)
-        .with_mount(Mount::bind_mount(
-            helper.to_str().expect("helper path must be valid UTF-8"),
-            "/usr/local/bin/trash-test-helper",
-        ))
+        .with_copy_to("/usr/local/bin/trash-test-helper", helper.to_path_buf())
         .start()
         .await
         .expect("failed to start container");
 
-    // Ensure the bind-mounted binary has the execute bit set inside the container.
+    // Ensure the copied binary is executable inside the container.
     exec_ok(&container, "chmod +x /usr/local/bin/trash-test-helper").await;
     container
 }
