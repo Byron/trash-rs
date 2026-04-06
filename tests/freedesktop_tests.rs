@@ -7,8 +7,6 @@
 //
 // Prerequisites:
 // - Docker daemon running and accessible to the current user.
-// - `cargo build --bin trash-test-helper` (or a full `cargo build`) before running
-//   these tests so that the `trash-test-helper` binary exists in the target directory.
 
 #![cfg(target_os = "linux")]
 
@@ -24,24 +22,11 @@ const TAG: &str = "24.04";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/// Locate the compiled `trash-test-helper` binary in the Cargo target tree.
-///
-/// The integration-test binary lives at `target/debug/deps/<name>-<hash>`.
-/// `trash-test-helper` is one level up, at `target/debug/trash-test-helper`.
+/// Locate the compiled `trash-test-helper` binary using Cargo's integration-test
+/// binary path environment variable.
 fn find_trash_test_helper() -> PathBuf {
-    let exe = std::env::current_exe().expect("cannot determine current exe path");
-    // exe  → …/target/debug/deps/<test-binary>
-    // up 2 → …/target/debug/
-    let debug_dir = exe
-        .parent() // deps/
-        .and_then(|p| p.parent()) // debug/
-        .expect("unexpected test-binary location");
-    let helper = debug_dir.join("trash-test-helper");
-    assert!(
-        helper.exists(),
-        "trash-test-helper not found at {helper:?}.\n\
-         Run `cargo build --bin trash-test-helper` before running these tests.",
-    );
+    let helper = PathBuf::from(env!("CARGO_BIN_EXE_trash-test-helper"));
+    assert!(helper.exists(), "trash-test-helper not found at {helper:?}",);
     helper
 }
 
@@ -201,8 +186,7 @@ async fn assert_complex_mount_permutation(
 
     exec_ok(container, &format!("touch {file_path}")).await;
 
-    let delete_cmd =
-        format!("XDG_DATA_HOME={home_data_dir} /usr/local/bin/trash-test-helper delete {file_path}");
+    let delete_cmd = format!("XDG_DATA_HOME={home_data_dir} /usr/local/bin/trash-test-helper delete {file_path}");
     let code = exec_cmd(container, &delete_cmd).await;
     assert_eq!(code, 0, "{case_name}: delete should succeed");
 
@@ -448,11 +432,9 @@ async fn trash_complex_mounts_home_trash_via_symlink() {
     )
     .await;
 
-    let code = exec_cmd(
-        &c,
-        "XDG_DATA_HOME=/foo/bar/baz/john /usr/local/bin/trash-test-helper delete /foo/bar/baz/john/doe",
-    )
-    .await;
+    let code =
+        exec_cmd(&c, "XDG_DATA_HOME=/foo/bar/baz/john /usr/local/bin/trash-test-helper delete /foo/bar/baz/john/doe")
+            .await;
     assert_eq!(code, 0, "delete should succeed");
 
     // The home trash canonicalizes to /foo/alice/john/Trash (mount A), which
