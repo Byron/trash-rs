@@ -343,6 +343,13 @@ pub struct TrashItemMetadata {
     pub size: TrashItemSize,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub enum RestoreMode {
+    Force,
+    #[default]
+    Soft,
+}
+
 #[cfg(any(
     target_os = "windows",
     all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))
@@ -357,7 +364,7 @@ pub mod os_limited {
         hash::{Hash, Hasher},
     };
 
-    use super::{platform, Error, TrashItem, TrashItemMetadata};
+    use super::{platform, Error, RestoreMode, TrashItem, TrashItemMetadata};
 
     /// Returns all [`TrashItem`]s that are currently in the trash.
     ///
@@ -493,10 +500,11 @@ pub mod os_limited {
     /// ```
     /// use std::fs::File;
     /// use trash::os_limited::{list, restore_all};
+    /// use trash::RestoreMode;
     ///
     /// let filename = "trash-restore_all-example";
     /// File::create_new(filename).unwrap();
-    /// restore_all(list().unwrap().into_iter().filter(|x| x.name == filename)).unwrap();
+    /// restore_all(list().unwrap().into_iter().filter(|x| x.name == filename), RestoreMode::Soft).unwrap();
     /// std::fs::remove_file(filename).unwrap();
     /// ```
     ///
@@ -504,19 +512,19 @@ pub mod os_limited {
     ///
     /// ```no_run
     /// use trash::os_limited::{list, restore_all};
-    /// use trash::Error::RestoreCollision;
+    /// use trash::{RestoreMode, Error::RestoreCollision};
     ///
     /// let items = list().unwrap();
-    /// if let Err(RestoreCollision { path, mut remaining_items }) = restore_all(items) {
+    /// if let Err(RestoreCollision { path, mut remaining_items }) = restore_all(items, RestoreMode::Soft) {
     ///     // keep all except the one(s) that couldn't be restored
     ///     remaining_items.retain(|e| e.original_path() != path);
-    ///     restore_all(remaining_items).unwrap();
+    ///     restore_all(remaining_items, RestoreMode::Soft).unwrap();
     /// }
     /// ```
     ///
     /// [`RestoreCollision`]: Error::RestoreCollision
     /// [`RestoreTwins`]: Error::RestoreTwins
-    pub fn restore_all<I>(items: I) -> Result<(), Error>
+    pub fn restore_all<I>(items: I, mode: RestoreMode) -> Result<(), Error>
     where
         I: IntoIterator<Item = TrashItem>,
     {
@@ -540,6 +548,6 @@ pub mod os_limited {
                 return Err(Error::RestoreTwins { path: item.original_path(), items });
             }
         }
-        platform::restore_all(items)
+        platform::restore_all(items, mode)
     }
 }
