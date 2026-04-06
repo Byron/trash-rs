@@ -59,6 +59,7 @@ jobs:
 
       - name: cargo test (container tests)
         if: ${{ matrix.build == 'linux' }}
+        # Grant the tests (running inside the cross docker container) access to the host's docker socket
         env:
           CROSS_CONTAINER_OPTS: -v /var/run/docker.sock:/var/run/docker.sock -e DOCKER_HOST=unix:///var/run/docker.sock
           CROSS_CONTAINER_UID: "0"
