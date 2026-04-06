@@ -7,6 +7,7 @@
 //
 // Prerequisites:
 // - Docker daemon running and accessible to the current user.
+// - Run explicitly with `cargo test --test freedesktop_tests -- --ignored`.
 
 #![cfg(target_os = "linux")]
 
@@ -205,6 +206,7 @@ async fn assert_complex_mount_permutation(
 /// The home trash directory (`$HOME/.local/share/Trash`) is a regular directory.
 /// Deleting a file should succeed and place it under `Trash/files/`.
 #[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 async fn trash_is_dir() {
     let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
@@ -221,6 +223,7 @@ async fn trash_is_dir() {
 /// The home trash path is a regular *file* (not a directory).
 /// The trash operation should fail because it cannot create subdirectories inside it.
 #[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 async fn trash_is_file() {
     let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
@@ -238,6 +241,7 @@ async fn trash_is_file() {
 /// The home trash path is a symbolic link that points to a *directory*.
 /// This is valid – the library follows the symlink and uses the target directory.
 #[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 async fn trash_is_symlink_to_dir() {
     let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
@@ -262,6 +266,7 @@ async fn trash_is_symlink_to_dir() {
 /// The home trash path is a symbolic link that points to a *regular file*.
 /// This is invalid; the trash operation should fail.
 #[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 async fn trash_is_symlink_to_file() {
     let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
@@ -285,6 +290,7 @@ async fn trash_is_symlink_to_file() {
 /// The home trash path is a *broken* symbolic link (the target does not exist).
 /// The trash operation should fail.
 #[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 async fn trash_is_symlink_to_nonexistent() {
     let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
@@ -311,6 +317,7 @@ async fn trash_is_symlink_to_nonexistent() {
 /// are on different filesystems.  It therefore creates `/.Trash-0/` (the per-UID
 /// trash on the root mount) instead of using the home trash.
 #[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 async fn trash_is_mount() {
     let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
@@ -351,6 +358,7 @@ async fn trash_is_mount() {
 /// The library must resolve symlinks before looking up the mount point, so the
 /// trash should end up in `/foo/.Trash-0/` and *not* in `/foo/bar/.Trash-0/`.
 #[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 async fn trash_complex_mounts_with_symlink() {
     let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
@@ -409,6 +417,7 @@ async fn trash_complex_mounts_with_symlink() {
 /// Therefore the library should use the home trash directly instead of
 /// creating a per-mount `.Trash-0` directory.
 #[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 async fn trash_complex_mounts_home_trash_via_symlink() {
     let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
@@ -445,6 +454,7 @@ async fn trash_complex_mounts_home_trash_via_symlink() {
 }
 
 #[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 async fn trash_complex_mounts_home_trash_permutations() {
     let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
@@ -460,6 +470,7 @@ async fn trash_complex_mounts_home_trash_permutations() {
 }
 
 #[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 async fn trash_complex_mounts_per_mount_trash_permutations() {
     let helper = find_trash_test_helper();
     let c = start_container(&helper).await;
