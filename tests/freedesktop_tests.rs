@@ -7,9 +7,8 @@
 //
 // Prerequisites:
 // - Docker daemon running and accessible to the current user.
-// - Outside the dedicated CI lane, enable `_container-tests` to build the
-//   helper binary and run this test target:
-//   `cargo test --features _container-tests --test freedesktop_tests`.
+// - Run this test target explicitly, since the tests are ignored by default:
+//   `cargo test --test freedesktop_tests -- --ignored`.
 
 #![cfg(target_os = "linux")]
 
@@ -26,12 +25,10 @@ const HELPER_PATH: &str = "/usr/local/bin/trash-test-helper";
 /// Locate the compiled `trash-test-helper` binary using Cargo's integration-test
 /// binary path environment variable.
 fn find_trash_test_helper() -> PathBuf {
-    let helper = PathBuf::from(option_env!("CARGO_BIN_EXE_trash-test-helper").unwrap_or_else(|| {
-        panic!(
-            "trash-test-helper binary is not available.\n\
-             Enable the `_container-tests` feature when running this test target."
-        )
-    }));
+    let helper = PathBuf::from(
+        option_env!("CARGO_BIN_EXE_trash-test-helper")
+            .unwrap_or_else(|| panic!("trash-test-helper binary is not available for this test target.")),
+    );
     assert!(helper.exists(), "trash-test-helper not found at {helper:?}");
     helper
 }
@@ -118,7 +115,7 @@ impl TestContainer {
 /// The home trash directory (`$HOME/.local/share/Trash`) is a regular directory.
 /// Deleting a file should succeed and place it under `Trash/files/`.
 #[tokio::test]
-#[cfg_attr(not(feature = "_container-tests"), ignore = "requires a working Docker daemon and privileged containers")]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_dir() {
     let helper = find_trash_test_helper();
@@ -136,7 +133,7 @@ async fn trash_is_dir() {
 /// The home trash path is a regular *file* (not a directory).
 /// The trash operation should fail because it cannot create subdirectories inside it.
 #[tokio::test]
-#[cfg_attr(not(feature = "_container-tests"), ignore = "requires a working Docker daemon and privileged containers")]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_file() {
     let helper = find_trash_test_helper();
@@ -155,7 +152,7 @@ async fn trash_is_file() {
 /// The home trash path is a symbolic link that points to a *directory*.
 /// This is valid – the library follows the symlink and uses the target directory.
 #[tokio::test]
-#[cfg_attr(not(feature = "_container-tests"), ignore = "requires a working Docker daemon and privileged containers")]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_symlink_to_dir() {
     let helper = find_trash_test_helper();
@@ -180,7 +177,7 @@ async fn trash_is_symlink_to_dir() {
 /// The home trash path is a symbolic link that points to a *regular file*.
 /// This is invalid; the trash operation should fail.
 #[tokio::test]
-#[cfg_attr(not(feature = "_container-tests"), ignore = "requires a working Docker daemon and privileged containers")]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_symlink_to_file() {
     let helper = find_trash_test_helper();
@@ -204,7 +201,7 @@ async fn trash_is_symlink_to_file() {
 /// The home trash path is a *broken* symbolic link (the target does not exist).
 /// The trash operation should fail.
 #[tokio::test]
-#[cfg_attr(not(feature = "_container-tests"), ignore = "requires a working Docker daemon and privileged containers")]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_symlink_to_nonexistent() {
     let helper = find_trash_test_helper();
@@ -231,7 +228,7 @@ async fn trash_is_symlink_to_nonexistent() {
 /// are on different filesystems.  It therefore creates `/.Trash-0/` (the per-UID
 /// trash on the root mount) instead of using the home trash.
 #[tokio::test]
-#[cfg_attr(not(feature = "_container-tests"), ignore = "requires a working Docker daemon and privileged containers")]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_mount() {
     let helper = find_trash_test_helper();
@@ -272,7 +269,7 @@ async fn trash_is_mount() {
 /// The library must resolve symlinks before looking up the mount point, so the
 /// trash should end up in `/foo/.Trash-0/` and *not* in `/foo/bar/.Trash-0/`.
 #[tokio::test]
-#[cfg_attr(not(feature = "_container-tests"), ignore = "requires a working Docker daemon and privileged containers")]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_complex_mounts_with_symlink() {
     let helper = find_trash_test_helper();
@@ -331,7 +328,7 @@ async fn trash_complex_mounts_with_symlink() {
 /// Therefore the library should use the home trash directly instead of
 /// creating a per-mount `.Trash-0` directory.
 #[tokio::test]
-#[cfg_attr(not(feature = "_container-tests"), ignore = "requires a working Docker daemon and privileged containers")]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_complex_mounts_home_trash_via_symlink() {
     let helper = find_trash_test_helper();
@@ -490,7 +487,7 @@ async fn assert_complex_mount_permutation(
 }
 
 #[tokio::test]
-#[cfg_attr(not(feature = "_container-tests"), ignore = "requires a working Docker daemon and privileged containers")]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_complex_mounts_home_trash_permutations() {
     let helper = find_trash_test_helper();
@@ -507,7 +504,7 @@ async fn trash_complex_mounts_home_trash_permutations() {
 }
 
 #[tokio::test]
-#[cfg_attr(not(feature = "_container-tests"), ignore = "requires a working Docker daemon and privileged containers")]
+#[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_complex_mounts_per_mount_trash_permutations() {
     let helper = find_trash_test_helper();

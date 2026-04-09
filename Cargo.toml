@@ -17,14 +17,10 @@ coinit_apartmentthreaded = []
 coinit_multithreaded = []
 coinit_disable_ole1dde = []
 coinit_speed_over_memory = []
-# Internal-only feature: Enables the Docker-backed freedesktop tests and build
-# the trash-test-helper binary needed by the tests
-_container-tests = []
 
 [[bin]]
 name = "trash-test-helper"
 path = "src/bin/trash-test-helper.rs"
-required-features = ["_container-tests"]
 
 [dependencies]
 log = "0.4"

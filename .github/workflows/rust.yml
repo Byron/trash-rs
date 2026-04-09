@@ -65,19 +65,19 @@ jobs:
           CROSS_CONTAINER_UID: "0"
           CROSS_CONTAINER_GID: "0"
           CROSS_CONTAINER_USER_NAMESPACE: none
-        run: ${{ env.CARGO }} test --verbose --features _container-tests --test freedesktop_tests ${{ env.TARGET_FLAGS }}
+        run: ${{ env.CARGO }} test --verbose --test freedesktop_tests ${{ env.TARGET_FLAGS }} -- --ignored
 
       - name: cargo test (without chrono)
         if: ${{ !startsWith(matrix.build, 'netbsd') }}
         run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
 
-      - name: cargo build
+      - name: cargo build --lib
         if: ${{ startsWith(matrix.build, 'netbsd') }}
-        run: ${{ env.CARGO }} build --verbose ${{ env.TARGET_FLAGS }}
+        run: ${{ env.CARGO }} build --lib --verbose ${{ env.TARGET_FLAGS }}
 
-      - name: cargo build (without chrono)
+      - name: cargo build --lib (without chrono)
         if: ${{ startsWith(matrix.build, 'netbsd') }}
-        run: ${{ env.CARGO }} build --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
+        run: ${{ env.CARGO }} build --lib --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
 
       - name: cargo fmt
         uses: actions-rs/cargo@v1
