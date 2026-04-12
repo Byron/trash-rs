@@ -18,10 +18,6 @@ coinit_multithreaded = []
 coinit_disable_ole1dde = []
 coinit_speed_over_memory = []
 
-[[bin]]
-name = "trash-test-helper"
-path = "src/bin/trash-test-helper.rs"
-
 [dependencies]
 log = "0.4"
 
