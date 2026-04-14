@@ -7,6 +7,8 @@
 //
 // Prerequisites:
 // - Docker daemon running and accessible to the current user.
+// - Build the `trash` example binary first:
+//   `cargo build --example trash`
 // - Run this test target explicitly, since the tests are ignored by default:
 //   `cargo test --test freedesktop_tests -- --ignored`.
 
