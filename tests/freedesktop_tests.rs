@@ -13,7 +13,7 @@
 #![cfg(target_os = "linux")]
 
 use serial_test::serial;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use testcontainers::{core::ExecCommand, runners::AsyncRunner, ContainerAsync, GenericImage, ImageExt};
 
 const IMAGE: &str = "ubuntu";
@@ -39,13 +39,14 @@ struct TestContainer {
 
 impl TestContainer {
     /// Start a privileged container with the `trash-test-helper` binary copied in.
-    async fn start(helper: &Path) -> Self {
+    async fn start() -> Self {
+        let helper = find_trash_test_helper();
         let inner = GenericImage::new(IMAGE, TAG)
             // Keep the container alive for the duration of the test.
             .with_cmd(["sleep", "infinity"])
             // CAP_SYS_ADMIN is required for `mount` inside the container.
             .with_privileged(true)
-            .with_copy_to(HELPER_PATH, helper.to_path_buf())
+            .with_copy_to(HELPER_PATH, helper)
             .start()
             .await
             .expect("failed to start container");
@@ -118,8 +119,7 @@ impl TestContainer {
 #[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_dir() {
-    let helper = find_trash_test_helper();
-    let c = TestContainer::start(&helper).await;
+    let c = TestContainer::start().await;
 
     c.exec_ok("mkdir -p /home/u/.local/share/Trash && touch /target-file").await;
 
@@ -136,8 +136,7 @@ async fn trash_is_dir() {
 #[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_file() {
-    let helper = find_trash_test_helper();
-    let c = TestContainer::start(&helper).await;
+    let c = TestContainer::start().await;
 
     c.exec_ok("mkdir -p /home/u/.local/share && touch /home/u/.local/share/Trash && touch /target-file").await;
 
@@ -155,8 +154,7 @@ async fn trash_is_file() {
 #[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_symlink_to_dir() {
-    let helper = find_trash_test_helper();
-    let c = TestContainer::start(&helper).await;
+    let c = TestContainer::start().await;
 
     c.exec_ok(
         "mkdir /actual-trash && \
@@ -180,8 +178,7 @@ async fn trash_is_symlink_to_dir() {
 #[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_symlink_to_file() {
-    let helper = find_trash_test_helper();
-    let c = TestContainer::start(&helper).await;
+    let c = TestContainer::start().await;
 
     c.exec_ok(
         "touch /actual-file && \
@@ -204,8 +201,7 @@ async fn trash_is_symlink_to_file() {
 #[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_symlink_to_nonexistent() {
-    let helper = find_trash_test_helper();
-    let c = TestContainer::start(&helper).await;
+    let c = TestContainer::start().await;
 
     c.exec_ok(
         "mkdir -p /home/u/.local/share && \
@@ -231,8 +227,7 @@ async fn trash_is_symlink_to_nonexistent() {
 #[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_is_mount() {
-    let helper = find_trash_test_helper();
-    let c = TestContainer::start(&helper).await;
+    let c = TestContainer::start().await;
 
     c.exec_ok(
         "mkdir -p /home/u/.local/share/Trash && \
@@ -272,8 +267,7 @@ async fn trash_is_mount() {
 #[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_complex_mounts_with_symlink() {
-    let helper = find_trash_test_helper();
-    let c = TestContainer::start(&helper).await;
+    let c = TestContainer::start().await;
 
     c.exec_ok(
         // Build the described layout step by step.
@@ -331,8 +325,7 @@ async fn trash_complex_mounts_with_symlink() {
 #[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_complex_mounts_home_trash_via_symlink() {
-    let helper = find_trash_test_helper();
-    let c = TestContainer::start(&helper).await;
+    let c = TestContainer::start().await;
 
     c.exec_ok(
         "mkdir -p /foo && \
@@ -490,8 +483,7 @@ async fn assert_complex_mount_permutation(
 #[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_complex_mounts_home_trash_permutations() {
-    let helper = find_trash_test_helper();
-    let c = TestContainer::start(&helper).await;
+    let c = TestContainer::start().await;
     setup_complex_mount_permutation_layout(&c).await;
 
     for mount in [ComplexMount::A, ComplexMount::B] {
@@ -507,8 +499,7 @@ async fn trash_complex_mounts_home_trash_permutations() {
 #[ignore = "requires a working Docker daemon and privileged containers"]
 #[serial]
 async fn trash_complex_mounts_per_mount_trash_permutations() {
-    let helper = find_trash_test_helper();
-    let c = TestContainer::start(&helper).await;
+    let c = TestContainer::start().await;
     setup_complex_mount_permutation_layout(&c).await;
 
     for file_mount in [ComplexMount::A, ComplexMount::B] {
