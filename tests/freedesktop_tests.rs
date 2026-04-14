@@ -1,9 +1,9 @@
 // Freedesktop trash tests that run entirely inside privileged Docker containers.
 //
 // Every test case spins up a fresh Ubuntu 24.04 container with CAP_SYS_ADMIN
-// (needed for `mount`) and copies the `trash-test-helper` binary in via the
-// Docker API. All filesystem mutations happen inside the container, so the
-// host is never touched.
+// (needed for `mount`) and copies the `trash` example binary in via the Docker
+// API. All filesystem mutations happen inside the container, so the host is
+// never touched.
 //
 // Prerequisites:
 // - Docker daemon running and accessible to the current user.
@@ -13,23 +13,28 @@
 #![cfg(target_os = "linux")]
 
 use serial_test::serial;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use testcontainers::{core::ExecCommand, runners::AsyncRunner, ContainerAsync, GenericImage, ImageExt};
 
 const IMAGE: &str = "ubuntu";
 const TAG: &str = "24.04";
-const HELPER_PATH: &str = "/usr/local/bin/trash-test-helper";
+const HELPER_PATH: &str = "/usr/local/bin/trash";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/// Locate the compiled `trash-test-helper` binary using Cargo's integration-test
-/// binary path environment variable.
-fn find_trash_test_helper() -> PathBuf {
-    let helper = PathBuf::from(
-        option_env!("CARGO_BIN_EXE_trash-test-helper")
-            .unwrap_or_else(|| panic!("trash-test-helper binary is not available for this test target.")),
+/// Locate the compiled `trash` example next to the running integration test.
+///
+/// Cargo does not expose example paths through `CARGO_BIN_EXE_*`, so derive
+/// `target/<triple?>/<profile>/examples/trash` from the current test binary.
+fn find_trash_binary() -> PathBuf {
+    let test_exe = std::env::current_exe().expect("failed to locate the running test binary");
+    let profile_dir =
+        test_exe.parent().and_then(Path::parent).unwrap_or_else(|| panic!("unexpected test binary path: {test_exe:?}"));
+    let helper = profile_dir.join("examples").join("trash");
+    assert!(
+        helper.exists(),
+        "trash example not found at {helper:?} (build it by running 'cargo build --example trash')"
     );
-    assert!(helper.exists(), "trash-test-helper not found at {helper:?}");
     helper
 }
 
@@ -38,9 +43,9 @@ struct TestContainer {
 }
 
 impl TestContainer {
-    /// Start a privileged container with the `trash-test-helper` binary copied in.
+    /// Start a privileged container with the `trash` example binary copied in.
     async fn start() -> Self {
-        let helper = find_trash_test_helper();
+        let helper = find_trash_binary();
         let inner = GenericImage::new(IMAGE, TAG)
             // Keep the container alive for the duration of the test.
             .with_cmd(["sleep", "infinity"])
@@ -91,7 +96,7 @@ impl TestContainer {
     }
 
     /// Run `trash::delete` in the container with optional env vars via
-    /// the copied `trash-test-helper` binary.
+    /// the copied `trash` example binary.
     async fn delete(&self, env_vars: &[&str], path: &str) -> i64 {
         let env_prefix = env_vars.join(" ");
         let cmd = if env_prefix.is_empty() {
