@@ -57,6 +57,16 @@ jobs:
         if: ${{ !startsWith(matrix.build, 'netbsd') }}
         run: ${{ env.CARGO }} test --verbose ${{ env.TARGET_FLAGS }}
 
+      - name: cargo test (container tests)
+        if: ${{ matrix.build == 'linux' }}
+        # Grant the tests (running inside the cross docker container) access to the host's docker socket
+        env:
+          CROSS_CONTAINER_OPTS: -v /var/run/docker.sock:/var/run/docker.sock -e DOCKER_HOST=unix:///var/run/docker.sock
+          CROSS_CONTAINER_UID: "0"
+          CROSS_CONTAINER_GID: "0"
+          CROSS_CONTAINER_USER_NAMESPACE: none
+        run: ${{ env.CARGO }} test --verbose --test freedesktop_tests ${{ env.TARGET_FLAGS }} -- --ignored
+
       - name: cargo test (without chrono)
         if: ${{ !startsWith(matrix.build, 'netbsd') }}
         run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
