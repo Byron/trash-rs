@@ -1,4 +1,4 @@
-use crate::{Error, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
+use crate::{Error, RestoreMode, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
 use std::{
     borrow::Borrow,
     ffi::{c_void, OsStr, OsString},
@@ -200,7 +200,8 @@ where
     }
 }
 
-pub fn restore_all<I>(items: I) -> Result<(), Error>
+// TODO: implment force restore for windows
+pub fn restore_all<I>(items: I, _mode: RestoreMode) -> Result<(), Error>
 where
     I: IntoIterator<Item = TrashItem>,
 {
