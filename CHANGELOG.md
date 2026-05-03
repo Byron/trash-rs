@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.2.6 (2026-05-03)
+
+### Bug Fixes
+
+ - <csr-id-bed74bd0fe35a0593288cbb41cf3f0b571826872/> replace assert! with ensure_virtually_exists to gracefully handle missing trash files
+   When a .trashinfo file references a file in trash/files that no longer
+   exists, the assert! in metadata() and restore_all() would panic instead
+   of returning a proper error. This caused cosmic-files to crash when
+   encountering such orphaned trash entries.
+   
+   Replace assert! with ensure_virtually_exists() which returns a proper
+   Error::FileSystem instead of panicking, allowing callers to handle
+   the missing file gracefully.
+
+### Other
+
+ - <csr-id-8997e9aa267eb7fffb76720405719bb41d319944/> it's parents -> its parents
+ - <csr-id-ac00b38e54f386f80a661ada4372e4b75a4427d4/> test canonicalize_path_or_parents
+ - <csr-id-ec086e19de97acf1bf6c193201318d96dcc12a7d/> Update log messages to refer to home trash topdir
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 8 commits contributed to the release.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#144](https://github.com/Byron/trash-rs/issues/144)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#144](https://github.com/Byron/trash-rs/issues/144)**
+    - Test freedesktop trash implementation in container ([`c21e99e`](https://github.com/Byron/trash-rs/commit/c21e99e449da077ea927eef27898b492bf66c64e))
+ * **Uncategorized**
+    - Merge pull request #145 from ZlordHUN/fix/graceful-missing-trash-file ([`75bb3b7`](https://github.com/Byron/trash-rs/commit/75bb3b70433db74aa023d0e930d9e49d115aad83))
+    - Replace assert! with ensure_virtually_exists to gracefully handle missing trash files ([`bed74bd`](https://github.com/Byron/trash-rs/commit/bed74bd0fe35a0593288cbb41cf3f0b571826872))
+    - Merge pull request #143 from null-dev/nd/canonicalize-trash-path ([`5a7c7f7`](https://github.com/Byron/trash-rs/commit/5a7c7f77f8025d651b6b964725637e60e8cd37cc))
+    - It's parents -> its parents ([`8997e9a`](https://github.com/Byron/trash-rs/commit/8997e9aa267eb7fffb76720405719bb41d319944))
+    - Test canonicalize_path_or_parents ([`ac00b38`](https://github.com/Byron/trash-rs/commit/ac00b38e54f386f80a661ada4372e4b75a4427d4))
+    - Update log messages to refer to home trash topdir ([`ec086e1`](https://github.com/Byron/trash-rs/commit/ec086e19de97acf1bf6c193201318d96dcc12a7d))
+    - Implement canonicalize_path for non-existent paths ([`59add80`](https://github.com/Byron/trash-rs/commit/59add80bea4f14911862092c1edc9027def98602))
+</details>
+
 ## 5.2.5 (2025-10-25)
 
 ### Bug Fixes
@@ -16,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 day passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#142](https://github.com/Byron/trash-rs/issues/142)
@@ -29,6 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **[#142](https://github.com/Byron/trash-rs/issues/142)**
     - Set the `objc2-foundation` to the one that's actually required ([`23ca2a2`](https://github.com/Byron/trash-rs/commit/23ca2a2ea182fe551ac0d4630ebbb98c3db0abad))
+ * **Uncategorized**
+    - Release trash v5.2.5 ([`3ca5818`](https://github.com/Byron/trash-rs/commit/3ca5818fac0f4eac0b9244f0bacf16c557683c2d))
 </details>
 
 ## 5.2.4 (2025-10-24)
