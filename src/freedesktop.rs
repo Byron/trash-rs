@@ -284,7 +284,7 @@ pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
     let info_file = &item.id;
 
     let file = restorable_file_in_trash_from_info_file(info_file);
-    assert!(virtually_exists(&file).map_err(|e| fs_error(&file, e))?);
+    ensure_virtually_exists(&file)?;
     let metadata = fs::symlink_metadata(&file).map_err(|e| fs_error(&file, e))?;
     let is_dir = metadata.is_dir();
     let size = if is_dir {
@@ -303,6 +303,20 @@ pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
 #[inline]
 fn virtually_exists(path: &Path) -> std::io::Result<bool> {
     Ok(path.try_exists()? || path.is_symlink())
+}
+
+const MISSING_TRASH_FILE: &str = "trash item referenced by .trashinfo is missing from trash/files";
+
+/// Ensures the path virtually exists, returning an error if it does not.
+/// This is used instead of `assert!` to gracefully handle cases where the trash file
+/// referenced by a `.trashinfo` file is missing from the `files` directory.
+#[inline]
+fn ensure_virtually_exists(path: &Path) -> Result<(), Error> {
+    if virtually_exists(path).map_err(|e| fs_error(path, e))? {
+        Ok(())
+    } else {
+        Err(fs_error(path, std::io::Error::new(std::io::ErrorKind::NotFound, MISSING_TRASH_FILE)))
+    }
 }
 
 pub fn purge_all<I>(items: I) -> Result<(), Error>
@@ -355,7 +369,7 @@ where
         // that either there's a bug in this code or the target system didn't follow
         // the specification.
         let file = restorable_file_in_trash_from_info_file(info_file);
-        assert!(virtually_exists(&file).map_err(|e| fs_error(&file, e))?);
+        ensure_virtually_exists(&file)?;
         // TODO add option to forcefully replace any target at the restore location
         // if it already exists.
         let original_path = item.original_path();
