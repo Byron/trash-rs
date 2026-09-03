@@ -23,7 +23,7 @@ fn test_delete_with_finder_quoted_paths() {
     path2.set_extension(r#"x80=%80 slash=\ pc=% quote=" comma=,"#);
     File::create_new(&path1).unwrap();
     File::create_new(&path2).unwrap();
-    trash_ctx.delete_all(&[&path1, &path2]).unwrap();
+    trash_ctx.delete_all([&path1, &path2]).unwrap();
     assert!(!path1.exists());
     assert!(!path2.exists());
 }
@@ -74,7 +74,7 @@ fn test_path_byte() {
     path_with_invalid_utf8.push(OsStr::from_bytes(invalid_utf8)); //      trash-test-111-0/\x80
     expected_path.push(percent_encoded); //                    trash-test-111-0/%80
 
-    let actual = percent_encode(&path_with_invalid_utf8.as_os_str().as_encoded_bytes()); // trash-test-111-0/%80
+    let actual = percent_encode(path_with_invalid_utf8.as_os_str().as_encoded_bytes()); // trash-test-111-0/%80
     assert_eq!(std::path::Path::new(actual.as_ref()), expected_path);
 }
 
