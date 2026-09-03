@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 5.2.7 (2026-09-03)
 
 A small bugfix release that helps with orphaned files in the Cosmic desktop.
 
@@ -13,7 +13,7 @@ A small bugfix release that helps with orphaned files in the Cosmic desktop.
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 123 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -25,6 +25,7 @@ A small bugfix release that helps with orphaned files in the Cosmic desktop.
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Prepare changelog prior to release ([`e52d748`](https://github.com/Byron/trash-rs/commit/e52d7483602a13a063fd0cfa8c66dc19db45e834))
     - Merge pull request #148 from ZackMercury/fix-147 ([`ff8a074`](https://github.com/Byron/trash-rs/commit/ff8a074b1ada7aef4c4f4350f47ec34a26fa5984))
     - Review ([`bbdb9d6`](https://github.com/Byron/trash-rs/commit/bbdb9d681e8a748f772bb6fe2ebc0d8b52aa9916))
     - Fixed handling orphaned entries ([`21376e1`](https://github.com/Byron/trash-rs/commit/21376e113f8313a3f8aa5a62b377399a31a7389a))
