@@ -11,7 +11,7 @@ fn main() {
     for name in the_others.iter() {
         File::create_new(name).unwrap();
     }
-    trash::delete_all(&the_others).unwrap();
+    trash::delete_all(the_others).unwrap();
     for name in the_others.iter() {
         assert!(File::open(name).is_err());
     }

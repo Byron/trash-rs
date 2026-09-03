@@ -337,7 +337,12 @@ where
             std::fs::remove_dir_all(&file).map_err(|e| fs_error(&file, e))?;
         // TODO Update directory size cache if there's one.
         } else {
-            std::fs::remove_file(&file).map_err(|e| fs_error(&file, e))?;
+            // Ignore the error if the file is already missing.
+            match std::fs::remove_file(&file) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(fs_error(&file, e)),
+            }
         }
         std::fs::remove_file(info_file).map_err(|e| fs_error(info_file, e))?;
     }
