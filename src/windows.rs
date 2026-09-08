@@ -6,8 +6,7 @@ use std::{
     path::PathBuf,
 };
 use windows::Win32::{
-    Foundation::*, Storage::EnhancedStorage::*, System::Com::*, System::SystemServices::*,
-    UI::Shell::PropertiesSystem::*, UI::Shell::*,
+    Foundation::*, Storage::EnhancedStorage::*, System::Com::*, System::SystemServices::*, UI::Shell::*,
 };
 use windows::{
     core::{Interface, PCWSTR, PWSTR},
@@ -82,8 +81,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
     unsafe {
         let mut item_vec = Vec::new();
 
-        let recycle_bin: IShellItem =
-            SHGetKnownFolderItem(&FOLDERID_RecycleBinFolder, KF_FLAG_DEFAULT, HANDLE::default())?;
+        let recycle_bin: IShellItem = SHGetKnownFolderItem(&FOLDERID_RecycleBinFolder, KF_FLAG_DEFAULT, None)?;
 
         let pesi: IEnumShellItems = recycle_bin.BindToHandler(None, &BHID_EnumItems)?;
 
@@ -103,7 +101,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     let item2: IShellItem2 = item.cast()?;
                     let original_location_variant = item2.GetProperty(&SCID_ORIGINAL_LOCATION)?;
                     let original_location_bstr = PropVariantToBSTR(&original_location_variant)?;
-                    let original_location = OsString::from_wide(original_location_bstr.as_wide());
+                    let original_location = OsString::from_wide(&original_location_bstr);
                     let date_deleted = get_date_deleted_unix(&item2)?;
 
                     // NTFS paths are valid Unicode according to this chart:
@@ -129,8 +127,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
 pub fn is_empty() -> Result<bool, Error> {
     ensure_com_initialized();
     unsafe {
-        let recycle_bin: IShellItem =
-            SHGetKnownFolderItem(&FOLDERID_RecycleBinFolder, KF_FLAG_DEFAULT, HANDLE::default())?;
+        let recycle_bin: IShellItem = SHGetKnownFolderItem(&FOLDERID_RecycleBinFolder, KF_FLAG_DEFAULT, None)?;
         let pesi: IEnumShellItems = recycle_bin.BindToHandler(None, &BHID_EnumItems)?;
 
         let mut count = 0u32;
