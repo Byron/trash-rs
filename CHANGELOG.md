@@ -5,17 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 5.2.8 (2026-09-08)
+## Unreleased
 
-### Chore
+This is a bug-fix release, where unfortunately I forgot to make the needed edits
+to the commit message for all of them to automatically show up here.
+Check the "Commit Details" section instead for everything that went into it.
 
- - <csr-id-287633358210c3c1c2349211cb2f4cd2cbee5ab2/> upgrade windows to 0.62
+### Bug Fixes
+
+ - <csr-id-50ede33d307dff61ee7db26d508e4cdf90164533/> fall back to the home trash when per-volume trash cannot be created
+   The spec (v1.0, section "Trash directories") says an implementation
+   "MUST either trash the file into the user's home trash or refuse to
+   trash it" when both $topdir/.Trash/$uid and $topdir/.Trash-$uid are
+   unavailable.  Until now the crate took the "refuse" branch, returning
+   a PermissionDenied error whenever the mount-point root was not
+   writable by the calling user - the common case on every partition
+   whose root is owned by root.
+   
+   Catch PermissionDenied from execute_on_mounted_trash_folders and
+   fall back to move_to_trash with the home trash, which already
+   handles cross-device copies via copy+delete.
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 7 commits contributed to the release.
  - 5 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +42,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Merge pull request #151 from jaroslavpachola/home-trash-fallback ([`f99e82e`](https://github.com/Byron/trash-rs/commit/f99e82e6e86c401a30f40a83f1f91841dbc119d0))
+    - Review ([`18cbe14`](https://github.com/Byron/trash-rs/commit/18cbe148dcbbd2f75b1f3227432018c0991dcf44))
+    - Fall back to the home trash when per-volume trash cannot be created ([`50ede33`](https://github.com/Byron/trash-rs/commit/50ede33d307dff61ee7db26d508e4cdf90164533))
+    - Merge pull request #150 from ggand0/fix-windows-unc-parsing-name ([`29ad086`](https://github.com/Byron/trash-rs/commit/29ad0861cb1542038b00490f496d7568ad910a1c))
+    - Review ([`e57c153`](https://github.com/Byron/trash-rs/commit/e57c153766ef4d62aca90c7c6261098904ffa2bd))
+    - Keep the root backslash when rebuilding shell parsing names ([`e99afbd`](https://github.com/Byron/trash-rs/commit/e99afbdbe57fe0500eec92c4f03fe3d14c187e57))
+    - Rebuild verbatim paths before handing them to the shell on Windows ([`ba1d72f`](https://github.com/Byron/trash-rs/commit/ba1d72fd76f91a34bb8d812e83e0d95d3f21dfc3))
+</details>
+
+## 5.2.8 (2026-09-08)
+
+### Chore
+
+ - <csr-id-287633358210c3c1c2349211cb2f4cd2cbee5ab2/> upgrade windows to 0.62
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 5 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Release trash v5.2.8 ([`836b6e5`](https://github.com/Byron/trash-rs/commit/836b6e50e6fc3cd0e6cbfd88f0b389b5e669432a))
     - Merge pull request #149 from shaddollxz/chore/update-windows-dep ([`6bd5e33`](https://github.com/Byron/trash-rs/commit/6bd5e33113757f8b45b619d5511fd557d0b326a0))
     - Upgrade windows to 0.62 ([`2876333`](https://github.com/Byron/trash-rs/commit/287633358210c3c1c2349211cb2f4cd2cbee5ab2))
 </details>
