@@ -49,10 +49,22 @@ impl TrashContext {
                 // and its required subfolders in case they don't exist.
                 move_to_trash(path, &home_trash, topdir).map_err(|(p, e)| fs_error(p, e))?;
             } else {
-                execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
+                // Try the per-volume trash first ($topdir/.Trash/$uid or
+                // $topdir/.Trash-$uid).  When that fails because the
+                // mount-point root is not writable, fall back to the home
+                // trash - the spec says an implementation "MUST either
+                // trash the file into the user's home trash or refuse to
+                // trash it" when per-volume trash is unavailable.
+                match execute_on_mounted_trash_folders(uid, topdir, true, true, |trash_path| {
                     move_to_trash(&path, trash_path, topdir)
-                })
-                .map_err(|(p, e)| fs_error(p, e))?;
+                }) {
+                    Ok(()) => {}
+                    Err((_, ref e)) if e.kind() == ErrorKind::PermissionDenied => {
+                        debug!("Per-volume trash on {:?} failed ({}), falling back to home trash.", topdir, e);
+                        move_to_trash(path, &home_trash, topdir).map_err(|(p, e)| fs_error(p, e))?;
+                    }
+                    Err((p, e)) => return Err(fs_error(p, e)),
+                }
             }
         }
         Ok(())
