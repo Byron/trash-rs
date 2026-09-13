@@ -37,6 +37,10 @@ fn to_wide_path(path: impl AsRef<OsStr>) -> Vec<u16> {
 fn to_shell_parsing_name(path: &Path) -> Vec<u16> {
     let mut components = path.components();
     let mut out = OsString::new();
+    // A separator goes between two name parts, never right after the prefix
+    // (`C:dir` stays drive-relative) or after the root (its backslash is
+    // written by the `RootDir` arm).
+    let mut needs_separator = false;
     match components.next() {
         Some(Component::Prefix(prefix)) => match prefix.kind() {
             Prefix::VerbatimDisk(letter) => out.push(format!("{}:", letter as char)),
@@ -48,17 +52,24 @@ fn to_shell_parsing_name(path: &Path) -> Vec<u16> {
             }
             _ => out.push(prefix.as_os_str()),
         },
-        Some(component) => out.push(component.as_os_str()),
+        Some(component) => {
+            out.push(component.as_os_str());
+            needs_separator = true;
+        }
         None => {}
     }
     for component in components {
         match component {
-            Component::RootDir => {}
+            Component::RootDir => {
+                out.push(r"\");
+                needs_separator = false;
+            }
             component => {
-                if !out.is_empty() {
+                if needs_separator {
                     out.push(r"\");
                 }
                 out.push(component.as_os_str());
+                needs_separator = true;
             }
         }
     }
@@ -375,5 +386,60 @@ mod tests {
         assert_eq!(convert(r"C:\dir\file.txt"), r"C:\dir\file.txt");
         assert_eq!(convert(r"\\host\share\dir\file.txt"), r"\\host\share\dir\file.txt");
         assert_eq!(convert(r"dir\file.txt"), r"dir\file.txt");
+    }
+
+    #[test]
+    fn empty_path_stays_empty() {
+        assert_eq!(convert(""), "");
+    }
+
+    #[test]
+    fn drive_root_keeps_its_backslash() {
+        // `C:` alone would mean the current directory on C:, not the root.
+        assert_eq!(convert(r"\\?\C:\"), r"C:\");
+        assert_eq!(convert(r"C:\"), r"C:\");
+    }
+
+    #[test]
+    fn share_root_with_and_without_trailing_backslash() {
+        assert_eq!(convert(r"\\?\UNC\host\share"), r"\\host\share");
+        assert_eq!(convert(r"\\?\UNC\host\share\"), r"\\host\share\");
+    }
+
+    #[test]
+    fn drive_relative_path_gets_no_separator_after_the_colon() {
+        assert_eq!(convert(r"C:dir\file.txt"), r"C:dir\file.txt");
+    }
+
+    #[test]
+    fn other_verbatim_and_device_prefixes_are_unchanged() {
+        assert_eq!(convert(r"\\?\pictures\file.txt"), r"\\?\pictures\file.txt");
+        assert_eq!(convert(r"\\.\pipe\name"), r"\\.\pipe\name");
+    }
+
+    #[test]
+    fn spaces_dots_and_non_ascii_names_survive() {
+        assert_eq!(
+            convert(r"\\?\UNC\nas-01\My Photos\2026.09 trip\日本語 ファイル.jpg"),
+            r"\\nas-01\My Photos\2026.09 trip\日本語 ファイル.jpg"
+        );
+        assert_eq!(convert(r"\\?\C:\a.b\c..d\file.tar.gz"), r"C:\a.b\c..d\file.tar.gz");
+    }
+
+    #[test]
+    fn trailing_and_doubled_separators_are_dropped() {
+        // `components()` normalizes these; the shell accepts either form.
+        assert_eq!(convert(r"\\?\C:\dir\"), r"C:\dir");
+        assert_eq!(convert(r"\\?\C:\dir\\file.txt"), r"C:\dir\file.txt");
+        assert_eq!(convert(r"\\?\UNC\host\share\dir\\file.txt"), r"\\host\share\dir\file.txt");
+    }
+
+    #[test]
+    fn long_paths_are_not_truncated() {
+        let deep = (0..40).map(|i| format!("folder{i:02}")).collect::<Vec<_>>().join(r"\");
+        let input = format!(r"\\?\UNC\host\share\{deep}\file.txt");
+        let expected = format!(r"\\host\share\{deep}\file.txt");
+        assert!(input.len() > 260);
+        assert_eq!(convert(&input), expected);
     }
 }
