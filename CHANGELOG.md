@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 5.2.9 (2026-09-13)
 
 This is a bug-fix release, where unfortunately I forgot to make the needed edits
 to the commit message for all of them to automatically show up here.
@@ -30,7 +30,7 @@ Check the "Commit Details" section instead for everything that went into it.
 
 <csr-read-only-do-not-edit/>
 
- - 7 commits contributed to the release.
+ - 8 commits contributed to the release.
  - 5 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -42,6 +42,7 @@ Check the "Commit Details" section instead for everything that went into it.
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Prepare changelog prior to release ([`deaf4de`](https://github.com/Byron/trash-rs/commit/deaf4dea2a4b033d58fb999cd586edf452a4ef80))
     - Merge pull request #151 from jaroslavpachola/home-trash-fallback ([`f99e82e`](https://github.com/Byron/trash-rs/commit/f99e82e6e86c401a30f40a83f1f91841dbc119d0))
     - Review ([`18cbe14`](https://github.com/Byron/trash-rs/commit/18cbe148dcbbd2f75b1f3227432018c0991dcf44))
     - Fall back to the home trash when per-volume trash cannot be created ([`50ede33`](https://github.com/Byron/trash-rs/commit/50ede33d307dff61ee7db26d508e4cdf90164533))
