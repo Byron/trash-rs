@@ -255,6 +255,77 @@ async fn trash_is_mount() {
     assert_eq!(home_trash_empty, 0, "home Trash mount should be empty");
 }
 
+/// A non-root user can delete from a writable directory on a separate mount,
+/// but cannot create the mount's per-UID trash. Both files and directories must
+/// fall back to the home trash, including the cross-device copy and removal.
+#[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
+#[serial]
+async fn trash_falls_back_to_home_when_mount_root_is_not_writable() {
+    let c = TestContainer::start().await;
+
+    c.exec_ok(
+        "mkdir -p /volume /home/u && \
+         mount -t tmpfs -o mode=0755 tmpfs /volume && \
+         mkdir -p /volume/source/target-dir/nested && \
+         printf 'fallback payload\\n' > /volume/source/target-file && \
+         cp /volume/source/target-file /volume/source/target-dir/nested/file && \
+         chown -R nobody:nogroup /volume/source /home/u",
+    )
+    .await;
+
+    // The container is privileged; only the delete process must be unprivileged
+    // so that creating /volume/.Trash-65534 really fails with PermissionDenied.
+    c.exec_ok(
+        "runuser -u nobody -- test ! -w /volume && \
+         runuser -u nobody -- test -w /volume/source && \
+         runuser -u nobody -- test -w /home/u",
+    )
+    .await;
+
+    for (name, payload_path) in [("target-file", "target-file"), ("target-dir", "target-dir/nested/file")] {
+        let source = format!("/volume/source/{name}");
+        let code = c
+            .exec_cmd(&format!("runuser -u nobody -- env HOME=/home/u XDG_DATA_HOME= {HELPER_PATH} delete {source}"))
+            .await;
+        assert_eq!(code, 0, "{name}: delete should fall back to the home trash");
+        assert!(!c.path_exists(&source).await, "{name}: source must be removed after trashing");
+
+        let contents_match = c
+            .exec_cmd(&format!("printf 'fallback payload\\n' | cmp - /home/u/.local/share/Trash/files/{payload_path}"))
+            .await;
+        assert_eq!(contents_match, 0, "{name}: home trash must preserve the file contents");
+
+        let info_matches =
+            c.exec_cmd(&format!("grep -Fxq 'Path={source}' /home/u/.local/share/Trash/info/{name}.trashinfo")).await;
+        assert_eq!(info_matches, 0, "{name}: trash metadata must record the absolute original path");
+    }
+
+    assert!(!c.path_exists("/volume/.Trash").await, "shared per-volume trash must not be created");
+    assert!(!c.path_exists("/volume/.Trash-65534").await, "per-UID trash must not be created on the unwritable root");
+}
+
+/// A regular file at the per-UID trash path causes AlreadyExists, not
+/// PermissionDenied. Such errors must be returned rather than using home trash.
+#[tokio::test]
+#[ignore = "requires a working Docker daemon and privileged containers"]
+#[serial]
+async fn trash_does_not_fall_back_to_home_on_other_mount_trash_errors() {
+    let c = TestContainer::start().await;
+
+    c.exec_ok(
+        "mkdir -p /volume /home/u && \
+         mount -t tmpfs tmpfs /volume && \
+         touch /volume/.Trash-0 /volume/target-file",
+    )
+    .await;
+
+    let code = c.delete(&["HOME=/home/u", "XDG_DATA_HOME="], "/volume/target-file").await;
+    assert_eq!(code, 1, "non-permission errors from the per-volume trash must be returned");
+    assert!(c.path_is_file("/volume/target-file").await, "source must remain when trashing fails");
+    assert!(!c.path_exists("/home/u/.local/share/Trash").await, "home trash must not be used for other errors");
+}
+
 /// Complex mount/symlink scenario:
 ///
 /// ```text
