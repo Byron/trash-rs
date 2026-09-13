@@ -3,7 +3,7 @@ use std::{
     borrow::Borrow,
     ffi::{c_void, OsStr, OsString},
     os::windows::{ffi::OsStrExt, prelude::*},
-    path::PathBuf,
+    path::{Component, Path, PathBuf, Prefix},
 };
 use windows::Win32::{
     Foundation::*, Storage::EnhancedStorage::*, System::Com::*, System::SystemServices::*, UI::Shell::*,
@@ -26,6 +26,45 @@ fn to_wide_path(path: impl AsRef<OsStr>) -> Vec<u16> {
     path.as_ref().encode_wide().chain(std::iter::once(0)).collect()
 }
 
+/// The path in the form `SHCreateItemFromParsingName` accepts.
+///
+/// The paths reaching this module went through `Path::canonicalize`, which
+/// on Windows returns the verbatim form: `\\?\C:\dir\file` for a local
+/// drive and `\\?\UNC\host\share\dir\file` for a network location (a
+/// mapped drive resolves to the latter). The shell rejects verbatim paths,
+/// so this turns them back into `C:\dir\file` and `\\host\share\dir\file`.
+/// Other paths are returned unchanged.
+fn to_shell_parsing_name(path: &Path) -> Vec<u16> {
+    let mut components = path.components();
+    let mut out = OsString::new();
+    match components.next() {
+        Some(Component::Prefix(prefix)) => match prefix.kind() {
+            Prefix::VerbatimDisk(letter) => out.push(format!("{}:", letter as char)),
+            Prefix::VerbatimUNC(host, share_name) => {
+                out.push(r"\\");
+                out.push(host);
+                out.push(r"\");
+                out.push(share_name);
+            }
+            _ => out.push(prefix.as_os_str()),
+        },
+        Some(component) => out.push(component.as_os_str()),
+        None => {}
+    }
+    for component in components {
+        match component {
+            Component::RootDir => {}
+            component => {
+                if !out.is_empty() {
+                    out.push(r"\");
+                }
+                out.push(component.as_os_str());
+            }
+        }
+    }
+    to_wide_path(out)
+}
+
 #[derive(Clone, Default, Debug)]
 pub struct PlatformTrashContext;
 impl PlatformTrashContext {
@@ -43,15 +82,9 @@ impl TrashContext {
             pfo.SetOperationFlags(FOF_NO_UI | FOF_ALLOWUNDO | FOF_WANTNUKEWARNING)?;
 
             for full_path in full_paths.iter() {
-                let path_prefix = ['\\' as u16, '\\' as u16, '?' as u16, '\\' as u16];
-                let wide_path_container = to_wide_path(full_path);
-                let wide_path_slice = if wide_path_container.starts_with(&path_prefix) {
-                    &wide_path_container[path_prefix.len()..]
-                } else {
-                    &wide_path_container[0..]
-                };
+                let parsing_name = to_shell_parsing_name(full_path);
 
-                let shi: IShellItem = SHCreateItemFromParsingName(PCWSTR(wide_path_slice.as_ptr()), None)?;
+                let shi: IShellItem = SHCreateItemFromParsingName(PCWSTR(parsing_name.as_ptr()), None)?;
 
                 pfo.DeleteItem(&shi, None)?;
             }
@@ -312,4 +345,35 @@ thread_local! {
 }
 fn ensure_com_initialized() {
     CO_INITIALIZER.with(|_| {});
+}
+
+#[cfg(test)]
+mod tests {
+    use super::to_shell_parsing_name;
+    use std::path::Path;
+
+    fn convert(path: &str) -> String {
+        let wide = to_shell_parsing_name(Path::new(path));
+        String::from_utf16(&wide[..wide.len() - 1]).unwrap()
+    }
+
+    #[test]
+    fn verbatim_disk_becomes_plain_disk() {
+        assert_eq!(convert(r"\\?\C:\dir\file.txt"), r"C:\dir\file.txt");
+    }
+
+    #[test]
+    fn verbatim_unc_becomes_plain_unc() {
+        // What `canonicalize` returns for a mapped drive or a UNC path.
+        // Before the fix this came out as `UNC\host\share\dir\file.txt`,
+        // which the shell reads as a relative path (issue #55).
+        assert_eq!(convert(r"\\?\UNC\host\share\dir\file.txt"), r"\\host\share\dir\file.txt");
+    }
+
+    #[test]
+    fn non_verbatim_paths_are_unchanged() {
+        assert_eq!(convert(r"C:\dir\file.txt"), r"C:\dir\file.txt");
+        assert_eq!(convert(r"\\host\share\dir\file.txt"), r"\\host\share\dir\file.txt");
+        assert_eq!(convert(r"dir\file.txt"), r"dir\file.txt");
+    }
 }
