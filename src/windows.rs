@@ -26,14 +26,18 @@ fn to_wide_path(path: impl AsRef<OsStr>) -> Vec<u16> {
     path.as_ref().encode_wide().chain(std::iter::once(0)).collect()
 }
 
-/// The path in the form `SHCreateItemFromParsingName` accepts.
+/// Converts a path to the form accepted by `SHCreateItemFromParsingName`.
 ///
-/// The paths reaching this module went through `Path::canonicalize`, which
-/// on Windows returns the verbatim form: `\\?\C:\dir\file` for a local
-/// drive and `\\?\UNC\host\share\dir\file` for a network location (a
-/// mapped drive resolves to the latter). The shell rejects verbatim paths,
-/// so this turns them back into `C:\dir\file` and `\\host\share\dir\file`.
-/// Other paths are returned unchanged.
+/// Paths reaching this module have been canonicalized with `Path::canonicalize`.
+/// On Windows, this produces verbatim paths, which the shell does not accept.
+/// This function converts them back to ordinary Windows paths:
+///
+/// - Local drive: `\\?\C:\dir\file` becomes `C:\dir\file`.
+/// - Network share: `\\?\UNC\host\share\dir\file` becomes `\\host\share\dir\file`.
+///
+/// Mapped drives resolve to network-share paths during canonicalization.
+/// Other path prefixes are left unchanged.
+/// The result is encoded as a null-terminated UTF-16 string.
 fn to_shell_parsing_name(path: &Path) -> Vec<u16> {
     let mut components = path.components();
     let mut out = OsString::new();
