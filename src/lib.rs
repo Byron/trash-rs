@@ -41,8 +41,6 @@ use std::path::{Path, PathBuf};
 use std::fmt;
 use std::{env::current_dir, error};
 
-#[cfg(feature = "portal")]
-use zbus;
 use log::trace;
 
 #[cfg(test)]

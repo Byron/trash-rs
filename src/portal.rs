@@ -85,7 +85,7 @@ impl TrashContext {
 				},
 				Err(err) => return Err(Error::Portal {
 					status_code: None,
-					source: Some(err.into())
+					source: Some(err)
 				})
 			}
 		}
