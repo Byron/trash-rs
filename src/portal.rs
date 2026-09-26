@@ -1,6 +1,6 @@
 use std::fs::OpenOptions;
-use std::path::PathBuf;
 use std::os::fd::AsFd;
+use std::path::PathBuf;
 
 use once_cell::sync::OnceCell;
 use zbus::proxy;
@@ -20,94 +20,75 @@ trait Trash {
 
 #[derive(Clone, Default, Debug)]
 pub struct PlatformTrashContext {
-	conn: OnceCell<zbus::blocking::Connection>,
-	proxy: OnceCell<TrashProxy<'static>>,
+    conn: OnceCell<zbus::blocking::Connection>,
+    proxy: OnceCell<TrashProxy<'static>>,
 }
 
 impl PlatformTrashContext {
     pub const fn new() -> Self {
-		Self {
-			conn: OnceCell::new(),
-			proxy: OnceCell::new(),
-		}
-	}
+        Self { conn: OnceCell::new(), proxy: OnceCell::new() }
+    }
 
-	fn connection(&self) -> Result<&zbus::blocking::Connection, Error> {
-		self.conn.get_or_try_init(|| {
-			zbus::blocking::Connection::session().map_err(|err| Error::Portal {
-				status_code: None,
-				source: Some(err),
-			})
-		})
-	}
+    fn connection(&self) -> Result<&zbus::blocking::Connection, Error> {
+        self.conn.get_or_try_init(|| {
+            zbus::blocking::Connection::session().map_err(|err| Error::Portal { status_code: None, source: Some(err) })
+        })
+    }
 
-	fn proxy(&self) -> Result<&TrashProxy<'_>, Error> {
-		let conn = self.connection()?;
+    fn proxy(&self) -> Result<&TrashProxy<'_>, Error> {
+        let conn = self.connection()?;
 
-		self.proxy.get_or_try_init(|| {
-			TrashProxy :: new(conn).map_err(|err| Error::Portal {
-				status_code: None,
-				source: Some(err),
-			})
-		})
-	}
+        self.proxy.get_or_try_init(|| {
+            TrashProxy::new(conn).map_err(|err| Error::Portal { status_code: None, source: Some(err) })
+        })
+    }
 }
 
 impl TrashContext {
-	pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
-		let proxy = self.platform_specific.proxy()?;
+    pub(crate) fn delete_all_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
+        let proxy = self.platform_specific.proxy()?;
 
-		for path in full_paths {
-			let mut file = OpenOptions::new();
+        for path in full_paths {
+            let mut file = OpenOptions::new();
 
-			file.read(true);
+            file.read(true);
 
-			if path.is_file() {
-				file.write(true);
-			}
+            if path.is_file() {
+                file.write(true);
+            }
 
-			let file = match file.open(path) {
-				Ok(file) => file,
-				Err(err) => {
-					return Err(Error::Unknown { description: err.to_string() })
-				}
-			};
+            let file = match file.open(path) {
+                Ok(file) => file,
+                Err(err) => return Err(Error::Unknown { description: err.to_string() }),
+            };
 
-			match proxy.trash_file(file.as_fd().into()) {
-				Ok(code) => {
-					match code {
-						1 => {},
-						num => return Err(Error::Portal {
-							status_code: Some(num),
-							source: None
-						})
-					}
-				},
-				Err(err) => return Err(Error::Portal {
-					status_code: None,
-					source: Some(err)
-				})
-			}
-		}
+            match proxy.trash_file(file.as_fd().into()) {
+                Ok(code) => match code {
+                    1 => {}
+                    num => return Err(Error::Portal { status_code: Some(num), source: None }),
+                },
+                Err(err) => return Err(Error::Portal { status_code: None, source: Some(err) }),
+            }
+        }
 
-		Ok(())
-	}
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
-	use serial_test::serial;
+    use serial_test::serial;
     use std::fs::{self, File};
     use std::os::unix::fs::PermissionsExt;
     use std::path::Path;
     use std::process::Command;
 
-    use crate::{delete, delete_all};
     use crate::tests::{get_unique_name, init_logging};
+    use crate::{delete, delete_all};
 
     fn is_program_in_path(program: &str) -> bool {
         let Some(paths) = std::env::var_os("PATH") else { return false };
-    	std::env::split_paths(&paths).any(|dir| dir.join(program).is_file())
+        std::env::split_paths(&paths).any(|dir| dir.join(program).is_file())
     }
 
     #[test]
