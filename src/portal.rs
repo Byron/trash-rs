@@ -58,7 +58,15 @@ impl TrashContext {
 		let proxy = self.platform_specific.proxy()?;
 
 		for path in full_paths {
-			let file = match OpenOptions::new().read(true).write(true).open(path) {
+			let mut file = OpenOptions::new();
+
+			file.read(true);
+
+			if path.is_file() {
+				file.write(true);
+			}
+
+			let file = match file.open(path) {
 				Ok(file) => file,
 				Err(err) => {
 					return Err(Error::Unknown { description: err.to_string() })
