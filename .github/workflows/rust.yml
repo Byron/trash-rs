@@ -67,8 +67,23 @@ jobs:
           CROSS_CONTAINER_USER_NAMESPACE: none
         run: ${{ env.CARGO }} test --verbose --test freedesktop_tests ${{ env.TARGET_FLAGS }} -- --ignored
 
+      - name: cargo test (portal)
+        if: ${{ matrix.build == 'linux' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dbus xdg-desktop-portal xdg-desktop-portal-gtk
+          dbus-run-session -- cargo test --verbose --no-default-features --features portal ${{ env.TARGET_FLAGS }}
+
       - name: cargo test (without chrono)
-        if: ${{ !startsWith(matrix.build, 'netbsd') }}
+        if: ${{ startsWith(matrix.build, 'linux') }}
+        run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded,freedesktop ${{ env.TARGET_FLAGS }}
+
+      - name: cargo test (without chrono)
+        if: ${{ startsWith(matrix.build, 'windows') }}
+        run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
+
+      - name: cargo test (without chrono)
+        if: ${{ startsWith(matrix.build, 'macos') }}
         run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
 
       - name: cargo build
@@ -77,7 +92,7 @@ jobs:
 
       - name: cargo build (without chrono)
         if: ${{ startsWith(matrix.build, 'netbsd') }}
-        run: ${{ env.CARGO }} build --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
+        run: ${{ env.CARGO }} build --verbose --no-default-features --features coinit_apartmentthreaded,freedesktop ${{ env.TARGET_FLAGS }}
 
       - name: cargo fmt
         uses: actions-rs/cargo@v1

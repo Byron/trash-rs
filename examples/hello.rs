@@ -1,4 +1,5 @@
-use std::fs::File;
+use std::fs::{create_dir, File};
+use std::path::PathBuf;
 
 fn main() {
     // Let's create and remove a single file
@@ -15,4 +16,9 @@ fn main() {
     for name in the_others.iter() {
         assert!(File::open(name).is_err());
     }
+
+    // Now let's delete a directory
+    create_dir("remove-me").unwrap();
+    trash::delete("remove-me").unwrap();
+    assert!(!PathBuf::from("remove-me").try_exists().unwrap());
 }
