@@ -19,15 +19,20 @@
 //! of the Rust community, please interact with us [in the tracking issue](https://github.com/Byron/trash-rs/issues/42)
 //! to help find a more permanent solution.
 //!
-//! ### Notes on the Linux implementation
+//! ### Notes on the two Linux implementations
 //!
-//! This library implements version 1.0 of the [Freedesktop.org
+//! #### freedesktop (default)
+//! This one implements version 1.0 of the [Freedesktop.org
 //! Trash](https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html) specification and
 //! aims to match the behaviour of Ubuntu 18.04 GNOME in cases of ambiguity. Most -if not all- Linux
 //! distributions that ship with a desktop environment follow this specification. For example
 //! GNOME, KDE, and XFCE all use this convention. This crate blindly assumes that the Linux
 //! distribution it runs on, follows this specification.
 //!
+//! #### portal
+//! This one implements the [XDG Desktop Portal Trash Portal TrashFile method](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Trash.html).
+//! The vast majority of standard systems have the XDG Desktop Portal running on them. This method of
+//! trashing files cannot silently fail if the underlying system does not support it, it just won't work.
 
 use std::ffi::OsString;
 use std::hash::{Hash, Hasher};
