@@ -11,6 +11,13 @@ edition = "2021"
 rust-version = "1.85.0"
 include = ["src/**/*", "LICENSE.txt", "README.md", "CHANGELOG.md", "build.rs"]
 
+[package.metadata.docs.rs]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+]
+
 [features]
 default = ["coinit_apartmentthreaded", "chrono"]
 coinit_apartmentthreaded = []
