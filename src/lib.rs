@@ -19,15 +19,20 @@
 //! of the Rust community, please interact with us [in the tracking issue](https://github.com/Byron/trash-rs/issues/42)
 //! to help find a more permanent solution.
 //!
-//! ### Notes on the Linux implementation
+//! ### Notes on the two Linux implementations
 //!
-//! This library implements version 1.0 of the [Freedesktop.org
+//! #### freedesktop (default)
+//! This one implements version 1.0 of the [Freedesktop.org
 //! Trash](https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html) specification and
 //! aims to match the behaviour of Ubuntu 18.04 GNOME in cases of ambiguity. Most -if not all- Linux
 //! distributions that ship with a desktop environment follow this specification. For example
 //! GNOME, KDE, and XFCE all use this convention. This crate blindly assumes that the Linux
 //! distribution it runs on, follows this specification.
 //!
+//! #### portal
+//! This one implements the [XDG Desktop Portal Trash Portal TrashFile method](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Trash.html).
+//! The vast majority of standard systems have the XDG Desktop Portal running on them. This method of
+//! trashing files cannot silently fail if the underlying system does not support it, it just won't work.
 
 use std::ffi::OsString;
 use std::hash::{Hash, Hasher};
@@ -45,8 +50,21 @@ pub mod tests;
 #[path = "windows.rs"]
 mod platform;
 
-#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+#[cfg(all(feature = "freedesktop", feature = "portal"))]
+compile_error!("features `freedesktop` and `portal` are mutually exclusive");
+
+#[cfg(all(
+    unix,
+    not(target_os = "macos"),
+    not(target_os = "ios"),
+    not(target_os = "android"),
+    feature = "freedesktop"
+))]
 #[path = "freedesktop.rs"]
+mod platform;
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), feature = "portal"))]
+#[path = "portal.rs"]
 mod platform;
 
 #[cfg(target_os = "macos")]
@@ -146,10 +164,31 @@ pub enum Error {
     /// **freedesktop only**
     ///
     /// Error coming from file system
-    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+    #[cfg(all(
+        unix,
+        not(target_os = "macos"),
+        not(target_os = "ios"),
+        not(target_os = "android"),
+        feature = "freedesktop"
+    ))]
     FileSystem {
         path: PathBuf,
         source: std::io::Error,
+    },
+
+    /// **portal only**
+    ///
+    /// Error coming from system XDG Desktop Portal
+    #[cfg(all(
+        unix,
+        not(target_os = "macos"),
+        not(target_os = "ios"),
+        not(target_os = "android"),
+        feature = "portal"
+    ))]
+    Portal {
+        status_code: Option<u32>,
+        source: Option<zbus::Error>,
     },
 
     /// One of the target items was a root folder.
@@ -215,8 +254,28 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+            #[cfg(all(
+                unix,
+                not(target_os = "macos"),
+                not(target_os = "ios"),
+                not(target_os = "android"),
+                feature = "freedesktop"
+            ))]
             Self::FileSystem { path: _, source: e } => e.source(),
+            #[cfg(all(
+                unix,
+                not(target_os = "macos"),
+                not(target_os = "ios"),
+                not(target_os = "android"),
+                feature = "portal"
+            ))]
+            Self::Portal { status_code: _, source: e } => {
+                if let Some(err) = e {
+                    err.source()
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
@@ -345,7 +404,7 @@ pub struct TrashItemMetadata {
 
 #[cfg(any(
     target_os = "windows",
-    all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))
+    all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), feature = "freedesktop")
 ))]
 pub mod os_limited {
     //! This module provides functionality which is only supported on Windows and
@@ -400,14 +459,20 @@ pub mod os_limited {
     /// # Example
     ///
     /// ```
-    /// # #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))] {
+    /// # #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), feature = "freedesktop"))] {
     /// use trash::os_limited::trash_folders;
     /// let trash_bins = trash_folders()?;
     /// println!("{trash_bins:#?}");
     /// # }
     /// # Ok::<(), trash::Error>(())
     /// ```
-    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+    #[cfg(all(
+        unix,
+        not(target_os = "macos"),
+        not(target_os = "ios"),
+        not(target_os = "android"),
+        feature = "freedesktop"
+    ))]
     pub fn trash_folders() -> Result<HashSet<std::path::PathBuf>, Error> {
         platform::trash_folders()
     }
