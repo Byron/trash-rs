@@ -19,12 +19,12 @@ targets = [
 ]
 
 [features]
-default = ["coinit_apartmentthreaded", "freedesktop"]
+default = ["coinit_apartmentthreaded", "chrono", "freedesktop"]
 coinit_apartmentthreaded = []
 coinit_multithreaded = []
 coinit_disable_ole1dde = []
 coinit_speed_over_memory = []
-freedesktop = ["chrono", "dep:libc", "dep:scopeguard", "dep:urlencoding"]
+freedesktop = ["dep:libc", "dep:scopeguard", "dep:urlencoding"]
 portal = ["dep:zbus"]
 
 [dependencies]
