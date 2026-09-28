@@ -1,8 +1,11 @@
-use std::fs::OpenOptions;
-use std::os::fd::AsFd;
-use std::path::PathBuf;
+use std::io;
+use std::os::unix::prelude::OwnedFd;
+use std::path::{Path, PathBuf};
 
 use once_cell::sync::OnceCell;
+use rustix::fd::AsRawFd;
+use rustix::fs::{fstat, open, openat2, FileType, Mode, OFlags, ResolveFlags, CWD};
+use rustix::io::Errno;
 use zbus::proxy;
 
 use crate::{Error, TrashContext};
@@ -49,20 +52,12 @@ impl TrashContext {
         let proxy = self.platform_specific.proxy()?;
 
         for path in full_paths {
-            let mut file = OpenOptions::new();
-
-            file.read(true);
-
-            if path.is_file() {
-                file.write(true);
-            }
-
-            let file = match file.open(path) {
-                Ok(file) => file,
+            let fd = match open_for_portal(&path) {
+                Ok(fd) => fd,
                 Err(err) => return Err(Error::Unknown { description: err.to_string() }),
             };
 
-            match proxy.trash_file(file.as_fd().into()) {
+            match proxy.trash_file((&fd).into()) {
                 Ok(code) => match code {
                     1 => {}
                     num => return Err(Error::Portal { status_code: Some(num), source: None }),
@@ -75,11 +70,52 @@ impl TrashContext {
     }
 }
 
+fn unsupported(msg: impl Into<String>) -> io::Error {
+    io::Error::new(io::ErrorKind::Unsupported, msg.into())
+}
+
+/// Regular file -> O_RDWR fd. Directory -> O_RDONLY fd.
+/// Symlinks (in any component), FIFOs, sockets, devices -> Unsupported.
+pub fn open_for_portal(path: &Path) -> io::Result<OwnedFd> {
+    if !path.is_absolute() || path.file_name().is_none() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "path must be absolute and end in a file or directory name",
+        ));
+    }
+
+    let pin = openat2(
+        CWD, // ignored for absolute paths
+        path,
+        OFlags::PATH | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+        Mode::empty(),
+        ResolveFlags::NO_SYMLINKS,
+    )
+    .map_err(|e| match e {
+        Errno::LOOP => unsupported("path contains a symlink"),
+        Errno::NOSYS | Errno::PERM => unsupported("openat2 is unavailable"),
+        other => other.into(),
+    })?;
+
+    let access = match FileType::from_raw_mode(fstat(&pin)?.st_mode) {
+        FileType::RegularFile => OFlags::RDWR,
+        FileType::Directory => OFlags::RDONLY | OFlags::DIRECTORY,
+        FileType::Symlink => return Err(unsupported("symlinks are not supported")),
+        other => return Err(unsupported(format!("unsupported file type: {other:?}"))),
+    };
+
+    // reopen the same fd with read or read and write
+    let proc_path = format!("/proc/self/fd/{}", pin.as_raw_fd());
+    let fd = open(proc_path.as_str(), access | OFlags::CLOEXEC, Mode::empty())?;
+
+    Ok(fd)
+}
+
 #[cfg(test)]
 mod tests {
     use serial_test::serial;
     use std::fs::{self, File};
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{symlink, PermissionsExt};
     use std::path::Path;
     use std::process::Command;
 
@@ -154,6 +190,27 @@ mod tests {
         assert!(Path::new(&name).exists(), "the file should be left in place when trashing fails");
 
         fs::remove_file(&name).unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn trash_fails_when_symlink() {
+        init_logging();
+
+        let (name, name2) = (get_unique_name(), get_unique_name());
+        File::create_new(&name).unwrap();
+        symlink(&name, &name2).unwrap();
+
+        let result = delete(&name2);
+
+        assert!(result.is_err(), "trashing a symlink should not succeed");
+        assert!(
+            result.unwrap_err().to_string().contains("symlinks are not supported"),
+            "trashing a symlink should return an unsupported error"
+        );
+
+        fs::remove_file(&name).unwrap();
+        fs::remove_file(&name2).unwrap();
     }
 
     #[test]
