@@ -21,6 +21,9 @@
 //!
 //! ### Notes on the two Linux implementations
 //!
+//! When both features are enabled, `freedesktop` takes precedence. To use `portal`, disable
+//! default features and enable the `portal` feature without `freedesktop`.
+//!
 //! #### freedesktop (default)
 //! This one implements version 1.0 of the [Freedesktop.org
 //! Trash](https://specifications.freedesktop.org/trash-spec/trashspec-1.0.html) specification and
@@ -31,7 +34,7 @@
 //!
 //! #### portal
 //! This one implements the [XDG Desktop Portal Trash Portal TrashFile method](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Trash.html).
-//! The vast majority of standard systems have the XDG Desktop Portal running on them. This method of
+//! The vast majority of standard systems have the XDG Desktop Portal running on them, like Flatpaks. This method of
 //! trashing files cannot silently fail if the underlying system does not support it, it just won't work.
 //! This backend is unsupported on non-Linux and non-FreeBSD platforms due to `O_PATH` not being available,
 //! resulting in directories not being able to be trashed at all. FreeBSD only added `O_PATH` around 13.0
@@ -55,10 +58,11 @@ pub mod tests;
 #[path = "windows.rs"]
 mod platform;
 
-#[cfg(all(feature = "freedesktop", feature = "portal"))]
-compile_error!("features `freedesktop` and `portal` are mutually exclusive");
-
-#[cfg(all(any(target_os = "netbsd", target_os = "openbsd", target_os = "dragonfly"), feature = "portal"))]
+#[cfg(all(
+    any(target_os = "netbsd", target_os = "openbsd", target_os = "dragonfly"),
+    feature = "portal",
+    not(feature = "freedesktop")
+))]
 compile_error!(
     "the `portal` feature is unavailable on non-Linux and non-FreeBSD platforms due to `O_PATH` not being available"
 );
@@ -73,7 +77,14 @@ compile_error!(
 #[path = "freedesktop.rs"]
 mod platform;
 
-#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"), feature = "portal"))]
+#[cfg(all(
+    unix,
+    not(target_os = "macos"),
+    not(target_os = "ios"),
+    not(target_os = "android"),
+    feature = "portal",
+    not(feature = "freedesktop")
+))]
 #[path = "portal.rs"]
 mod platform;
 
@@ -198,7 +209,8 @@ pub enum Error {
         not(target_os = "macos"),
         not(target_os = "ios"),
         not(target_os = "android"),
-        feature = "portal"
+        feature = "portal",
+        not(feature = "freedesktop")
     ))]
     Portal {
         status_code: Option<u32>,
@@ -281,7 +293,8 @@ impl error::Error for Error {
                 not(target_os = "macos"),
                 not(target_os = "ios"),
                 not(target_os = "android"),
-                feature = "portal"
+                feature = "portal",
+                not(feature = "freedesktop")
             ))]
             Self::Portal { status_code: _, source: e } => e.as_ref().map(|err| err as &(dyn error::Error + 'static)),
             _ => None,
