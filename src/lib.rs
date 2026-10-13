@@ -58,7 +58,7 @@ mod platform;
 #[cfg(all(feature = "freedesktop", feature = "portal"))]
 compile_error!("features `freedesktop` and `portal` are mutually exclusive");
 
-#[cfg(all(target_os = "netbsd", target_os = "openbsd", target_os = "dragonfly", feature = "portal"))]
+#[cfg(all(any(target_os = "netbsd", target_os = "openbsd", target_os = "dragonfly"), feature = "portal"))]
 compile_error!(
     "the `portal` feature is unavailable on non-Linux and non-FreeBSD platforms due to `O_PATH` not being available"
 );
