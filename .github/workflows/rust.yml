@@ -2,15 +2,9 @@ name: Rust
 
 on:
   push:
-    branches: [ master, dev-v2 ]
+    branches: [master, dev-v2]
   pull_request:
-    branches: [ master, dev-v2 ]
-
-env:
-  APP_ID: org.example.trash
-  RUNTIME_VER: "25.08"
-  FLATHUB_REPO_LINK: https://dl.flathub.org/repo/flathub.flatpakrepo
-  FLATPAK_CARGO_GENERATOR_LINK: https://github.com/flatpak/flatpak-builder-tools/raw/74697c75b630d7330e77250fc13cb5ea688d9479/cargo/flatpak-cargo-generator.py
+    branches: [master, dev-v2]
 
 jobs:
   build:
@@ -112,21 +106,28 @@ jobs:
           command: clippy
           args: -- -D warnings
 
-  flatpak_build:
+  flatpak_test:
     runs-on: ubuntu-22.04
+    env:
+      APP_ID: org.example.trash
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Flatpak and dependencies
+        env:
+          FLATPAK_CARGO_GENERATOR_LINK: https://github.com/flatpak/flatpak-builder-tools/raw/74697c75b630d7330e77250fc13cb5ea688d9479/cargo/flatpak-cargo-generator.py
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder python3-pip
+          sudo apt-get install -y flatpak flatpak-builder python3-pip xdg-desktop-portal dbus
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           pip install --user aiohttp tomlkit
           curl -fsSL -o .flatpak-cargo-generator.py "$FLATPAK_CARGO_GENERATOR_LINK"
           mv tests/$APP_ID.yml $APP_ID.yml
 
       - name: Install runtime and SDK
+        env:
+          RUNTIME_VER: "25.08"
+          FLATHUB_REPO_LINK: https://dl.flathub.org/repo/flathub.flatpakrepo
         run: |
           flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_LINK"
           flatpak install --user -y flathub \
@@ -147,29 +148,8 @@ jobs:
           mkdir -p dist
           flatpak build-bundle repo dist/trash.flatpak "$APP_ID"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: trash-flatpak
-          path: dist/trash.flatpak
-          if-no-files-found: error
-
-  flatpak_test:
-    needs: flatpak_build
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: trash-flatpak
-          path: dist
-
-      - name: Install Flatpak and dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak xdg-desktop-portal dbus
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_LINK"
-          flatpak install --user -y flathub org.freedesktop.Platform//$RUNTIME_VER
-          flatpak install --user -y dist/trash.flatpak
+      - name: Install .flatpak
+        run: flatpak install --user -y dist/trash.flatpak
 
       - name: Test .flatpak with Portal
         run: |

@@ -1,6 +1,6 @@
 app-id: org.example.trash
 runtime: org.freedesktop.Platform
-runtime-version: '25.08'
+runtime-version: "25.08"
 sdk: org.freedesktop.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
@@ -23,11 +23,11 @@ modules:
     buildsystem: simple
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
-      - cargo --offline build --release --example trash --verbose
+      - cargo --offline build --release --example trash --no-default-features --features portal --verbose
       - install -Dm755 target/release/examples/trash -t /app/bin/
-#      - install -Dm644 data/org.example.trash.desktop -t /app/share/applications/
-#      - install -Dm644 data/org.example.trash.metainfo.xml -t /app/share/metainfo/
-#      - install -Dm644 data/icons/org.example.trash.svg -t /app/share/icons/hicolor/scalable/apps/
+    #      - install -Dm644 data/org.example.trash.desktop -t /app/share/applications/
+    #      - install -Dm644 data/org.example.trash.metainfo.xml -t /app/share/metainfo/
+    #      - install -Dm644 data/icons/org.example.trash.svg -t /app/share/icons/hicolor/scalable/apps/
     sources:
       - type: dir
         path: .
