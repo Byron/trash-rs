@@ -1,0 +1,35 @@
+app-id: org.example.trash
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: trash
+
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --filesystem=~/trash-test
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/trash/cargo
+
+modules:
+  - name: trash
+    buildsystem: simple
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cargo --offline build --release --example trash --no-default-features --features portal --verbose
+      - install -Dm755 target/release/examples/trash -t /app/bin/
+    #      - install -Dm644 data/org.example.trash.desktop -t /app/share/applications/
+    #      - install -Dm644 data/org.example.trash.metainfo.xml -t /app/share/metainfo/
+    #      - install -Dm644 data/icons/org.example.trash.svg -t /app/share/icons/hicolor/scalable/apps/
+    sources:
+      - type: dir
+        path: .
+        skip: [.flatpak-builder, build-dir, repo, target, dist]
+      - cargo-sources.json

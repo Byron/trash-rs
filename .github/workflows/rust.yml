@@ -2,9 +2,9 @@ name: Rust
 
 on:
   push:
-    branches: [ master, dev-v2 ]
+    branches: [master, dev-v2]
   pull_request:
-    branches: [ master, dev-v2 ]
+    branches: [master, dev-v2]
 
 jobs:
   build:
@@ -67,8 +67,23 @@ jobs:
           CROSS_CONTAINER_USER_NAMESPACE: none
         run: ${{ env.CARGO }} test --verbose --test freedesktop_tests ${{ env.TARGET_FLAGS }} -- --ignored
 
+      - name: cargo test (portal)
+        if: ${{ matrix.build == 'linux' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dbus xdg-desktop-portal
+          dbus-run-session -- cargo test --verbose --no-default-features --features portal ${{ env.TARGET_FLAGS }}
+
       - name: cargo test (without chrono)
-        if: ${{ !startsWith(matrix.build, 'netbsd') }}
+        if: ${{ startsWith(matrix.build, 'linux') }}
+        run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded,freedesktop ${{ env.TARGET_FLAGS }}
+
+      - name: cargo test (without chrono)
+        if: ${{ startsWith(matrix.build, 'windows') }}
+        run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
+
+      - name: cargo test (without chrono)
+        if: ${{ startsWith(matrix.build, 'macos') }}
         run: ${{ env.CARGO }} test --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
 
       - name: cargo build
@@ -77,7 +92,7 @@ jobs:
 
       - name: cargo build (without chrono)
         if: ${{ startsWith(matrix.build, 'netbsd') }}
-        run: ${{ env.CARGO }} build --verbose --no-default-features --features coinit_apartmentthreaded ${{ env.TARGET_FLAGS }}
+        run: ${{ env.CARGO }} build --verbose --no-default-features --features coinit_apartmentthreaded,freedesktop ${{ env.TARGET_FLAGS }}
 
       - name: cargo fmt
         uses: actions-rs/cargo@v1
@@ -90,3 +105,61 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
+
+  flatpak_test:
+    runs-on: ubuntu-22.04
+    env:
+      APP_ID: org.example.trash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Flatpak and dependencies
+        env:
+          FLATPAK_CARGO_GENERATOR_LINK: https://github.com/flatpak/flatpak-builder-tools/raw/74697c75b630d7330e77250fc13cb5ea688d9479/cargo/flatpak-cargo-generator.py
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder python3-pip xdg-desktop-portal dbus
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          pip install --user aiohttp tomlkit
+          curl -fsSL -o .flatpak-cargo-generator.py "$FLATPAK_CARGO_GENERATOR_LINK"
+          mv tests/$APP_ID.yml $APP_ID.yml
+
+      - name: Install runtime and SDK
+        env:
+          RUNTIME_VER: "25.08"
+          FLATHUB_REPO_LINK: https://dl.flathub.org/repo/flathub.flatpakrepo
+        run: |
+          flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_LINK"
+          flatpak install --user -y flathub \
+            org.freedesktop.Platform//$RUNTIME_VER \
+            org.freedesktop.Sdk//$RUNTIME_VER \
+            org.freedesktop.Sdk.Extension.rust-stable//$RUNTIME_VER
+
+      - name: Generate cargo-sources.json
+        run: |
+          [ -f Cargo.lock ] || cargo generate-lockfile
+          python3 .flatpak-cargo-generator.py Cargo.lock -o cargo-sources.json
+
+      - name: Build .flatpak
+        run: |
+          flatpak-builder --user --force-clean --disable-rofiles-fuse \
+            --install-deps-from=flathub \
+            --repo=repo build-dir "$APP_ID.yml"
+          mkdir -p dist
+          flatpak build-bundle repo dist/trash.flatpak "$APP_ID"
+
+      - name: Install .flatpak
+        run: flatpak install --user -y dist/trash.flatpak
+
+      - name: Test .flatpak with Portal
+        run: |
+          mkdir -p ~/trash-test
+          touch ~/trash-test/remove-me
+          mkdir ~/trash-test/remove-me-too
+
+          dbus-run-session -- bash -euxc '
+            for f in remove-me remove-me-too; do
+              timeout 60 flatpak run "$APP_ID" delete "$HOME/trash-test/$f"
+              test ! -e "$HOME/trash-test/$f"
+            done
+          '
