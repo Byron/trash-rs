@@ -78,11 +78,16 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         warn!("No trash folder was found. The error when looking for the 'home trash' was: {:?}", home_error);
         return Ok(vec![]);
     }
+    let home = home_trash().ok();
     // List all items from the set of trash folders
     let mut result = Vec::new();
     for folder in &trash_folders {
         // Read the info files for every file
-        let top_dir = get_first_topdir_containing_path(folder, &sorted_mount_points);
+        let top_dir = if home.as_ref() == Some(folder) {
+            folder.parent().expect("home trash has a data directory")
+        } else {
+            get_first_topdir_containing_path(folder, &sorted_mount_points)
+        };
         let info_folder = folder.join("info");
         if !info_folder.is_dir() {
             warn!("The path {:?} did not point to a directory, skipping this trash folder.", info_folder);
@@ -160,17 +165,17 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     path_seen = true;
                     // Ignore whitespace after '=' before decoding filename bytes.
                     let value = value.trim_start();
-                    let value_path = {
-                        let path = Path::new(value);
-                        if path.is_relative() {
-                            decode_uri_path(top_dir.join(path))
-                        } else {
-                            decode_uri_path(path)
-                        }
-                    };
-                    name = value_path.file_name().map(|name| name.to_owned());
-                    let parent = value_path.parent().expect("Absolute path to trashed item should have a parent");
-                    original_parent = Some(parent.into());
+                    let path = decode_uri_path(Path::new(value));
+                    if path.as_os_str().is_empty()
+                        || path.as_os_str().as_bytes().contains(&0)
+                        || (path.is_relative() && path.components().any(|c| c == Component::ParentDir))
+                    {
+                        warn!("Invalid original path in {:?}", info_path);
+                        continue 'trash_item;
+                    }
+                    let path = if path.is_relative() { top_dir.join(path) } else { path };
+                    name = path.file_name().map(OsStr::to_owned);
+                    original_parent = path.parent().map(Path::to_owned);
                 } else if key == "DeletionDate" && !date_seen {
                     date_seen = true;
                     #[cfg(feature = "chrono")]
@@ -998,6 +1003,7 @@ mod tests {
         let equals = original.join("a=b.txt");
         let first = original.join("first.txt");
         let second = original.join("second.txt");
+        let non_unicode = original.join(OsString::from_vec(b"non-unicode-\xff.txt".to_vec()));
         let date = "DeletionDate=2026-01-02T03:04:05\n";
         let expected_time = if cfg!(feature = "chrono") {
             use chrono::TimeZone;
@@ -1048,6 +1054,21 @@ mod tests {
                 format!("[Trash Info]\nPath={}\n{date}", encode_uri_path(original.join(" leading and trailing "))),
                 Some(original.join(" leading and trailing ")),
             ),
+            ("invalid-first-path", format!("[Trash Info]\nPath=/\nPath={}\n{date}", encode_uri_path(&first)), None),
+            (
+                "relative",
+                format!("[Trash Info]\nPath=original/relative.txt\n{date}"),
+                Some(original.join("relative.txt")),
+            ),
+            (
+                "non-unicode",
+                format!("[Trash Info]\nPath=original/non-unicode-%FF.txt\n{date}"),
+                Some(non_unicode.clone()),
+            ),
+            ("parent-traversal", format!("[Trash Info]\nPath=../outside\n{date}"), None),
+            ("empty-path", format!("[Trash Info]\nPath=\n{date}"), None),
+            ("root-path", format!("[Trash Info]\nPath=/\n{date}"), None),
+            ("nul-path", format!("[Trash Info]\nPath=original/%00.txt\n{date}"), None),
             ("invalid-header", format!("[Other]\nPath=original/other.txt\n{date}"), None),
         ];
         for (id, record, _) in &cases {
@@ -1072,6 +1093,12 @@ mod tests {
                 None => assert!(!items.contains_key(receipt.as_os_str()), "invalid record {id} must be skipped"),
             }
         }
+
+        let receipt = info.join("non-unicode.trashinfo");
+        restore_all([items[receipt.as_os_str()].clone()]).unwrap();
+        assert_eq!(std::fs::read(&non_unicode).unwrap(), b"payload");
+        assert!(!receipt.exists());
+        assert!(!files.join("non-unicode").exists());
     }
 
     #[test]
