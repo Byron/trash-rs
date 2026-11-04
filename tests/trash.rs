@@ -177,3 +177,48 @@ fn recursive_file_with_content_deletion() {
     trash::delete(parent_dir).unwrap();
     assert!(!parent_dir.exists());
 }
+
+/// A file the shell refuses to recycle comes back as `Error::Os` carrying the
+/// reason the shell gave for that item, and naming it — not as a bare "Some
+/// operations were aborted" (issue #96). No elevation needed: everyone,
+/// owner included, is denied deleting the file and anything in its folder,
+/// and the owner may still change the access list back.
+#[cfg(windows)]
+#[test]
+#[serial]
+fn delete_reports_why_an_item_was_refused() {
+    init_logging();
+    let dir = PathBuf::from(get_unique_name());
+    create_dir(&dir).unwrap();
+    let file = dir.join("locked.txt");
+    File::create_new(&file).unwrap();
+
+    let icacls = |path: &Path, args: &[&str]| {
+        let output = std::process::Command::new("icacls").arg(path).args(args).output().unwrap();
+        assert!(output.status.success(), "icacls {path:?} {args:?}: {output:?}");
+    };
+    const EVERYONE: &str = "*S-1-1-0";
+    icacls(&file, &["/deny", &format!("{EVERYONE}:(DE)")]);
+    icacls(&dir, &["/deny", &format!("{EVERYONE}:(DC)")]);
+
+    let result = delete(&file);
+
+    icacls(&file, &["/remove:d", EVERYONE]);
+    icacls(&dir, &["/remove:d", EVERYONE]);
+    std::fs::remove_dir_all(&dir).unwrap();
+
+    const E_ACCESSDENIED: u32 = 0x8007_0005;
+    const COPYENGINE_E_ACCESS_DENIED_SRC: u32 = 0x8027_0021;
+    match result {
+        Err(trash::Error::Os { code, description }) => {
+            assert!(
+                [COPYENGINE_E_ACCESS_DENIED_SRC, E_ACCESSDENIED].contains(&(code as u32)),
+                "unexpected code {:#010x}: {description}",
+                code as u32
+            );
+            assert!(description.contains("locked.txt"), "the item is not named: {description}");
+            assert!(description.contains("access denied"), "the reason is missing: {description}");
+        }
+        other => panic!("expected Error::Os, got {other:?}"),
+    }
+}
