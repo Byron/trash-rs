@@ -145,8 +145,8 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             match &arr[0] {
                 Some(item) => {
                     let id = get_display_name(item, SIGDN_DESKTOPABSOLUTEPARSING)?;
-                    let name = get_display_name(item, SIGDN_PARENTRELATIVE)?;
                     let item2: IShellItem2 = item.cast()?;
+                    let name = get_file_name(&item2)?;
                     let original_location_variant = item2.GetProperty(&SCID_ORIGINAL_LOCATION)?;
                     let original_location_bstr = PropVariantToBSTR(&original_location_variant)?;
                     let original_location = OsString::from_wide(&original_location_bstr);
@@ -283,6 +283,21 @@ where
         }
         Ok(())
     }
+}
+
+/// The file name of a Recycle Bin item as it was before deletion, extension
+/// included.
+///
+/// Not a display name: inside the Recycle Bin folder every `SIGDN_*` name
+/// (and `PKEY_ItemNameDisplay`) follows Explorer's "Hide extensions for known
+/// file types" setting, which is on by default, so `report.txt` would be
+/// listed — and restored — as `report`, and `a.txt` and `a.png` as twins.
+/// `PKEY_FileName` is the name itself.
+unsafe fn get_file_name(psi: &IShellItem2) -> Result<OsString, Error> {
+    let name = psi.GetString(&PKEY_FileName)?;
+    let result = wstr_to_os_string(name);
+    CoTaskMemFree(Some(name.0 as *const c_void));
+    Ok(result)
 }
 
 unsafe fn get_display_name(psi: &IShellItem, sigdnname: SIGDN) -> Result<OsString, Error> {
