@@ -93,6 +93,12 @@ pub mod macos;
 #[cfg(target_os = "macos")]
 use macos as platform;
 
+/// Windows-specific options: letting the shell ask for elevation.
+#[cfg(target_os = "windows")]
+pub mod windows {
+    pub use crate::platform::{ElevationPrompt, TrashContextExtWindows};
+}
+
 pub const DEFAULT_TRASH_CTX: TrashContext = TrashContext::new();
 
 /// A collection of preferences for trash operations.
@@ -606,6 +612,12 @@ pub mod os_limited {
     where
         I: IntoIterator<Item = TrashItem>,
     {
+        platform::restore_all(without_twins(items.into_iter().collect())?)
+    }
+
+    /// `items` unchanged, or [`Error::RestoreTwins`] when two of them have the
+    /// same `original_path`.
+    pub(crate) fn without_twins(items: Vec<TrashItem>) -> Result<Vec<TrashItem>, Error> {
         // Check for twins here cause that's pretty platform independent.
         struct ItemWrapper<'a>(&'a TrashItem);
         impl PartialEq for ItemWrapper<'_> {
@@ -619,13 +631,18 @@ pub mod os_limited {
                 self.0.original_path().hash(state);
             }
         }
-        let items = items.into_iter().collect::<Vec<_>>();
         let mut item_set = HashSet::with_capacity(items.len());
+        let mut twin = None;
         for item in items.iter() {
             if !item_set.insert(ItemWrapper(item)) {
-                return Err(Error::RestoreTwins { path: item.original_path(), items });
+                twin = Some(item.original_path());
+                break;
             }
         }
-        platform::restore_all(items)
+        drop(item_set);
+        match twin {
+            Some(path) => Err(Error::RestoreTwins { path, items }),
+            None => Ok(items),
+        }
     }
 }
