@@ -78,11 +78,16 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
         warn!("No trash folder was found. The error when looking for the 'home trash' was: {:?}", home_error);
         return Ok(vec![]);
     }
+    let home = home_trash().ok();
     // List all items from the set of trash folders
     let mut result = Vec::new();
     for folder in &trash_folders {
         // Read the info files for every file
-        let top_dir = get_first_topdir_containing_path(folder, &sorted_mount_points);
+        let top_dir = if home.as_ref() == Some(folder) {
+            folder.parent().expect("home trash has a data directory")
+        } else {
+            get_first_topdir_containing_path(folder, &sorted_mount_points)
+        };
         let info_folder = folder.join("info");
         if !info_folder.is_dir() {
             warn!("The path {:?} did not point to a directory, skipping this trash folder.", info_folder);
@@ -98,7 +103,6 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 continue;
             }
         };
-        #[cfg_attr(not(feature = "chrono"), allow(unused_labels))]
         'trash_item: for entry in read_dir {
             let info_entry = match entry {
                 Ok(entry) => entry,
@@ -135,38 +139,49 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             let mut original_parent: Option<PathBuf> = None;
             #[cfg_attr(not(feature = "chrono"), allow(unused_mut))]
             let mut time_deleted = None;
+            let mut path_seen = false;
+            let mut date_seen = false;
 
             let info_reader = BufReader::new(info_file);
-            // Skip 1 because the first line must be "[Trash Info]"
-            'info_lines: for line_result in info_reader.lines().skip(1) {
-                // Another thread or process may have removed the infofile by now
-                let line = if let Ok(line) = line_result {
-                    line
-                } else {
-                    break 'info_lines;
+            // The first line must be "[Trash Info]".
+            let mut lines = info_reader.lines();
+            if !matches!(lines.next(), Some(Ok(header)) if header.trim() == "[Trash Info]") {
+                warn!("Invalid trash info header: {:?}", info_path);
+                continue;
+            }
+            for line_result in lines {
+                let line = match line_result {
+                    Ok(line) => line,
+                    Err(error) => {
+                        warn!("Cannot read trash info {:?}: {}", info_path, error);
+                        continue 'trash_item;
+                    }
                 };
-                let mut split = line.split('=');
-
-                // Just unwraping here because the system is assumed to follow the specification.
-                let key = split.next().unwrap().trim();
-                let value = split.next().unwrap().trim();
-
-                if key == "Path" {
-                    let value_path = {
-                        let path = Path::new(value);
-                        if path.is_relative() {
-                            decode_uri_path(top_dir.join(path))
-                        } else {
-                            decode_uri_path(path)
-                        }
-                    };
-                    name = value_path.file_name().map(|name| name.to_owned());
-                    let parent = value_path.parent().expect("Absolute path to trashed item should have a parent");
-                    original_parent = Some(parent.into());
-                } else if key == "DeletionDate" {
+                // Trash specification §6: extra lines are ignored and the first
+                // occurrence of each key wins. Split once: '=' is valid in paths.
+                let Some((key, value)) = line.split_once('=') else { continue };
+                let key = key.trim();
+                if key == "Path" && !path_seen {
+                    path_seen = true;
+                    // Ignore surrounding whitespace before decoding filename bytes.
+                    let value = value.trim();
+                    let path = decode_uri_path(Path::new(value));
+                    if path.file_name().is_none()
+                        || path.as_os_str().as_bytes().contains(&0)
+                        || (path.is_relative() && path.components().any(|c| c == Component::ParentDir))
+                    {
+                        warn!("Invalid original path in {:?}", info_path);
+                        continue 'trash_item;
+                    }
+                    let path = if path.is_relative() { top_dir.join(path) } else { path };
+                    name = path.file_name().map(OsStr::to_owned);
+                    original_parent = path.parent().map(Path::to_owned);
+                } else if key == "DeletionDate" && !date_seen {
+                    date_seen = true;
                     #[cfg(feature = "chrono")]
                     {
                         use chrono::{NaiveDateTime, TimeZone};
+                        let value = value.trim();
                         let parsed_time = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S");
                         let naive_local = match parsed_time {
                             Ok(t) => t,
@@ -649,10 +664,9 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), FsEr
 }
 
 fn decode_uri_path(path: impl AsRef<Path>) -> PathBuf {
-    // Paths may be invalid Unicode on most Unixes so they should be treated as byte strings
-    // A higher level crate, such as `url`, can't be used directly since its API intakes valid Rust
-    // strings. Thus, the easiest way is to manually decode each segment of the path and recombine.
-    path.as_ref().iter().map(|part| OsString::from_vec(urlencoding::decode_binary(part.as_bytes()).to_vec())).collect()
+    // Decode all bytes together: pushing a component beginning with an encoded
+    // slash onto a PathBuf would discard the preceding path. Keep non-UTF-8 bytes.
+    OsString::from_vec(urlencoding::decode_binary(path.as_ref().as_os_str().as_bytes()).into_owned()).into()
 }
 
 fn encode_uri_path(path: impl AsRef<Path>) -> String {
@@ -939,6 +953,7 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
 
 #[cfg(test)]
 mod tests {
+    use defer::defer;
     use serial_test::serial;
     use std::{
         collections::{hash_map::Entry, HashMap},
@@ -963,6 +978,146 @@ mod tests {
     };
 
     use super::{canonicalize_path_or_parents, decode_uri_path};
+
+    #[test]
+    #[serial]
+    fn list_trashinfo_records_preserves_paths_and_ignores_invalid_records() {
+        let root = tempfile::tempdir().unwrap();
+        let data_home = root.path().join("data%20literal");
+        let info = data_home.join("Trash/info");
+        let files = data_home.join("Trash/files");
+        let original = data_home.join("original");
+        for directory in [&info, &files, &original] {
+            std::fs::create_dir_all(directory).unwrap();
+        }
+        let previous_data_home = env::var_os("XDG_DATA_HOME");
+        env::set_var("XDG_DATA_HOME", &data_home);
+        defer! {
+            match previous_data_home {
+                Some(value) => env::set_var("XDG_DATA_HOME", value),
+                None => env::remove_var("XDG_DATA_HOME"),
+            }
+        }
+
+        let equals = original.join("a=b.txt");
+        let first = original.join("first.txt");
+        let second = original.join("second.txt");
+        let non_unicode = original.join(OsString::from_vec(b"non-unicode-\xff.txt".to_vec()));
+        let date = "DeletionDate=2026-01-02T03:04:05\n";
+        let expected_time = if cfg!(feature = "chrono") {
+            use chrono::TimeZone;
+            chrono::Local.with_ymd_and_hms(2026, 1, 2, 3, 4, 5).earliest().unwrap().timestamp()
+        } else {
+            -1
+        };
+        let cases = [
+            (
+                "extensions",
+                format!(
+                    "[Trash Info]\n\n# comment\nExtensionWithoutEquals\nX-Extension=value=more\nPath={}\n{date}",
+                    encode_uri_path(&equals).replace("%3D", "=")
+                ),
+                Some(equals),
+            ),
+            (
+                "duplicates",
+                format!(
+                    "[Trash Info]\nPath={}\nPath={}\n{date}DeletionDate=invalid\n",
+                    encode_uri_path(&first),
+                    encode_uri_path(&second)
+                ),
+                Some(first.clone()),
+            ),
+            (
+                "duplicate-valid-dates",
+                format!("[Trash Info]\nPath={}\n{date}DeletionDate=2026-02-03T04:05:06\n", encode_uri_path(&first)),
+                Some(first.clone()),
+            ),
+            (
+                "invalid-first-date",
+                format!("[Trash Info]\nPath={}\nDeletionDate=invalid\n{date}", encode_uri_path(&first)),
+                if cfg!(feature = "chrono") { None } else { Some(first.clone()) },
+            ),
+            (
+                "path-whitespace",
+                format!("[Trash Info]\nPath = \t{} \t\n{date}", encode_uri_path(&first)),
+                Some(first.clone()),
+            ),
+            (
+                "date-whitespace",
+                format!("[Trash Info]\nPath={}\nDeletionDate = \t2026-01-02T03:04:05 \t\n", encode_uri_path(&first)),
+                Some(first.clone()),
+            ),
+            (
+                "encoded-spaces",
+                format!("[Trash Info]\nPath={}\n{date}", encode_uri_path(original.join(" leading and trailing "))),
+                Some(original.join(" leading and trailing ")),
+            ),
+            ("invalid-first-path", format!("[Trash Info]\nPath=/\nPath={}\n{date}", encode_uri_path(&first)), None),
+            (
+                "relative",
+                format!("[Trash Info]\nPath=original/relative.txt\n{date}"),
+                Some(original.join("relative.txt")),
+            ),
+            (
+                "non-unicode",
+                format!("[Trash Info]\nPath=original/non-unicode-%FF.txt\n{date}"),
+                Some(non_unicode.clone()),
+            ),
+            (
+                "encoded-separator",
+                format!("[Trash Info]\nPath=original/%2Fseparator.txt\n{date}"),
+                Some(original.join("separator.txt")),
+            ),
+            (
+                "absolute-encoded-separator",
+                format!("[Trash Info]\nPath={}/%2Fseparator.txt\n{date}", encode_uri_path(&original)),
+                Some(original.join("separator.txt")),
+            ),
+            ("encoded-parent-traversal", format!("[Trash Info]\nPath=original/../%2Foutside\n{date}"), None),
+            ("parent-traversal", format!("[Trash Info]\nPath=../outside\n{date}"), None),
+            ("empty-path", format!("[Trash Info]\nPath=\n{date}"), None),
+            ("root-path", format!("[Trash Info]\nPath=/\n{date}"), None),
+            ("dot-path", format!("[Trash Info]\nPath=.\n{date}"), None),
+            ("dot-slash-path", format!("[Trash Info]\nPath=./\n{date}"), None),
+            ("encoded-dot-path", format!("[Trash Info]\nPath=%2E\n{date}"), None),
+            ("relative-parent-path", format!("[Trash Info]\nPath=original/..\n{date}"), None),
+            ("absolute-parent-path", format!("[Trash Info]\nPath=/tmp/..\n{date}"), None),
+            ("encoded-parent-path", format!("[Trash Info]\nPath=/tmp/%2E%2E\n{date}"), None),
+            ("nul-path", format!("[Trash Info]\nPath=original/%00.txt\n{date}"), None),
+            ("invalid-header", format!("[Other]\nPath=original/other.txt\n{date}"), None),
+        ];
+        for (id, record, _) in &cases {
+            std::fs::write(info.join(format!("{id}.trashinfo")), record).unwrap();
+            std::fs::write(files.join(id), b"payload").unwrap();
+        }
+
+        let items: HashMap<_, _> = list()
+            .unwrap()
+            .into_iter()
+            .filter(|item| Path::new(&item.id).starts_with(&info))
+            .map(|item| (item.id.clone(), item))
+            .collect();
+        for (id, _, expected) in &cases {
+            let receipt = info.join(format!("{id}.trashinfo"));
+            match expected {
+                Some(expected) => {
+                    let item = items.get(receipt.as_os_str()).unwrap_or_else(|| panic!("missing record {id}"));
+                    assert_eq!(&item.original_path(), expected, "record {id}");
+                    assert_eq!(item.time_deleted, expected_time, "first deletion date must be retained for {id}");
+                }
+                None => assert!(!items.contains_key(receipt.as_os_str()), "invalid record {id} must be skipped"),
+            }
+        }
+
+        for (id, expected) in [("non-unicode", non_unicode), ("encoded-separator", original.join("separator.txt"))] {
+            let receipt = info.join(format!("{id}.trashinfo"));
+            restore_all([items[receipt.as_os_str()].clone()]).unwrap();
+            assert_eq!(std::fs::read(expected).unwrap(), b"payload");
+            assert!(!receipt.exists());
+            assert!(!files.join(id).exists());
+        }
+    }
 
     #[test]
     #[serial]
