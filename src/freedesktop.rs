@@ -664,10 +664,9 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<(), FsEr
 }
 
 fn decode_uri_path(path: impl AsRef<Path>) -> PathBuf {
-    // Paths may be invalid Unicode on most Unixes so they should be treated as byte strings
-    // A higher level crate, such as `url`, can't be used directly since its API intakes valid Rust
-    // strings. Thus, the easiest way is to manually decode each segment of the path and recombine.
-    path.as_ref().iter().map(|part| OsString::from_vec(urlencoding::decode_binary(part.as_bytes()).to_vec())).collect()
+    // Decode all bytes together: pushing a component beginning with an encoded
+    // slash onto a PathBuf would discard the preceding path. Keep non-UTF-8 bytes.
+    OsString::from_vec(urlencoding::decode_binary(path.as_ref().as_os_str().as_bytes()).into_owned()).into()
 }
 
 fn encode_uri_path(path: impl AsRef<Path>) -> String {
@@ -1065,6 +1064,17 @@ mod tests {
                 format!("[Trash Info]\nPath=original/non-unicode-%FF.txt\n{date}"),
                 Some(non_unicode.clone()),
             ),
+            (
+                "encoded-separator",
+                format!("[Trash Info]\nPath=original/%2Fseparator.txt\n{date}"),
+                Some(original.join("separator.txt")),
+            ),
+            (
+                "absolute-encoded-separator",
+                format!("[Trash Info]\nPath={}/%2Fseparator.txt\n{date}", encode_uri_path(&original)),
+                Some(original.join("separator.txt")),
+            ),
+            ("encoded-parent-traversal", format!("[Trash Info]\nPath=original/../%2Foutside\n{date}"), None),
             ("parent-traversal", format!("[Trash Info]\nPath=../outside\n{date}"), None),
             ("empty-path", format!("[Trash Info]\nPath=\n{date}"), None),
             ("root-path", format!("[Trash Info]\nPath=/\n{date}"), None),
@@ -1100,11 +1110,13 @@ mod tests {
             }
         }
 
-        let receipt = info.join("non-unicode.trashinfo");
-        restore_all([items[receipt.as_os_str()].clone()]).unwrap();
-        assert_eq!(std::fs::read(&non_unicode).unwrap(), b"payload");
-        assert!(!receipt.exists());
-        assert!(!files.join("non-unicode").exists());
+        for (id, expected) in [("non-unicode", non_unicode), ("encoded-separator", original.join("separator.txt"))] {
+            let receipt = info.join(format!("{id}.trashinfo"));
+            restore_all([items[receipt.as_os_str()].clone()]).unwrap();
+            assert_eq!(std::fs::read(expected).unwrap(), b"payload");
+            assert!(!receipt.exists());
+            assert!(!files.join(id).exists());
+        }
     }
 
     #[test]
