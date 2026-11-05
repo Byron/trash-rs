@@ -83,6 +83,9 @@ windows = { version = "0.62", features = [
     "Win32_System_SystemServices",
     "Win32_UI_Shell_PropertiesSystem",
 ] }
+# Already a dependency of `windows`; named here because 
+# `[implement(IFileOperationProgressSink)]` expands to paths in `windows_core`.
+windows-core = "0.62"
 scopeguard = "1.2.0"
 
 # workaround for https://github.com/cross-rs/cross/issues/1345

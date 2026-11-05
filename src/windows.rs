@@ -1,15 +1,17 @@
 use crate::{Error, TrashContext, TrashItem, TrashItemMetadata, TrashItemSize};
 use std::{
     borrow::Borrow,
+    cell::RefCell,
     ffi::{c_void, OsStr, OsString},
     os::windows::{ffi::OsStrExt, prelude::*},
     path::{Component, Path, PathBuf, Prefix},
 };
+
 use windows::Win32::{
     Foundation::*, Storage::EnhancedStorage::*, System::Com::*, System::SystemServices::*, UI::Shell::*,
 };
 use windows::{
-    core::{Interface, PCWSTR, PWSTR},
+    core::{implement, ComObject, Interface, Ref, HRESULT, PCWSTR, PWSTR},
     Win32::System::Com::StructuredStorage::PropVariantToBSTR,
 };
 
@@ -18,8 +20,240 @@ const SCID_DATE_DELETED: PROPERTYKEY = PROPERTYKEY { fmtid: PSGUID_DISPLACED, pi
 
 impl From<windows::core::Error> for Error {
     fn from(err: windows::core::Error) -> Error {
-        Error::Os { code: err.code().0, description: format!("windows error: {err}") }
+        let code = err.code();
+        let description = match copy_engine_reason(code) {
+            Some(reason) => format!("windows error: {reason} ({:#010x})", code.0 as u32),
+            None => format!("windows error: {err}"),
+        };
+        Error::Os { code: code.0, description }
     }
+}
+
+/// `FACILITY_SHELL`: the codes of the shell's copy engine (`sherrors.h`).
+const FACILITY_SHELL: u32 = 0x27;
+
+/// What a copy engine failure (`COPYENGINE_E_*`, `0x8027xxxx`) means, in the
+/// words of `sherrors.h`.
+///
+/// These are the reasons `IFileOperation` reports per item. The system has no
+/// message text for them: `FormatMessage` either finds none or one from
+/// another facility (`0x80270002` comes out as a Network Access Protection
+/// message), so they are spelled out here. `None` for anything that is not a
+/// copy engine failure, which the system can describe itself.
+fn copy_engine_reason(code: HRESULT) -> Option<&'static str> {
+    if code.is_ok() || (code.0 as u32 >> 16) & 0x1FFF != FACILITY_SHELL {
+        return None;
+    }
+    Some(match code {
+        COPYENGINE_E_USER_CANCELLED | COPYENGINE_E_CANCELLED => "the operation was cancelled",
+        COPYENGINE_E_REQUIRES_ELEVATION => "the operation requires elevation",
+        COPYENGINE_E_INVALID_FILES_SRC => "invalid source path",
+        COPYENGINE_E_INVALID_FILES_DEST => "invalid destination path",
+        COPYENGINE_E_PATH_TOO_DEEP_SRC => "the source path is too long",
+        COPYENGINE_E_PATH_TOO_DEEP_DEST => "the destination path would be too long",
+        COPYENGINE_E_ROOT_DIR_SRC => "the source is a root directory",
+        COPYENGINE_E_ACCESS_DENIED_SRC => "access denied to the source",
+        COPYENGINE_E_ACCESS_DENIED_DEST => "access denied to the destination",
+        COPYENGINE_E_PATH_NOT_FOUND_SRC => "the source does not exist or is unavailable",
+        COPYENGINE_E_PATH_NOT_FOUND_DEST => "the destination does not exist or is unavailable",
+        COPYENGINE_E_NET_DISCONNECT_SRC => "the source is on a disconnected network location",
+        COPYENGINE_E_NET_DISCONNECT_DEST => "the destination is on a disconnected network location",
+        COPYENGINE_E_SHARING_VIOLATION_SRC => "the source is in use by another process",
+        COPYENGINE_E_SHARING_VIOLATION_DEST => "the destination is in use by another process",
+        COPYENGINE_E_ALREADY_EXISTS_NORMAL
+        | COPYENGINE_E_ALREADY_EXISTS_READONLY
+        | COPYENGINE_E_ALREADY_EXISTS_SYSTEM
+        | COPYENGINE_E_ALREADY_EXISTS_FOLDER => "the destination already exists",
+        COPYENGINE_E_DISK_FULL | COPYENGINE_E_DISK_FULL_CLEAN => "the destination is full",
+        COPYENGINE_E_CANT_REACH_SOURCE => "the source cannot be reached",
+        COPYENGINE_E_RECYCLE_FORCE_NUKE => "the Recycle Bin is not available on this drive",
+        COPYENGINE_E_RECYCLE_SIZE_TOO_BIG => "the item is too large for the Recycle Bin",
+        COPYENGINE_E_RECYCLE_PATH_TOO_LONG => "the item is too deep for the Recycle Bin",
+        COPYENGINE_E_RECYCLE_BIN_NOT_FOUND => "the Recycle Bin could not be found or is unavailable",
+        COPYENGINE_E_DIR_NOT_EMPTY => "the directory is not empty",
+        COPYENGINE_E_ACCESSDENIED_READONLY => "the item is read-only",
+        COPYENGINE_E_CANNOT_MOVE_FROM_RECYCLE_BIN => "the item cannot be moved out of the Recycle Bin",
+        COPYENGINE_E_INTERNET_ITEM_STORAGE_PROVIDER_ERROR | COPYENGINE_E_INTERNET_ITEM_STORAGE_PROVIDER_PAUSED => {
+            "the storage provider of the item is unavailable"
+        }
+        COPYENGINE_E_BLOCKED_BY_EDP_POLICY => "blocked by policy",
+        _ => "the shell's file operation failed",
+    })
+}
+
+/// `windows error: <reason> (0x…)` for an item the shell did not process.
+fn describe_item_failure(path: &Path, code: HRESULT) -> String {
+    let reason = match copy_engine_reason(code) {
+        Some(reason) => reason.to_string(),
+        None => windows::core::Error::from(code).message(),
+    };
+    format!("windows error: {}: {reason} ({:#010x})", path.display(), code.0 as u32)
+}
+
+/// Collects, per item, why `IFileOperation` did not process it.
+///
+/// `PerformOperations` and `FinishOperations` report success when individual
+/// items were skipped (with `FOF_NO_UI` a refused item is skipped, not
+/// asked about); only `GetAnyOperationsAborted` says that something was, and
+/// only the per-item callbacks say why.
+#[implement(IFileOperationProgressSink)]
+struct FailureSink {
+    failures: RefCell<Vec<(PathBuf, HRESULT)>>,
+}
+
+impl FailureSink {
+    fn record(&self, item: Ref<'_, IShellItem>, result: HRESULT) {
+        if result.is_ok() {
+            // Success codes include copy engine ones such as
+            // `COPYENGINE_S_DONT_PROCESS_CHILDREN` for a recycled item.
+            return;
+        }
+        let path = item
+            .as_ref()
+            .and_then(|item| unsafe { get_display_name(item, SIGDN_FILESYSPATH) }.ok())
+            .map(PathBuf::from)
+            .unwrap_or_default();
+        self.failures.borrow_mut().push((path, result));
+    }
+}
+
+#[allow(non_snake_case)] // the method names are COM's
+impl IFileOperationProgressSink_Impl for FailureSink_Impl {
+    fn StartOperations(&self) -> windows::core::Result<()> {
+        Ok(())
+    }
+    fn FinishOperations(&self, _result: HRESULT) -> windows::core::Result<()> {
+        Ok(())
+    }
+    fn PreRenameItem(&self, _flags: u32, _item: Ref<'_, IShellItem>, _new_name: &PCWSTR) -> windows::core::Result<()> {
+        Ok(())
+    }
+    fn PostRenameItem(
+        &self,
+        _flags: u32,
+        item: Ref<'_, IShellItem>,
+        _new_name: &PCWSTR,
+        result: HRESULT,
+        _new_item: Ref<'_, IShellItem>,
+    ) -> windows::core::Result<()> {
+        self.record(item, result);
+        Ok(())
+    }
+    fn PreMoveItem(
+        &self,
+        _flags: u32,
+        _item: Ref<'_, IShellItem>,
+        _destination: Ref<'_, IShellItem>,
+        _new_name: &PCWSTR,
+    ) -> windows::core::Result<()> {
+        Ok(())
+    }
+    fn PostMoveItem(
+        &self,
+        _flags: u32,
+        item: Ref<'_, IShellItem>,
+        _destination: Ref<'_, IShellItem>,
+        _new_name: &PCWSTR,
+        result: HRESULT,
+        _new_item: Ref<'_, IShellItem>,
+    ) -> windows::core::Result<()> {
+        self.record(item, result);
+        Ok(())
+    }
+    fn PreCopyItem(
+        &self,
+        _flags: u32,
+        _item: Ref<'_, IShellItem>,
+        _destination: Ref<'_, IShellItem>,
+        _new_name: &PCWSTR,
+    ) -> windows::core::Result<()> {
+        Ok(())
+    }
+    fn PostCopyItem(
+        &self,
+        _flags: u32,
+        item: Ref<'_, IShellItem>,
+        _destination: Ref<'_, IShellItem>,
+        _new_name: &PCWSTR,
+        result: HRESULT,
+        _new_item: Ref<'_, IShellItem>,
+    ) -> windows::core::Result<()> {
+        self.record(item, result);
+        Ok(())
+    }
+    fn PreDeleteItem(&self, _flags: u32, _item: Ref<'_, IShellItem>) -> windows::core::Result<()> {
+        Ok(())
+    }
+    fn PostDeleteItem(
+        &self,
+        _flags: u32,
+        item: Ref<'_, IShellItem>,
+        result: HRESULT,
+        _new_item: Ref<'_, IShellItem>,
+    ) -> windows::core::Result<()> {
+        self.record(item, result);
+        Ok(())
+    }
+    fn PreNewItem(
+        &self,
+        _flags: u32,
+        _destination: Ref<'_, IShellItem>,
+        _new_name: &PCWSTR,
+    ) -> windows::core::Result<()> {
+        Ok(())
+    }
+    fn PostNewItem(
+        &self,
+        _flags: u32,
+        _destination: Ref<'_, IShellItem>,
+        _new_name: &PCWSTR,
+        _template_name: &PCWSTR,
+        _attributes: u32,
+        _result: HRESULT,
+        _new_item: Ref<'_, IShellItem>,
+    ) -> windows::core::Result<()> {
+        Ok(())
+    }
+    fn UpdateProgress(&self, _total: u32, _so_far: u32) -> windows::core::Result<()> {
+        Ok(())
+    }
+    fn ResetTimer(&self) -> windows::core::Result<()> {
+        Ok(())
+    }
+    fn PauseTimer(&self) -> windows::core::Result<()> {
+        Ok(())
+    }
+    fn ResumeTimer(&self) -> windows::core::Result<()> {
+        Ok(())
+    }
+}
+
+/// Runs `operation`'s queued work with a [`FailureSink`] attached and turns
+/// an aborted item into an error naming it and the reason.
+fn perform_reporting_failures(operation: &IFileOperation) -> Result<(), Error> {
+    let sink = ComObject::new(FailureSink { failures: RefCell::new(Vec::new()) });
+    let sink_interface: IFileOperationProgressSink = sink.to_interface();
+    let cookie = unsafe { operation.Advise(&sink_interface) }?;
+    let performed = unsafe { operation.PerformOperations() };
+    let aborted = unsafe { operation.GetAnyOperationsAborted() }.map(|aborted| aborted.as_bool());
+    // Detach before any `?`: the operation holds a reference to the sink.
+    let unadvised = unsafe { operation.Unadvise(cookie) };
+    let failures = sink.failures.take();
+
+    if let Some((path, code)) = failures.first() {
+        let mut description = describe_item_failure(path, *code);
+        if failures.len() > 1 {
+            description.push_str(&format!(" (and {} more item(s))", failures.len() - 1));
+        }
+        return Err(Error::Os { code: code.0, description });
+    }
+    performed?;
+    if aborted? {
+        // Aborted without a reason for any item, e.g. cancelled as a whole.
+        return Err(Error::Unknown { description: "Some operations were aborted".into() });
+    }
+    unadvised?;
+    Ok(())
 }
 
 fn to_wide_path(path: impl AsRef<OsStr>) -> Vec<u16> {
@@ -92,7 +326,7 @@ impl TrashContext {
     pub(crate) fn delete_specified_canonicalized(&self, full_paths: Vec<PathBuf>) -> Result<(), Error> {
         ensure_com_initialized();
         unsafe {
-            let pfo: IFileOperation = CoCreateInstance(&FileOperation as *const _, None, CLSCTX_ALL).unwrap();
+            let pfo: IFileOperation = CoCreateInstance(&FileOperation as *const _, None, CLSCTX_ALL)?;
 
             pfo.SetOperationFlags(FOF_NO_UI | FOF_ALLOWUNDO | FOF_WANTNUKEWARNING)?;
 
@@ -103,17 +337,9 @@ impl TrashContext {
 
                 pfo.DeleteItem(&shi, None)?;
             }
-            pfo.PerformOperations()?;
-
             // https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-performoperations
-            // this method can still return a success code. Use the GetAnyOperationsAborted method to determine if this was the case.
-            if pfo.GetAnyOperationsAborted()?.as_bool() {
-                // TODO: return the reason why the operation was aborted.
-                // We may retrieve reason from the IFileOperationProgressSink but
-                // the list of HRESULT codes is not documented.
-                return Err(Error::Unknown { description: "Some operations were aborted".into() });
-            }
-            Ok(())
+            // PerformOperations can return a success code while items were skipped; the sink reports which and why.
+            perform_reporting_failures(&pfo)
         }
     }
 
@@ -364,8 +590,29 @@ fn ensure_com_initialized() {
 
 #[cfg(test)]
 mod tests {
-    use super::to_shell_parsing_name;
+    use super::{copy_engine_reason, to_shell_parsing_name};
     use std::path::Path;
+    use windows::{
+        core::HRESULT,
+        Win32::{
+            Foundation::E_ACCESSDENIED,
+            UI::Shell::{
+                COPYENGINE_E_ACCESS_DENIED_SRC, COPYENGINE_E_REQUIRES_ELEVATION, COPYENGINE_S_DONT_PROCESS_CHILDREN,
+            },
+        },
+    };
+
+    #[test]
+    fn copy_engine_failures_get_their_own_words() {
+        assert_eq!(copy_engine_reason(COPYENGINE_E_REQUIRES_ELEVATION), Some("the operation requires elevation"));
+        assert_eq!(copy_engine_reason(COPYENGINE_E_ACCESS_DENIED_SRC), Some("access denied to the source"));
+        // Unlisted copy engine failures still are not handed to FormatMessage.
+        assert_eq!(copy_engine_reason(HRESULT(0x8027_00FF_u32 as i32)), Some("the shell's file operation failed"));
+        // A success code of the copy engine is no failure.
+        assert_eq!(copy_engine_reason(COPYENGINE_S_DONT_PROCESS_CHILDREN), None);
+        // Other facilities: the system's own message is right.
+        assert_eq!(copy_engine_reason(E_ACCESSDENIED), None);
+    }
 
     fn convert(path: &str) -> String {
         let wide = to_shell_parsing_name(Path::new(path));
