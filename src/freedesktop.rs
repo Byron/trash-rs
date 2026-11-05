@@ -163,8 +163,8 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                 let key = key.trim();
                 if key == "Path" && !path_seen {
                     path_seen = true;
-                    // Ignore whitespace after '=' before decoding filename bytes.
-                    let value = value.trim_start();
+                    // Ignore surrounding whitespace before decoding filename bytes.
+                    let value = value.trim();
                     let path = decode_uri_path(Path::new(value));
                     if path.as_os_str().is_empty()
                         || path.as_os_str().as_bytes().contains(&0)
@@ -1041,7 +1041,7 @@ mod tests {
             ),
             (
                 "path-whitespace",
-                format!("[Trash Info]\nPath = \t{}\n{date}", encode_uri_path(&first)),
+                format!("[Trash Info]\nPath = \t{} \t\n{date}", encode_uri_path(&first)),
                 Some(first.clone()),
             ),
             (
