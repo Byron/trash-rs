@@ -5,6 +5,171 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.3.0 (2026-11-05)
+
+### Documentation
+
+ - <csr-id-01695582c335c71b0959116bd955b6cf5ce2c5ec/> configure docs.rs platform targets
+   <!-- Byron -->
+   
+   I reduced the target list to the 3 common ones. Let's see if it works.
+   
+   <!-- agent -->
+   Recent docs.rs releases only expose Linux documentation. Explicitly request the
+   five standard docs.rs targets so macOS and Windows documentation are included,
+   keeping Linux first as the default landing page.
+   
+   A Cargo metadata assertion failed before the change because the docs.rs target
+   list was absent, and passes with the configured targets.
+
+### New Features
+
+ - <csr-id-df53b3f9187377471f78676b027c7f9bf564a1b0/> add Portal backend
+   This only adds the basic functionality to make it work.
+
+### Bug Fixes
+
+ - <csr-id-b6e262454df52eedf05dba10ffbe3e3a88b4a8c4/> preserve path prefixes when decoding slashes
+   <!-- agent -->
+   Decode the complete path byte string instead of collecting decoded components
+   into a PathBuf. A component beginning with %2F previously discarded the prefix,
+   redirected restoration to the filesystem root, and could erase relative parent
+   traversal before validation.
+   
+   Add relative and absolute encoded-separator regressions, traversal rejection,
+   and restoration coverage. The relative separator case fails before the fix.
+ - <csr-id-4ee80bd16165140213d9748d669216fe3848b75f/> reject original paths without filenames
+   <!-- agent -->
+   Validate the decoded path before joining the trash base so dot paths cannot
+   resolve to the base directory. Route roots and paths ending in parent components
+   through the invalid-original-path warning as well.
+   
+   Add literal and encoded dot and parent regression cases. The dot-path case fails
+   before the fix; the listing regression passes with and without chrono afterward.
+ - <csr-id-6fcae5b89058b4fa76840bfc00f8a47861f4bc05/> trim surrounding trashinfo path whitespace
+   <!-- agent -->
+   Trim both ends of the encoded Path value before decoding so trailing spaces and
+   tabs do not become filename bytes. Extend the whitespace fixture while retaining
+   encoded filename space coverage.
+ - <csr-id-8afaa3432e795bab3ae6f7f246d28a42cb10b869/> report why the shell refused to recycle an item
+   `delete` answered every item the shell skipped with `Error::Unknown {
+   "Some operations were aborted" }`. With `FOF_NO_UI` a refused item is
+   skipped, not asked about: `PerformOperations` and `FinishOperations` both
+   report success, and only `GetAnyOperationsAborted` says that something
+   went wrong. Why is reported per item, to an `IFileOperationProgressSink`.
+   
+   A sink now records the result of each item. The first failure becomes
+   `Error::Os { code, description }` naming the item, the reason and the
+   code, e.g. for a file the user may not delete:
+   
+       windows error: C:\dir\locked.txt: access denied to the source (0x80270021)
+   
+   The reasons are mostly the shell copy engine's own codes (`0x8027xxxx`,
+   `sherrors.h`). The system has no message text for them — `FormatMessage`
+   finds none, or one from another facility (`0x80270002` comes out as a
+   Network Access Protection message) — so they are spelled out here, also
+   for errors returned by `restore_all` and `purge_all`. Success codes of the
+   copy engine, such as `COPYENGINE_S_DONT_PROCESS_CHILDREN` for a recycled
+   item, are not failures.
+   
+   `CoCreateInstance(...).unwrap()` now propagates its error instead of
+   panicking.
+   
+   `windows-core` is named as a dependency because `#[implement]` expands to
+   paths in it; it already was one through `windows`.
+ - <csr-id-7f63659d5578e37e0553f7f4634e293de779601f/> list items under their file name, extension included
+   `list()` took an item's name from `SIGDN_PARENTRELATIVE`. Inside the
+   Recycle Bin folder that display name, like every other `SIGDN_*` name and
+   `PKEY_ItemNameDisplay`, follows Explorer's "Hide extensions for known file
+   types" setting, which is on by default. So `report.txt` was listed as
+   `report`, `original_path()` pointed at a file that never existed, and
+   `restore_all` moved the item back without its extension. Files differing
+   only in their extension (`a.txt`, `a.png`) were listed under one name and
+   refused as `RestoreTwins`.
+   
+   `PKEY_FileName` is the file name itself, independent of that setting.
+   
+   The new test trashes `.txt`, `.png` and `.html` files, checks the listed
+   names and restores them. Without the fix it fails on a default Windows
+   setup; with it, it passes with the setting on and off, and on Linux.
+ - <csr-id-4f11bb1f9a73fbfb14e93bb87f4485de3e55c3a4/> resolve trashinfo paths correctly
+   Resolve home-relative paths against the data directory and decode recorded paths before joining the base directory. Skip empty paths, NUL bytes, relative parent traversal, and paths without a usable filename or parent.
+   
+   Extend the listing regression cases and restore a non-UTF-8 filename with a literal percent escape in the data directory path.
+ - <csr-id-64bae30dffd249f5c24326e48ceb49e649cdd192/> honor trashinfo record parsing rules
+   Ignore extra lines, split key/value pairs once, and honor the first occurrence of each key. Validate the header and preserve whitespace compatibility before decoding path bytes or parsing dates.
+   
+   Exercise listing with temporary records, including duplicate dates, invalid first dates, equals signs, and encoded filename spaces, with and without chrono.
+ - <csr-id-91f6dda79b4c0c421641e6c0d582338a60723d7e/> traverse ancestors without read permission
+   Opening every ancestor with O_RDONLY rejects files below searchable but
+   unreadable directories, even though TrashFile can trash them. Use O_PATH
+   for traversal while retaining the directory and symlink checks.
+   
+   Add a portal regression test with 0111 and 0311 ancestor modes that
+   verifies read access is denied before trashing succeeds. The test fails
+   with the old flags and passes with O_PATH; all seven portal unit tests
+   pass.
+   
+   # 816839c fix(portal): reject replacement symlinks when opening directories
+   
+   fix(portal): reject replacement symlinks when opening directories
+   
+   The inode check accepts a directory that was renamed and replaced with
+   a symlink to itself between statat and openat. Open directory leaves
+   with O_NOFOLLOW so that replacement cannot be passed to TrashFile.
+   
+   The portal rejects O_PATH descriptors carrying O_NOFOLLOW. After checking
+   the opened directory, reopen dot through its descriptor to obtain
+   compatible flags without resolving the original leaf again.
+   
+   Extract the leaf-opening step and add a deterministic regression that
+   renames the directory and replaces it with a symlink to the same inode
+   after statat. The test fails without O_NOFOLLOW and passes with the fix;
+   all eight portal unit tests, including directory trashing, pass.
+
+### Other
+
+ - <csr-id-07f878094de5549322122fee09528ee4aa638d7f/> add Flatpak Portal trashing test
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 19 commits contributed to the release.
+ - 53 days passed between releases.
+ - 11 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#153](https://github.com/Byron/trash-rs/issues/153), [#96](https://github.com/Byron/trash-rs/issues/96)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#153](https://github.com/Byron/trash-rs/issues/153)**
+    - Configure docs.rs platform targets ([`0169558`](https://github.com/Byron/trash-rs/commit/01695582c335c71b0959116bd955b6cf5ce2c5ec))
+ * **[#96](https://github.com/Byron/trash-rs/issues/96)**
+    - Report why the shell refused to recycle an item ([`8afaa34`](https://github.com/Byron/trash-rs/commit/8afaa3432e795bab3ae6f7f246d28a42cb10b869))
+ * **Uncategorized**
+    - Merge pull request #161 from Byron/fix/freedesktop-trashinfo-reviewed ([`dd2b8f7`](https://github.com/Byron/trash-rs/commit/dd2b8f75a7ab3f12ba4ad641299c479cbd36ca28))
+    - Preserve path prefixes when decoding slashes ([`b6e2624`](https://github.com/Byron/trash-rs/commit/b6e262454df52eedf05dba10ffbe3e3a88b4a8c4))
+    - Reject original paths without filenames ([`4ee80bd`](https://github.com/Byron/trash-rs/commit/4ee80bd16165140213d9748d669216fe3848b75f))
+    - Trim surrounding trashinfo path whitespace ([`6fcae5b`](https://github.com/Byron/trash-rs/commit/6fcae5b89058b4fa76840bfc00f8a47861f4bc05))
+    - Merge pull request #158 from stefan-siebert/fix/windows-list-file-name ([`e00d049`](https://github.com/Byron/trash-rs/commit/e00d0498886f3305285e9b80c2ac863e282a7721))
+    - Merge pull request #159 from stefan-siebert/fix/windows-report-hresult ([`b8f46cc`](https://github.com/Byron/trash-rs/commit/b8f46ccedf27dd27d50d6620fddd3a1bfb72b7a1))
+    - Review ([`0d0a038`](https://github.com/Byron/trash-rs/commit/0d0a038f82b57740c6303f95b0cb29155a90724b))
+    - List items under their file name, extension included ([`7f63659`](https://github.com/Byron/trash-rs/commit/7f63659d5578e37e0553f7f4634e293de779601f))
+    - Resolve trashinfo paths correctly ([`4f11bb1`](https://github.com/Byron/trash-rs/commit/4f11bb1f9a73fbfb14e93bb87f4485de3e55c3a4))
+    - Honor trashinfo record parsing rules ([`64bae30`](https://github.com/Byron/trash-rs/commit/64bae30dffd249f5c24326e48ceb49e649cdd192))
+    - Merge pull request #152 from pricklythorn/master ([`fe008f0`](https://github.com/Byron/trash-rs/commit/fe008f00a235b5bea6c08e39202149cf8142a908))
+    - Review ([`7607435`](https://github.com/Byron/trash-rs/commit/7607435b142a9a290320be49e24fb5da81d2871f))
+    - Add Flatpak Portal trashing test ([`07f8780`](https://github.com/Byron/trash-rs/commit/07f878094de5549322122fee09528ee4aa638d7f))
+    - Review ([`862a28f`](https://github.com/Byron/trash-rs/commit/862a28f1e6ab4eb494f08f08f719fdb66791e2a0))
+    - Traverse ancestors without read permission ([`91f6dda`](https://github.com/Byron/trash-rs/commit/91f6dda79b4c0c421641e6c0d582338a60723d7e))
+    - Add Portal backend ([`df53b3f`](https://github.com/Byron/trash-rs/commit/df53b3f9187377471f78676b027c7f9bf564a1b0))
+    - Merge pull request #154 from Byron/doc-platforms ([`b8d9ebc`](https://github.com/Byron/trash-rs/commit/b8d9ebc8dbbd6bfc2c07ba5469c5121e202ae419))
+</details>
+
 ## 5.2.9 (2026-09-13)
 
 This is a bug-fix release, where unfortunately I forgot to make the needed edits
@@ -30,7 +195,7 @@ Check the "Commit Details" section instead for everything that went into it.
 
 <csr-read-only-do-not-edit/>
 
- - 8 commits contributed to the release.
+ - 9 commits contributed to the release.
  - 5 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -42,6 +207,7 @@ Check the "Commit Details" section instead for everything that went into it.
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release trash v5.2.9 ([`54e0a2d`](https://github.com/Byron/trash-rs/commit/54e0a2d69fdc058cc2efa19a497ec8f44631d61f))
     - Prepare changelog prior to release ([`deaf4de`](https://github.com/Byron/trash-rs/commit/deaf4dea2a4b033d58fb999cd586edf452a4ef80))
     - Merge pull request #151 from jaroslavpachola/home-trash-fallback ([`f99e82e`](https://github.com/Byron/trash-rs/commit/f99e82e6e86c401a30f40a83f1f91841dbc119d0))
     - Review ([`18cbe14`](https://github.com/Byron/trash-rs/commit/18cbe148dcbbd2f75b1f3227432018c0991dcf44))
