@@ -166,7 +166,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     // Ignore surrounding whitespace before decoding filename bytes.
                     let value = value.trim();
                     let path = decode_uri_path(Path::new(value));
-                    if path.as_os_str().is_empty()
+                    if path.file_name().is_none()
                         || path.as_os_str().as_bytes().contains(&0)
                         || (path.is_relative() && path.components().any(|c| c == Component::ParentDir))
                     {
@@ -1068,6 +1068,12 @@ mod tests {
             ("parent-traversal", format!("[Trash Info]\nPath=../outside\n{date}"), None),
             ("empty-path", format!("[Trash Info]\nPath=\n{date}"), None),
             ("root-path", format!("[Trash Info]\nPath=/\n{date}"), None),
+            ("dot-path", format!("[Trash Info]\nPath=.\n{date}"), None),
+            ("dot-slash-path", format!("[Trash Info]\nPath=./\n{date}"), None),
+            ("encoded-dot-path", format!("[Trash Info]\nPath=%2E\n{date}"), None),
+            ("relative-parent-path", format!("[Trash Info]\nPath=original/..\n{date}"), None),
+            ("absolute-parent-path", format!("[Trash Info]\nPath=/tmp/..\n{date}"), None),
+            ("encoded-parent-path", format!("[Trash Info]\nPath=/tmp/%2E%2E\n{date}"), None),
             ("nul-path", format!("[Trash Info]\nPath=original/%00.txt\n{date}"), None),
             ("invalid-header", format!("[Other]\nPath=original/other.txt\n{date}"), None),
         ];
