@@ -187,6 +187,11 @@ fn recursive_file_with_content_deletion() {
 #[test]
 #[serial]
 fn delete_reports_why_an_item_was_refused() {
+    use windows::{
+        core::HRESULT,
+        Win32::{Foundation::E_ACCESSDENIED, UI::Shell::COPYENGINE_E_ACCESS_DENIED_SRC},
+    };
+
     init_logging();
     let dir = PathBuf::from(get_unique_name());
     create_dir(&dir).unwrap();
@@ -207,17 +212,20 @@ fn delete_reports_why_an_item_was_refused() {
     icacls(&dir, &["/remove:d", EVERYONE]);
     std::fs::remove_dir_all(&dir).unwrap();
 
-    const E_ACCESSDENIED: u32 = 0x8007_0005;
-    const COPYENGINE_E_ACCESS_DENIED_SRC: u32 = 0x8027_0021;
     match result {
         Err(trash::Error::Os { code, description }) => {
             assert!(
-                [COPYENGINE_E_ACCESS_DENIED_SRC, E_ACCESSDENIED].contains(&(code as u32)),
+                [COPYENGINE_E_ACCESS_DENIED_SRC, E_ACCESSDENIED].contains(&HRESULT(code)),
                 "unexpected code {:#010x}: {description}",
                 code as u32
             );
             assert!(description.contains("locked.txt"), "the item is not named: {description}");
-            assert!(description.contains("access denied"), "the reason is missing: {description}");
+            if HRESULT(code) == COPYENGINE_E_ACCESS_DENIED_SRC {
+                assert!(description.contains("access denied"), "the reason is missing: {description}");
+            } else {
+                let message = windows::core::Error::from(HRESULT(code)).message();
+                assert!(description.contains(&message), "the system reason is missing: {description}");
+            }
         }
         other => panic!("expected Error::Os, got {other:?}"),
     }

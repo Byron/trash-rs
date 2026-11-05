@@ -6,6 +6,7 @@ use std::{
     os::windows::{ffi::OsStrExt, prelude::*},
     path::{Component, Path, PathBuf, Prefix},
 };
+
 use windows::Win32::{
     Foundation::*, Storage::EnhancedStorage::*, System::Com::*, System::SystemServices::*, UI::Shell::*,
 };
@@ -40,39 +41,42 @@ const FACILITY_SHELL: u32 = 0x27;
 /// message), so they are spelled out here. `None` for anything that is not a
 /// copy engine failure, which the system can describe itself.
 fn copy_engine_reason(code: HRESULT) -> Option<&'static str> {
-    let code = code.0 as u32;
-    if code & 0x8000_0000 == 0 || (code >> 16) & 0x1FFF != FACILITY_SHELL {
+    if code.is_ok() || (code.0 as u32 >> 16) & 0x1FFF != FACILITY_SHELL {
         return None;
     }
     Some(match code {
-        0x8027_0000 => "the operation was cancelled",
-        0x8027_0001 => "the operation was cancelled",
-        0x8027_0002 => "the operation requires elevation",
-        0x8027_001B => "invalid source path",
-        0x8027_001C => "invalid destination path",
-        0x8027_001D => "the source path is too long",
-        0x8027_001E => "the destination path would be too long",
-        0x8027_001F => "the source is a root directory",
-        0x8027_0021 => "access denied to the source",
-        0x8027_0022 => "access denied to the destination",
-        0x8027_0023 => "the source does not exist or is unavailable",
-        0x8027_0024 => "the destination does not exist or is unavailable",
-        0x8027_0025 => "the source is on a disconnected network location",
-        0x8027_0026 => "the destination is on a disconnected network location",
-        0x8027_0027 => "the source is in use by another process",
-        0x8027_0028 => "the destination is in use by another process",
-        0x8027_0029..=0x8027_002C => "the destination already exists",
-        0x8027_0032 | 0x8027_0033 => "the destination is full",
-        0x8027_0035 => "the source cannot be reached",
-        0x8027_0036 => "the Recycle Bin is not available on this drive",
-        0x8027_0037 => "the item is too large for the Recycle Bin",
-        0x8027_0038 => "the item is too deep for the Recycle Bin",
-        0x8027_003A => "the Recycle Bin could not be found or is unavailable",
-        0x8027_003D => "the directory is not empty",
-        0x8027_003F => "the item is read-only",
-        0x8027_0043 => "the item cannot be moved out of the Recycle Bin",
-        0x8027_0045 | 0x8027_0046 => "the storage provider of the item is unavailable",
-        0x8027_0048 => "blocked by policy",
+        COPYENGINE_E_USER_CANCELLED | COPYENGINE_E_CANCELLED => "the operation was cancelled",
+        COPYENGINE_E_REQUIRES_ELEVATION => "the operation requires elevation",
+        COPYENGINE_E_INVALID_FILES_SRC => "invalid source path",
+        COPYENGINE_E_INVALID_FILES_DEST => "invalid destination path",
+        COPYENGINE_E_PATH_TOO_DEEP_SRC => "the source path is too long",
+        COPYENGINE_E_PATH_TOO_DEEP_DEST => "the destination path would be too long",
+        COPYENGINE_E_ROOT_DIR_SRC => "the source is a root directory",
+        COPYENGINE_E_ACCESS_DENIED_SRC => "access denied to the source",
+        COPYENGINE_E_ACCESS_DENIED_DEST => "access denied to the destination",
+        COPYENGINE_E_PATH_NOT_FOUND_SRC => "the source does not exist or is unavailable",
+        COPYENGINE_E_PATH_NOT_FOUND_DEST => "the destination does not exist or is unavailable",
+        COPYENGINE_E_NET_DISCONNECT_SRC => "the source is on a disconnected network location",
+        COPYENGINE_E_NET_DISCONNECT_DEST => "the destination is on a disconnected network location",
+        COPYENGINE_E_SHARING_VIOLATION_SRC => "the source is in use by another process",
+        COPYENGINE_E_SHARING_VIOLATION_DEST => "the destination is in use by another process",
+        COPYENGINE_E_ALREADY_EXISTS_NORMAL
+        | COPYENGINE_E_ALREADY_EXISTS_READONLY
+        | COPYENGINE_E_ALREADY_EXISTS_SYSTEM
+        | COPYENGINE_E_ALREADY_EXISTS_FOLDER => "the destination already exists",
+        COPYENGINE_E_DISK_FULL | COPYENGINE_E_DISK_FULL_CLEAN => "the destination is full",
+        COPYENGINE_E_CANT_REACH_SOURCE => "the source cannot be reached",
+        COPYENGINE_E_RECYCLE_FORCE_NUKE => "the Recycle Bin is not available on this drive",
+        COPYENGINE_E_RECYCLE_SIZE_TOO_BIG => "the item is too large for the Recycle Bin",
+        COPYENGINE_E_RECYCLE_PATH_TOO_LONG => "the item is too deep for the Recycle Bin",
+        COPYENGINE_E_RECYCLE_BIN_NOT_FOUND => "the Recycle Bin could not be found or is unavailable",
+        COPYENGINE_E_DIR_NOT_EMPTY => "the directory is not empty",
+        COPYENGINE_E_ACCESSDENIED_READONLY => "the item is read-only",
+        COPYENGINE_E_CANNOT_MOVE_FROM_RECYCLE_BIN => "the item cannot be moved out of the Recycle Bin",
+        COPYENGINE_E_INTERNET_ITEM_STORAGE_PROVIDER_ERROR | COPYENGINE_E_INTERNET_ITEM_STORAGE_PROVIDER_PAUSED => {
+            "the storage provider of the item is unavailable"
+        }
+        COPYENGINE_E_BLOCKED_BY_EDP_POLICY => "blocked by policy",
         _ => "the shell's file operation failed",
     })
 }
@@ -226,14 +230,14 @@ impl IFileOperationProgressSink_Impl for FailureSink_Impl {
 
 /// Runs `operation`'s queued work with a [`FailureSink`] attached and turns
 /// an aborted item into an error naming it and the reason.
-unsafe fn perform_reporting_failures(operation: &IFileOperation) -> Result<(), Error> {
+fn perform_reporting_failures(operation: &IFileOperation) -> Result<(), Error> {
     let sink = ComObject::new(FailureSink { failures: RefCell::new(Vec::new()) });
     let sink_interface: IFileOperationProgressSink = sink.to_interface();
-    let cookie = operation.Advise(&sink_interface)?;
-    let performed = operation.PerformOperations();
-    let aborted = operation.GetAnyOperationsAborted().map(|aborted| aborted.as_bool());
+    let cookie = unsafe { operation.Advise(&sink_interface) }?;
+    let performed = unsafe { operation.PerformOperations() };
+    let aborted = unsafe { operation.GetAnyOperationsAborted() }.map(|aborted| aborted.as_bool());
     // Detach before any `?`: the operation holds a reference to the sink.
-    let unadvised = operation.Unadvise(cookie);
+    let unadvised = unsafe { operation.Unadvise(cookie) };
     let failures = sink.failures.take();
 
     if let Some((path, code)) = failures.first() {
@@ -588,19 +592,26 @@ fn ensure_com_initialized() {
 mod tests {
     use super::{copy_engine_reason, to_shell_parsing_name};
     use std::path::Path;
-    use windows::core::HRESULT;
+    use windows::{
+        core::HRESULT,
+        Win32::{
+            Foundation::E_ACCESSDENIED,
+            UI::Shell::{
+                COPYENGINE_E_ACCESS_DENIED_SRC, COPYENGINE_E_REQUIRES_ELEVATION, COPYENGINE_S_DONT_PROCESS_CHILDREN,
+            },
+        },
+    };
 
     #[test]
     fn copy_engine_failures_get_their_own_words() {
-        let reason = |code: u32| copy_engine_reason(HRESULT(code as i32));
-        assert_eq!(reason(0x8027_0002), Some("the operation requires elevation"));
-        assert_eq!(reason(0x8027_0021), Some("access denied to the source"));
+        assert_eq!(copy_engine_reason(COPYENGINE_E_REQUIRES_ELEVATION), Some("the operation requires elevation"));
+        assert_eq!(copy_engine_reason(COPYENGINE_E_ACCESS_DENIED_SRC), Some("access denied to the source"));
         // Unlisted copy engine failures still are not handed to FormatMessage.
-        assert_eq!(reason(0x8027_00FF), Some("the shell's file operation failed"));
+        assert_eq!(copy_engine_reason(HRESULT(0x8027_00FF_u32 as i32)), Some("the shell's file operation failed"));
         // A success code of the copy engine is no failure.
-        assert_eq!(reason(0x0027_0008), None);
+        assert_eq!(copy_engine_reason(COPYENGINE_S_DONT_PROCESS_CHILDREN), None);
         // Other facilities: the system's own message is right.
-        assert_eq!(reason(0x8007_0005), None);
+        assert_eq!(copy_engine_reason(E_ACCESSDENIED), None);
     }
 
     fn convert(path: &str) -> String {
