@@ -28,7 +28,9 @@ The patch also guards all calls to `trash` in `src/web.rs`. Without the feature,
 web delete and restore requests return HTTP 501 with an explanatory message.
 Files are left intact; duplicate scanning and exclusion remain available.
 The web UI still displays the action buttons and reports the server's error
-when they are used. Default builds on supported platforms retain trash support.
+when they are used. The patch updates the action and restore handlers to read
+plain-text error responses, avoiding a JSON parsing error that would hide the
+explanation. Default builds on supported platforms retain trash support.
 
 Save the linked patch as `dupsonic-optional-trash.patch`. From the Dupsonic source
 directory, apply it and build using Termux's native Rust and C toolchains:
@@ -77,6 +79,9 @@ default build passes 52 unit tests and 18 integration tests. The included
 regression test checks that delete and restore are rejected without trash
 support, the file's bytes are preserved, and exclusion still succeeds. Before
 the patch, that test failed because the file was trashed.
+
+A JavaScript harness also verified that the web action and restore handlers
+display plain-text HTTP 501 errors and still handle successful JSON responses.
 
 A full Android cross-check with `cargo check --target aarch64-linux-android
 --no-default-features` reached the consumer's bundled SQLite dependency and

@@ -114,3 +114,23 @@
 +        assert_eq!(std::fs::read(&path).unwrap(), b"keep these bytes");
 +    }
 +}
+--- a/src/web_ui.html
++++ b/src/web_ui.html
+@@ -170,7 +170,7 @@
+       headers: {'Content-Type': 'application/json'},
+       body: JSON.stringify({ group_id: groupId, file_index: fileIndex, action })
+     });
+-    const result = await r.json();
++    const result = r.ok ? await r.json() : await r.text();
+     if (r.ok) {
+       showMsg(`${result.status}: ${result.path || ''}`, 'info');
+       const el = document.getElementById(`file-${groupId.slice(0,8)}-${fileIndex}`);
+@@ -197,7 +197,7 @@
+       headers: {'Content-Type': 'application/json'},
+       body: JSON.stringify({ path })
+     });
+-    const result = await r.json();
++    const result = r.ok ? await r.json() : await r.text();
+     if (r.ok) {
+       showMsg(`Restored: ${result.path}`, 'info');
+       const el = document.getElementById(`file-${groupId.slice(0,8)}-${fileIndex}`);
