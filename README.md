@@ -11,6 +11,17 @@ The `trash` is a Rust library for moving files and folders to the operating syst
 The library supports Windows, macOS, XDG Desktop Portal, and all FreeDesktop Trash compliant environments (including GNOME, KDE, XFCE, and more).
 See more about the FreeDesktop Trash implementation in the `freedesktop.rs` file.
 
+Android (including Termux) is not supported. Enabling `freedesktop` does not add
+Android support. See [the Termux consumer workaround](docs/termux.md) for a tested
+patch that makes trash operations optional in Dupsonic.
+
+On supported Unix targets other than macOS, consumers using `trash` 5.3 with
+`default-features = false` must select a backend, for example:
+
+```toml
+trash = { version = "5.3", default-features = false, features = ["freedesktop"] }
+```
+
 ## Usage
 
 ```toml

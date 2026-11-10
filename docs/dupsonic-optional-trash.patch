@@ -1,0 +1,116 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -71,7 +71,11 @@
+ ipnet = "2.12"
+ 
+ # System trash (for web UI delete action)
+-trash = "5"
++trash = { version = "5", optional = true }
++
++[features]
++default = ["trash"]
++trash = ["dep:trash"]
+ 
+ [dev-dependencies]
+ tempfile = "3.10"
+--- a/src/web.rs
++++ b/src/web.rs
+@@ -358,6 +358,12 @@
+     let file_path = &group.files[req.file_index].path;
+ 
+     match req.action.as_str() {
++        #[cfg(not(feature = "trash"))]
++        "delete" => Err((
++            StatusCode::NOT_IMPLEMENTED,
++            "Trash support is disabled in this build; the file was not changed.".to_string(),
++        )),
++        #[cfg(feature = "trash")]
+         "delete" => {
+             if !file_path.exists() {
+                 return Err((
+@@ -408,6 +414,7 @@
+ }
+ 
+ #[cfg(all(
++    feature = "trash",
+     unix,
+     not(target_os = "macos"),
+     not(target_os = "ios"),
+@@ -449,6 +456,7 @@
+ }
+ 
+ #[cfg(not(all(
++    feature = "trash",
+     unix,
+     not(target_os = "macos"),
+     not(target_os = "ios"),
+@@ -458,7 +466,7 @@
+     Err((
+         StatusCode::NOT_IMPLEMENTED,
+         format!(
+-            "Restore is not supported on this platform. Restore '{}' manually from your system trash.",
++            "Restore is unavailable in this build. If '{}' was previously trashed, restore it manually from that trash.",
+             path
+         ),
+     ))
+@@ -609,3 +617,60 @@
+         assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+     }
+ }
++
++#[cfg(all(test, not(feature = "trash")))]
++mod trash_disabled_regression {
++    use super::*;
++
++    #[tokio::test]
++    async fn disabled_trash_preserves_file() {
++        let dir = tempfile::tempdir().unwrap();
++        let path = dir.path().join("keep.flac");
++        std::fs::write(&path, b"keep these bytes").unwrap();
++        let db_path = dir.path().join("test.db");
++        let state = Arc::new(AppState {
++            db: Database::open(&db_path).unwrap(),
++            db_path,
++            scan_status: Mutex::new(ScanStatus::default()),
++            dupes: Mutex::new(vec![DuplicateGroup {
++                id: "group".into(),
++                files: vec![matcher::DuplicateFile {
++                    path: path.clone(),
++                    duration_secs: 1.0,
++                    match_kind: MatchKind::ExactCopy,
++                }],
++                similarity: 1.0,
++            }]),
++        });
++        let result = api_action(
++            State(state.clone()),
++            Json(ActionRequest {
++                group_id: "group".into(),
++                action: "delete".into(),
++                file_index: 0,
++            }),
++        )
++        .await;
++        assert!(
++            matches!(result, Err((StatusCode::NOT_IMPLEMENTED, _))),
++            "{result:?}"
++        );
++        assert_eq!(std::fs::read(&path).unwrap(), b"keep these bytes");
++        assert!(matches!(
++            restore_from_trash(path.to_str().unwrap()),
++            Err((StatusCode::NOT_IMPLEMENTED, _))
++        ));
++        let result = api_action(
++            State(state),
++            Json(ActionRequest {
++                group_id: "group".into(),
++                action: "exclude".into(),
++                file_index: 0,
++            }),
++        )
++        .await
++        .unwrap();
++        assert_eq!(result.0["status"], "excluded");
++        assert_eq!(std::fs::read(&path).unwrap(), b"keep these bytes");
++    }
++}
