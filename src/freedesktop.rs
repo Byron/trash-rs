@@ -137,7 +137,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
             let id = info_path.clone().into();
             let mut name = None;
             let mut original_parent: Option<PathBuf> = None;
-            #[cfg_attr(not(feature = "chrono"), allow(unused_mut))]
+            #[cfg_attr(not(feature = "jiff"), allow(unused_mut))]
             let mut time_deleted = None;
             let mut path_seen = false;
             let mut date_seen = false;
@@ -178,11 +178,11 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     original_parent = path.parent().map(Path::to_owned);
                 } else if key == "DeletionDate" && !date_seen {
                     date_seen = true;
-                    #[cfg(feature = "chrono")]
+                    #[cfg(feature = "jiff")]
                     {
-                        use chrono::{NaiveDateTime, TimeZone};
+                        use jiff::{civil::DateTime, tz::TimeZone};
                         let value = value.trim();
-                        let parsed_time = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S");
+                        let parsed_time = DateTime::strptime("%Y-%m-%dT%H:%M:%S", value);
                         let naive_local = match parsed_time {
                             Ok(t) => t,
                             Err(e) => {
@@ -190,9 +190,8 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                                 continue 'trash_item;
                             }
                         };
-                        let time = chrono::Local.from_local_datetime(&naive_local).earliest();
-                        match time {
-                            Some(time) => time_deleted = Some(time.timestamp()),
+                        match deletion_timestamp(naive_local, &TimeZone::system()) {
+                            Some(time) => time_deleted = Some(time),
                             None => {
                                 log::error!(
                                     "Failed to convert the local time to a UTC time. Local time was {:?}",
@@ -550,12 +549,12 @@ fn move_to_trash(
                     .and_then(|_| {
                         let absolute_uri = encode_uri_path(src);
                         writeln!(file, "Path={absolute_uri}").and_then(|_| {
-                            #[cfg(feature = "chrono")]
+                            #[cfg(feature = "jiff")]
                             {
-                                let now = chrono::Local::now();
-                                writeln!(file, "DeletionDate={}", now.format("%Y-%m-%dT%H:%M:%S"))
+                                let now = jiff::ZonedDateTime::now();
+                                writeln!(file, "DeletionDate={}", now.strftime("%Y-%m-%dT%H:%M:%S"))
                             }
-                            #[cfg(not(feature = "chrono"))]
+                            #[cfg(not(feature = "jiff"))]
                             {
                                 Ok(())
                             }
@@ -951,6 +950,15 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
     Err(Error::Unknown { description: "Mount points cannot be determined on this operating system".into() })
 }
 
+#[cfg(feature = "jiff")]
+fn deletion_timestamp(local: jiff::civil::DateTime, tz: &jiff::tz::TimeZone) -> Option<i64> {
+    let ambiguous = tz.to_ambiguous_timestamp(local);
+    match ambiguous.offset() {
+        jiff::tz::AmbiguousOffset::Gap { .. } => None,
+        _ => ambiguous.earlier().ok().map(jiff::Timestamp::as_second),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use defer::defer;
@@ -979,6 +987,29 @@ mod tests {
 
     use super::{canonicalize_path_or_parents, decode_uri_path};
 
+    #[cfg(feature = "jiff")]
+    #[test]
+    fn deletion_timestamp_skips_a_local_time_in_a_dst_gap() {
+        let berlin = jiff::tz::TimeZone::posix("CET-1CEST,M3.5.0,M10.5.0/3").unwrap();
+        let skipped_hour = jiff::civil::date(2026, 3, 29).at(2, 30, 0, 0);
+
+        let time = super::deletion_timestamp(skipped_hour, &berlin);
+
+        assert_eq!(time, None);
+    }
+
+    #[cfg(feature = "jiff")]
+    #[test]
+    fn deletion_timestamp_takes_the_earlier_instant_in_a_dst_fold() {
+        let berlin = jiff::tz::TimeZone::posix("CET-1CEST,M3.5.0,M10.5.0/3").unwrap();
+        let repeated_hour = jiff::civil::date(2026, 10, 25).at(2, 30, 0, 0);
+        let earlier: jiff::Timestamp = "2026-10-25T00:30:00Z".parse().unwrap();
+
+        let time = super::deletion_timestamp(repeated_hour, &berlin);
+
+        assert_eq!(time, Some(earlier.as_second()));
+    }
+
     #[test]
     #[serial]
     fn list_trashinfo_records_preserves_paths_and_ignores_invalid_records() {
@@ -1004,9 +1035,9 @@ mod tests {
         let second = original.join("second.txt");
         let non_unicode = original.join(OsString::from_vec(b"non-unicode-\xff.txt".to_vec()));
         let date = "DeletionDate=2026-01-02T03:04:05\n";
-        let expected_time = if cfg!(feature = "chrono") {
-            use chrono::TimeZone;
-            chrono::Local.with_ymd_and_hms(2026, 1, 2, 3, 4, 5).earliest().unwrap().timestamp()
+        let expected_time = if cfg!(feature = "jiff") {
+            let deleted_at = jiff::civil::date(2026, 1, 2).at(3, 4, 5, 0);
+            jiff::tz::TimeZone::system().to_ambiguous_timestamp(deleted_at).earlier().unwrap().as_second()
         } else {
             -1
         };
@@ -1036,7 +1067,7 @@ mod tests {
             (
                 "invalid-first-date",
                 format!("[Trash Info]\nPath={}\nDeletionDate=invalid\n{date}", encode_uri_path(&first)),
-                if cfg!(feature = "chrono") { None } else { Some(first.clone()) },
+                if cfg!(feature = "jiff") { None } else { Some(first.clone()) },
             ),
             (
                 "path-whitespace",

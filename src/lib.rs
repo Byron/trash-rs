@@ -366,7 +366,7 @@ pub struct TrashItem {
 
     /// The number of non-leap seconds elapsed between the UNIX Epoch and the
     /// moment the file was deleted.
-    /// Without the "chrono" feature, this will be a negative number on linux only.
+    /// Without the "jiff" feature, this will be a negative number on linux only.
     pub time_deleted: i64,
 }
 

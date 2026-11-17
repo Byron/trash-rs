@@ -6,7 +6,7 @@ mod utils {
 
     // WARNING Expecting that `cargo test` won't be invoked on the same computer more than once within
     // a single millisecond
-    static INSTANCE_ID: Lazy<i64> = Lazy::new(|| chrono::Local::now().timestamp_millis());
+    static INSTANCE_ID: Lazy<i64> = Lazy::new(|| jiff::Timestamp::now().as_millisecond());
     static ID_OFFSET: AtomicI32 = AtomicI32::new(0);
 
     pub fn get_unique_name() -> String {
@@ -43,9 +43,7 @@ mod os_limited {
         const MAX_SECONDS_DIFFERENCE: i64 = 10;
         init_logging();
 
-        let deletion_time = chrono::Utc::now();
-        let actual_unix_deletion_time = deletion_time.naive_utc().timestamp();
-        assert_eq!(actual_unix_deletion_time, deletion_time.naive_local().timestamp());
+        let actual_unix_deletion_time = jiff::Timestamp::now().as_second();
         let file_name_prefix = get_unique_name();
         let batches: usize = 2;
         let files_per_batch: usize = 3;
@@ -76,7 +74,7 @@ mod os_limited {
                 Some(items) => {
                     assert_eq!(items.len(), batches);
                     for item in items {
-                        if cfg!(feature = "chrono") {
+                        if cfg!(feature = "jiff") {
                             let diff = (item.time_deleted - actual_unix_deletion_time).abs();
                             if diff > MAX_SECONDS_DIFFERENCE {
                                 panic!(

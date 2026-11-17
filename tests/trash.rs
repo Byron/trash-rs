@@ -13,7 +13,7 @@ mod util {
 
     // WARNING Expecting that `cargo test` won't be invoked on the same computer more than once within
     // a single millisecond
-    static INSTANCE_ID: Lazy<i64> = Lazy::new(|| chrono::Local::now().timestamp_millis());
+    static INSTANCE_ID: Lazy<i64> = Lazy::new(|| jiff::Timestamp::now().as_millisecond());
     static ID_OFFSET: AtomicI32 = AtomicI32::new(0);
     pub fn get_unique_name() -> String {
         let id = ID_OFFSET.fetch_add(1, Ordering::SeqCst);
