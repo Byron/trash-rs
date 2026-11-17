@@ -180,7 +180,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                     date_seen = true;
                     #[cfg(feature = "jiff")]
                     {
-                        use jiff::{civil::DateTime, tz::TimeZone};
+                        use jiff::civil::DateTime;
                         let value = value.trim();
                         let parsed_time = DateTime::strptime("%Y-%m-%dT%H:%M:%S", value);
                         let naive_local = match parsed_time {
@@ -190,7 +190,7 @@ pub fn list() -> Result<Vec<TrashItem>, Error> {
                                 continue 'trash_item;
                             }
                         };
-                        match deletion_timestamp(naive_local, &TimeZone::system()) {
+                        match deletion_timestamp(naive_local, &local_timezone()) {
                             Some(time) => time_deleted = Some(time),
                             None => {
                                 log::error!(
@@ -551,7 +551,7 @@ fn move_to_trash(
                         writeln!(file, "Path={absolute_uri}").and_then(|_| {
                             #[cfg(feature = "jiff")]
                             {
-                                let now = jiff::ZonedDateTime::now();
+                                let now = jiff::Timestamp::now().to_zoned_datetime(local_timezone());
                                 writeln!(file, "DeletionDate={}", now.strftime("%Y-%m-%dT%H:%M:%S"))
                             }
                             #[cfg(not(feature = "jiff"))]
@@ -951,6 +951,25 @@ fn get_mount_points() -> Result<Vec<MountPoint>, Error> {
 }
 
 #[cfg(feature = "jiff")]
+fn local_timezone() -> jiff::tz::TimeZone {
+    jiff::tz::TimeZone::try_system().unwrap_or_else(|error| {
+        // Chrono also consulted /etc/timezone when /etc/localtime could not be read.
+        #[cfg(target_os = "linux")]
+        if let Some(tz) = timezone_from_file(Path::new("/etc/timezone")) {
+            return tz;
+        }
+        warn!("Cannot determine the local time zone; using UTC: {error}");
+        jiff::tz::TimeZone::unknown()
+    })
+}
+
+#[cfg(all(feature = "jiff", target_os = "linux"))]
+fn timezone_from_file(path: &Path) -> Option<jiff::tz::TimeZone> {
+    let name = fs::read_to_string(path).ok()?;
+    jiff::tz::TimeZone::get(name.trim()).ok()
+}
+
+#[cfg(feature = "jiff")]
 fn deletion_timestamp(local: jiff::civil::DateTime, tz: &jiff::tz::TimeZone) -> Option<i64> {
     let ambiguous = tz.to_ambiguous_timestamp(local);
     match ambiguous.offset() {
@@ -986,6 +1005,28 @@ mod tests {
     };
 
     use super::{canonicalize_path_or_parents, decode_uri_path};
+
+    #[cfg(all(feature = "jiff", target_os = "linux"))]
+    #[test]
+    fn timezone_file_preserves_local_deletion_dates() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("timezone");
+        std::fs::write(&path, "Europe/Berlin\n").unwrap();
+        let tz = super::timezone_from_file(&path).unwrap();
+
+        for (utc, local) in
+            [("2026-01-02T02:04:05Z", "2026-01-02T03:04:05"), ("2026-07-02T01:04:05Z", "2026-07-02T03:04:05")]
+        {
+            let timestamp: jiff::Timestamp = utc.parse().unwrap();
+            let zoned = timestamp.to_zoned_datetime(tz.clone());
+            assert_eq!(zoned.strftime("%Y-%m-%dT%H:%M:%S").to_string(), local);
+            assert_eq!(super::deletion_timestamp(zoned.datetime(), &tz), Some(timestamp.as_second()));
+        }
+
+        std::fs::write(&path, "not-a-time-zone\n").unwrap();
+        assert!(super::timezone_from_file(&path).is_none());
+        assert!(super::timezone_from_file(&root.path().join("missing")).is_none());
+    }
 
     #[cfg(feature = "jiff")]
     #[test]
@@ -1035,12 +1076,13 @@ mod tests {
         let second = original.join("second.txt");
         let non_unicode = original.join(OsString::from_vec(b"non-unicode-\xff.txt".to_vec()));
         let date = "DeletionDate=2026-01-02T03:04:05\n";
-        let expected_time = if cfg!(feature = "jiff") {
+        #[cfg(feature = "jiff")]
+        let expected_time = {
             let deleted_at = jiff::civil::date(2026, 1, 2).at(3, 4, 5, 0);
-            jiff::tz::TimeZone::system().to_ambiguous_timestamp(deleted_at).earlier().unwrap().as_second()
-        } else {
-            -1
+            super::local_timezone().to_ambiguous_timestamp(deleted_at).earlier().unwrap().as_second()
         };
+        #[cfg(not(feature = "jiff"))]
+        let expected_time = -1;
         let cases = [
             (
                 "extensions",
