@@ -1,0 +1,28 @@
+name: Advisories
+
+on:
+  push:
+    branches: [master, dev-v2]
+  pull_request:
+    branches: [master, dev-v2]
+    paths:
+      - "**/Cargo.toml"
+      - "deny.toml"
+      - ".github/workflows/advisories.yml"
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  advisories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          arguments: --all-features --exclude-dev
+          command: check advisories

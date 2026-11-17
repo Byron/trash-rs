@@ -1,0 +1,6 @@
+[advisories]
+ignore = [
+    { id = "RUSTSEC-2026-0370", reason = "zvariant now lives inside zbus 6; the portal backend still uses zbus 5" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names now lives inside zbus 6; the portal backend still uses zbus 5" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive now lives inside zbus 6; the portal backend still uses zbus 5" },
+]
