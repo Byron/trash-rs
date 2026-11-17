@@ -65,7 +65,9 @@ jobs:
           CROSS_CONTAINER_UID: "0"
           CROSS_CONTAINER_GID: "0"
           CROSS_CONTAINER_USER_NAMESPACE: none
-        run: ${{ env.CARGO }} test --verbose --test freedesktop_tests ${{ env.TARGET_FLAGS }} -- --ignored
+        run: |
+          ${{ env.CARGO }} build --verbose --example trash ${{ env.TARGET_FLAGS }}
+          ${{ env.CARGO }} test --verbose --test freedesktop_tests ${{ env.TARGET_FLAGS }} -- --ignored
 
       - name: cargo test (portal)
         if: ${{ matrix.build == 'linux' }}
