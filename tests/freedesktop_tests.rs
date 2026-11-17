@@ -27,17 +27,25 @@ const HELPER_PATH: &str = "/usr/local/bin/trash";
 /// Locate the compiled `trash` example next to the running integration test.
 ///
 /// Cargo does not expose example paths through `CARGO_BIN_EXE_*`, so derive
-/// `target/<triple?>/<profile>/examples/trash` from the current test binary.
-fn find_trash_binary() -> PathBuf {
-    let test_exe = std::env::current_exe().expect("failed to locate the running test binary");
-    let profile_dir =
-        test_exe.parent().and_then(Path::parent).unwrap_or_else(|| panic!("unexpected test binary path: {test_exe:?}"));
-    let helper = profile_dir.join("examples").join("trash");
-    assert!(
-        helper.exists(),
-        "trash example not found at {helper:?} (build it by running 'cargo build --example trash')"
-    );
-    helper
+/// `target/<triple?>/<profile>/examples/trash` from the current test binary,
+/// whether Cargo runs it from `deps/` or `build/trash/<hash>/out/`.
+fn find_trash_binary(test_exe: &Path) -> PathBuf {
+    test_exe.ancestors().map(|dir| dir.join("examples/trash")).find(|helper| helper.is_file()).unwrap_or_else(|| {
+        panic!("trash example not found above {test_exe:?} (build it by running 'cargo build --example trash')")
+    })
+}
+
+#[test]
+fn finds_trash_example_in_both_cargo_layouts() {
+    let target = tempfile::tempdir().unwrap();
+    let profile = target.path().join("x86_64-unknown-linux-gnu/debug");
+    let helper = profile.join("examples/trash");
+    std::fs::create_dir_all(helper.parent().unwrap()).unwrap();
+    std::fs::write(&helper, "").unwrap();
+
+    for test_path in ["deps/freedesktop_tests-hash", "build/trash/hash/out/freedesktop_tests-hash"] {
+        assert_eq!(find_trash_binary(&profile.join(test_path)), helper);
+    }
 }
 
 struct TestContainer {
@@ -47,7 +55,8 @@ struct TestContainer {
 impl TestContainer {
     /// Start a privileged container with the `trash` example binary copied in.
     async fn start() -> Self {
-        let helper = find_trash_binary();
+        let test_exe = std::env::current_exe().expect("failed to locate the running test binary");
+        let helper = find_trash_binary(&test_exe);
         let inner = GenericImage::new(IMAGE, TAG)
             // Keep the container alive for the duration of the test.
             .with_cmd(["sleep", "infinity"])
